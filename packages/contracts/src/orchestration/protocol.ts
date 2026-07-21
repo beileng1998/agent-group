@@ -9,7 +9,13 @@ import {
   OpenCodeModelOptions,
   PiModelOptions,
 } from "../model/providerOptions";
-import { CommandId, NonNegativeInt, ThreadId, TrimmedNonEmptyString } from "../baseSchemas";
+import {
+  CommandId,
+  NonNegativeInt,
+  PositiveInt,
+  ThreadId,
+  TrimmedNonEmptyString,
+} from "../baseSchemas";
 import { ProviderKind } from "../providerKind";
 
 export { ProviderKind };
@@ -135,6 +141,8 @@ export const ClaudeProviderStartOptions = Schema.Struct({
   binaryPath: Schema.optional(TrimmedNonEmptyString),
   permissionMode: Schema.optional(TrimmedNonEmptyString),
   maxThinkingTokens: Schema.optional(NonNegativeInt),
+  maxTurns: Schema.optional(PositiveInt),
+  responseIdleTimeoutMs: Schema.optional(PositiveInt),
 });
 
 export const AntigravityProviderStartOptions = Schema.Struct({

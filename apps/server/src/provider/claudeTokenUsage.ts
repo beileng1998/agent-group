@@ -1,5 +1,5 @@
 import type { ModelUsage, NonNullableUsage } from "@anthropic-ai/claude-agent-sdk";
-import type { ThreadTokenUsageSnapshot } from "@agent-group/contracts";
+import type { ModelCapabilities, ThreadTokenUsageSnapshot } from "@agent-group/contracts";
 import {
   getDefaultAutoCompactWindow,
   getModelCapabilities,
@@ -166,24 +166,27 @@ export const CLAUDE_ONE_MILLION_CONTEXT_WINDOW_TOKENS = 1_000_000;
 
 const CLAUDE_CONTEXT_WINDOW_MAX_TOKENS = {
   "200k": 200_000,
+  "512k": 512_000,
   "1m": CLAUDE_ONE_MILLION_CONTEXT_WINDOW_TOKENS,
 } as const;
 
 export function resolveClaudeApiModelIdContextWindowMaxTokens(
   apiModelId: string | undefined,
+  capabilities: ModelCapabilities = getModelCapabilities(
+    "claudeAgent",
+    stripClaudeContextWindowSuffix(apiModelId ?? ""),
+  ),
 ): number | undefined {
   if (!apiModelId) return undefined;
-  return positiveFiniteNumber(
-    getModelCapabilities("claudeAgent", stripClaudeContextWindowSuffix(apiModelId))
-      .contextWindowTokens,
-  );
+  return positiveFiniteNumber(capabilities.contextWindowTokens);
 }
 
 export function resolveSelectedClaudeAutoCompactWindow(
   model: string | null | undefined,
   selectedAutoCompactWindow: string | null | undefined,
+  capabilities: ModelCapabilities = getModelCapabilities("claudeAgent", model),
 ): number | undefined {
-  const caps = getModelCapabilities("claudeAgent", model);
+  const caps = capabilities;
   const resolvedAutoCompactWindow =
     trimOrNull(selectedAutoCompactWindow) ?? getDefaultAutoCompactWindow(caps) ?? null;
   if (

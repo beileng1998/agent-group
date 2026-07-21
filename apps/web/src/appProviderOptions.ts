@@ -27,7 +27,8 @@ export function getProviderStartOptions(
     | "openCodeServerUrl"
     | "piAgentDir"
     | "piBinaryPath"
-  >,
+  > &
+    Partial<Pick<AppSettings, "claudeMaxTurns" | "claudeResponseIdleTimeoutMs">>,
 ): ProviderStartOptions | undefined {
   const claudeBinaryPath = normalizeProviderBinaryPathOverride(
     "claudeAgent",
@@ -47,6 +48,10 @@ export function getProviderStartOptions(
     settings.openCodeBinaryPath,
   );
   const piBinaryPath = normalizeProviderBinaryPathOverride("pi", settings.piBinaryPath);
+  const hasClaudeStartOptions =
+    claudeBinaryPath !== "" ||
+    settings.claudeMaxTurns !== undefined ||
+    settings.claudeResponseIdleTimeoutMs !== undefined;
   const hasOpenCodeStartOptions = Boolean(
     openCodeBinaryPath ||
     settings.openCodeExperimentalWebSockets ||
@@ -62,7 +67,19 @@ export function getProviderStartOptions(
           },
         }
       : {}),
-    ...(claudeBinaryPath ? { claudeAgent: { binaryPath: claudeBinaryPath } } : {}),
+    ...(hasClaudeStartOptions
+      ? {
+          claudeAgent: {
+            ...(claudeBinaryPath ? { binaryPath: claudeBinaryPath } : {}),
+            ...(settings.claudeMaxTurns !== undefined
+              ? { maxTurns: settings.claudeMaxTurns }
+              : {}),
+            ...(settings.claudeResponseIdleTimeoutMs !== undefined
+              ? { responseIdleTimeoutMs: settings.claudeResponseIdleTimeoutMs }
+              : {}),
+          },
+        }
+      : {}),
     ...(cursorBinaryPath || settings.cursorApiEndpoint
       ? {
           cursor: {

@@ -143,6 +143,7 @@ export function makeClaudeTurnActivity(input: {
         assistantTextBlockOrder: [],
         capturedProposedPlanKeys: new Set(),
         sawFileChange: false,
+        lastActivityAt: Date.now(),
         nextSyntheticAssistantBlockIndex: -1,
       };
       context.session = {

@@ -1,5 +1,9 @@
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
-import { RuntimeTaskId, type ProviderRuntimeEvent } from "@agent-group/contracts";
+import {
+  RuntimeTaskId,
+  type ModelCapabilities,
+  type ProviderRuntimeEvent,
+} from "@agent-group/contracts";
 import { Effect } from "effect";
 
 import type { ClaudeSessionContext, ClaudeSubagentRun } from "./claudeAdapterRuntime.ts";
@@ -35,6 +39,10 @@ export function makeClaudeSystemMessageProjection(input: {
   readonly ensureSyntheticTurn: (context: ClaudeSessionContext) => Effect.Effect<void>;
   readonly makeEventStamp: () => Effect.Effect<Pick<ProviderRuntimeEvent, "eventId" | "createdAt">>;
   readonly offerRuntimeEvent: (event: ProviderRuntimeEvent) => Effect.Effect<void>;
+  readonly resolveModelCapabilities: (
+    modelDiscoveryKey: string,
+    model: string | undefined,
+  ) => ModelCapabilities;
   readonly settleSubagentRun: (
     context: ClaudeSessionContext,
     lookup: ClaudeSubagentRouteLookup,
@@ -95,6 +103,10 @@ export function makeClaudeSystemMessageProjection(input: {
         context.currentApiModelId = refusalFallback.fallbackModel;
         context.lastKnownContextWindow = resolveClaudeApiModelIdContextWindowMaxTokens(
           refusalFallback.fallbackModel,
+          input.resolveModelCapabilities(
+            context.modelDiscoveryKey,
+            refusalFallback.fallbackModel,
+          ),
         );
         yield* input.updateResumeCursor(context);
         yield* input.offerRuntimeEvent({

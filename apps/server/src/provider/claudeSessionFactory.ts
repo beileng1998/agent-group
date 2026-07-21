@@ -1,9 +1,16 @@
 import type { Options as ClaudeQueryOptions, SettingSource } from "@anthropic-ai/claude-agent-sdk";
-import type { ProviderRuntimeEvent, ProviderSession, ThreadId } from "@agent-group/contracts";
+import {
+  DEFAULT_CLAUDE_MAX_TURNS,
+  DEFAULT_CLAUDE_RESPONSE_IDLE_TIMEOUT_MS,
+  type ModelCapabilities,
+  type ProviderRuntimeEvent,
+  type ProviderSession,
+  type ThreadId,
+} from "@agent-group/contracts";
 import {
   getDefaultModel,
+  getDefaultAutoCompactWindow,
   getEffectiveClaudeCodeEffort,
-  getModelCapabilities,
   hasEffortLevel,
   resolveApiModelId,
   trimOrNull,
@@ -60,6 +67,10 @@ export function makeClaudeSessionFactory(input: {
   readonly nowIso: Effect.Effect<string>;
   readonly offerRuntimeEvent: (event: ProviderRuntimeEvent) => Effect.Effect<void>;
   readonly prefetchCapabilities: (modelDiscoveryKey: string, query: ClaudeQueryRuntime) => void;
+  readonly resolveModelCapabilities: (
+    modelDiscoveryKey: string,
+    model: string | undefined,
+  ) => ModelCapabilities;
   readonly resolveSdkEnv: Effect.Effect<NodeJS.ProcessEnv>;
   readonly runSdkStream: (context: ClaudeSessionContext) => Effect.Effect<void, Error>;
   readonly stopSessionInternal: (
@@ -127,10 +138,13 @@ export function makeClaudeSessionFactory(input: {
           null,
       );
       const effectiveClaudeModel = modelSelection?.model ?? getDefaultModel(PROVIDER);
-      const caps = getModelCapabilities(PROVIDER, effectiveClaudeModel);
+      const caps = input.resolveModelCapabilities(modelDiscoveryKey, effectiveClaudeModel);
+      const effectiveAutoCompactWindow =
+        requestedAutoCompactWindow ?? getDefaultAutoCompactWindow(caps);
       const requestedAutoCompactWindowTokens = resolveSelectedClaudeAutoCompactWindow(
         effectiveClaudeModel,
-        requestedAutoCompactWindow,
+        effectiveAutoCompactWindow,
+        caps,
       );
       const requestedApiModelId = modelSelection ? resolveApiModelId(modelSelection) : undefined;
       const resumeOriginalModel = resumeState?.rerouteOriginalApiModelId;
@@ -160,6 +174,9 @@ export function makeClaudeSessionFactory(input: {
         (sessionInput.runtimeMode === "full-access" ? "bypassPermissions" : undefined);
       const subagents = buildClaudeSdkSubagents();
       const env = yield* input.resolveSdkEnv;
+      const maxTurns = providerOptions?.maxTurns ?? DEFAULT_CLAUDE_MAX_TURNS;
+      const responseIdleTimeoutMs =
+        providerOptions?.responseIdleTimeoutMs ?? DEFAULT_CLAUDE_RESPONSE_IDLE_TIMEOUT_MS;
 
       const queryOptions: ClaudeQueryOptions = {
         cwd: claudeCwd,
@@ -178,6 +195,7 @@ export function makeClaudeSessionFactory(input: {
         ...(providerOptions?.maxThinkingTokens !== undefined
           ? { maxThinkingTokens: providerOptions.maxThinkingTokens }
           : {}),
+        maxTurns,
         settings: {
           autoCompactEnabled: true,
           ...(requestedAutoCompactWindowTokens !== undefined
@@ -243,6 +261,8 @@ export function makeClaudeSessionFactory(input: {
           query: queryRuntime,
           modelDiscoveryKey,
           streamFiber: undefined,
+          turnWatchdogFiber: undefined,
+          responseIdleTimeoutMs,
           startedAt,
           basePermissionMode: permissionMode,
           lastInteractionMode: undefined,
@@ -257,6 +277,7 @@ export function makeClaudeSessionFactory(input: {
           interruptRequestedTurnId: undefined,
           lastKnownContextWindow: resolveClaudeApiModelIdContextWindowMaxTokens(
             apiModelId ?? effectiveClaudeModel,
+            caps,
           ),
           currentAutoCompactWindow: requestedAutoCompactWindowTokens,
           lastKnownAutoCompactThreshold: requestedAutoCompactWindowTokens,
@@ -307,8 +328,8 @@ export function makeClaudeSessionFactory(input: {
                 config: {
                   ...(modelSelection?.model ? { model: modelSelection.model } : {}),
                   ...(apiModelId ? { apiModelId } : {}),
-                  ...(requestedAutoCompactWindow
-                    ? { autoCompactWindow: requestedAutoCompactWindow }
+                  ...(effectiveAutoCompactWindow
+                    ? { autoCompactWindow: effectiveAutoCompactWindow }
                     : {}),
                   ...(sessionInput.cwd ? { cwd: sessionInput.cwd } : {}),
                   ...(effectiveEffort ? { effort: effectiveEffort } : {}),
@@ -316,6 +337,8 @@ export function makeClaudeSessionFactory(input: {
                   ...(providerOptions?.maxThinkingTokens !== undefined
                     ? { maxThinkingTokens: providerOptions.maxThinkingTokens }
                     : {}),
+                  maxTurns,
+                  responseIdleTimeoutMs,
                   ...(fastMode ? { fastMode: true } : {}),
                   ...(ultracode ? { ultracode: true } : {}),
                 },
@@ -338,7 +361,7 @@ export function makeClaudeSessionFactory(input: {
               context.emittedContextUsageWarnings.add("one-million-window");
               yield* input.emitRuntimeWarning(
                 context,
-                "Claude's auto-compact budget is set to the model's 1M limit for this thread. Long conversations can consume usage limits much faster; switch Auto-compact to 200k unless the larger working context is intentional.",
+                "Claude's auto-compact budget is set to the model's 1M limit for this thread. Long conversations can consume usage limits much faster; use the model's smaller default unless the larger working context is intentional.",
               );
             }
 

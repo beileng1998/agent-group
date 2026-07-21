@@ -20,6 +20,7 @@ import { Effect, Exit, Fiber, Layer, Random, Stream } from "effect";
 
 import { attachmentRelativePath } from "../../attachmentStore.ts";
 import { ServerConfig } from "../../config.ts";
+import { knownClaudeModelCapabilities } from "../claudeRuntimeModelCapabilities.ts";
 import { ProviderAdapterValidationError } from "../Errors.ts";
 import { ClaudeAdapter } from "../Services/ClaudeAdapter.ts";
 import { makeClaudeAdapterLive } from "./ClaudeAdapter.ts";
@@ -166,7 +167,12 @@ describe("ClaudeAdapterLive", () => {
 
       assert.deepEqual(result, {
         models: [
-          { slug: "kimi-k3", name: "Kimi K3", description: "Custom Opus model" },
+          {
+            slug: "kimi-k3",
+            name: "Kimi K3",
+            description: "Custom Opus model",
+            ...(knownClaudeModelCapabilities("kimi-k3") ?? {}),
+          },
           {
             slug: "doubao-seed-evolving",
             name: "Doubao Seed Evolving",
@@ -4039,7 +4045,7 @@ describe("ClaudeAdapterLive", () => {
       const warning = yield* Fiber.join(warningFiber);
       assert.equal(warning._tag, "Some");
       if (warning._tag === "Some" && warning.value.type === "runtime.warning") {
-        assert.ok(warning.value.payload.message.includes("switch Auto-compact to 200k"));
+        assert.ok(warning.value.payload.message.includes("use the model's smaller default"));
       }
     }).pipe(
       Effect.provideService(Random.Random, makeDeterministicRandomService()),

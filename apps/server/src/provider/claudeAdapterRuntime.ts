@@ -63,6 +63,7 @@ export interface ClaudeTurnState {
   readonly assistantTextBlockOrder: Array<ClaudeAssistantTextBlockState>;
   readonly capturedProposedPlanKeys: Set<string>;
   readonly sawFileChange: boolean;
+  lastActivityAt: number;
   nextSyntheticAssistantBlockIndex: number;
 }
 
@@ -100,6 +101,8 @@ export interface ClaudeSessionContext {
   readonly query: ClaudeQueryRuntime;
   readonly modelDiscoveryKey: string;
   streamFiber: Fiber.Fiber<void, Error> | undefined;
+  turnWatchdogFiber: Fiber.Fiber<void> | undefined;
+  readonly responseIdleTimeoutMs: number;
   readonly startedAt: string;
   readonly basePermissionMode: PermissionMode | undefined;
   lastInteractionMode: "default" | "plan" | undefined;

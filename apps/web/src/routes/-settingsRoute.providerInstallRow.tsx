@@ -1,11 +1,18 @@
 import type { ServerProviderStatus } from "@agent-group/contracts";
 
 import type { AppSettings } from "../appSettings";
+import {
+  MAX_CLAUDE_MAX_TURNS,
+  MAX_CLAUDE_RESPONSE_IDLE_TIMEOUT_MS,
+  MIN_CLAUDE_MAX_TURNS,
+  MIN_CLAUDE_RESPONSE_IDLE_TIMEOUT_MS,
+} from "../appSettingsSchema";
 import { DebouncedSettingTextInput } from "../components/settings/DebouncedSettingTextInput";
 import { Button } from "../components/ui/button";
 import { Collapsible, CollapsibleContent } from "../components/ui/collapsible";
 import { DisclosureChevron } from "../components/ui/DisclosureChevron";
 import { Switch } from "../components/ui/switch";
+import { Input } from "../components/ui/input";
 import { DownloadIcon, Loader2Icon } from "../lib/icons";
 import { cn } from "../lib/utils";
 import { shouldOfferProviderUpdateAction } from "../providerUpdates";
@@ -75,6 +82,15 @@ export function isProviderInstallDirty(
       providerSettings.experimentalWebSocketsKey &&
       settings[providerSettings.experimentalWebSocketsKey] !==
         defaults[providerSettings.experimentalWebSocketsKey],
+    ) ||
+    Boolean(
+      providerSettings.maxTurnsKey &&
+      settings[providerSettings.maxTurnsKey] !== defaults[providerSettings.maxTurnsKey],
+    ) ||
+    Boolean(
+      providerSettings.responseIdleTimeoutMsKey &&
+      settings[providerSettings.responseIdleTimeoutMsKey] !==
+        defaults[providerSettings.responseIdleTimeoutMsKey],
     )
   );
 }
@@ -108,6 +124,43 @@ function ProviderTextSetting(props: ProviderTextSettingProps) {
       {props.description ? (
         <span className="mt-1 block text-xs text-muted-foreground">{props.description}</span>
       ) : null}
+    </label>
+  );
+}
+
+function ProviderNumberSetting(props: {
+  id: string;
+  label: string;
+  description: string;
+  value: number;
+  min: number;
+  max: number;
+  unit?: string;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label htmlFor={props.id} className="block">
+      <span className="block text-xs font-medium text-foreground">{props.label}</span>
+      <div className="mt-1 flex items-center gap-2">
+        <Input
+          id={props.id}
+          type="number"
+          size="sm"
+          min={props.min}
+          max={props.max}
+          step={1}
+          inputMode="numeric"
+          variant="soft"
+          value={String(props.value)}
+          onChange={(event) => {
+            const value = event.currentTarget.valueAsNumber;
+            if (!Number.isFinite(value)) return;
+            props.onChange(Math.min(props.max, Math.max(props.min, Math.round(value))));
+          }}
+        />
+        {props.unit ? <span className="text-xs text-muted-foreground">{props.unit}</span> : null}
+      </div>
+      <span className="mt-1 block text-xs text-muted-foreground">{props.description}</span>
     </label>
   );
 }
@@ -226,6 +279,33 @@ export function ProviderInstallRow(props: ProviderInstallRowProps) {
                 description={providerSettings.binaryDescription}
                 updateSettings={updateSettings}
               />
+
+              {providerSettings.maxTurnsKey ? (
+                <ProviderNumberSetting
+                  id="provider-install-claudeMaxTurns"
+                  label="Maximum conversation turns"
+                  description="Stops a Claude SDK query after this many user/assistant turns. A later message starts or resumes a fresh query."
+                  value={settings.claudeMaxTurns}
+                  min={MIN_CLAUDE_MAX_TURNS}
+                  max={MAX_CLAUDE_MAX_TURNS}
+                  onChange={(claudeMaxTurns) => updateSettings({ claudeMaxTurns })}
+                />
+              ) : null}
+
+              {providerSettings.responseIdleTimeoutMsKey ? (
+                <ProviderNumberSetting
+                  id="provider-install-claudeResponseIdleTimeoutMs"
+                  label="Response inactivity timeout"
+                  description="Stops a Claude turn only after this many minutes without SDK activity; approval and user-input waits are exempt."
+                  value={Math.round(settings.claudeResponseIdleTimeoutMs / 60_000)}
+                  min={MIN_CLAUDE_RESPONSE_IDLE_TIMEOUT_MS / 60_000}
+                  max={MAX_CLAUDE_RESPONSE_IDLE_TIMEOUT_MS / 60_000}
+                  unit="minutes"
+                  onChange={(minutes) =>
+                    updateSettings({ claudeResponseIdleTimeoutMs: minutes * 60_000 })
+                  }
+                />
+              ) : null}
 
               {providerSettings.homePathKey ? (
                 <ProviderTextSetting

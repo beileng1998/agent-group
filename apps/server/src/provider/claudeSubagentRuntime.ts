@@ -37,6 +37,8 @@ export function makeClaudeSubagentRuntime(input: {
         query: context.query,
         modelDiscoveryKey: context.modelDiscoveryKey,
         streamFiber: undefined,
+        turnWatchdogFiber: undefined,
+        responseIdleTimeoutMs: context.responseIdleTimeoutMs,
         startedAt: context.startedAt,
         basePermissionMode: context.basePermissionMode,
         lastInteractionMode: undefined,

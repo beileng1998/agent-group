@@ -4,7 +4,7 @@ import type {
   ProviderRuntimeTurnStatus,
   ThreadTokenUsageSnapshot,
 } from "@agent-group/contracts";
-import { Effect } from "effect";
+import { Effect, Fiber } from "effect";
 
 import type {
   ClaudeAssistantTextBlockState,
@@ -55,6 +55,11 @@ export function makeClaudeTurnCompletion(input: {
     result?: SDKResultMessage,
   ): Effect.Effect<void> =>
     Effect.gen(function* () {
+      const watchdogFiber = context.turnWatchdogFiber;
+      context.turnWatchdogFiber = undefined;
+      if (watchdogFiber && watchdogFiber.pollUnsafe() === undefined) {
+        yield* Fiber.interrupt(watchdogFiber);
+      }
       const liveContextUsage = yield* input.readContextUsage(context);
       const resultContextWindow = maxClaudeContextWindowFromModelUsage(result?.modelUsage);
       const liveRawContextWindow = positiveFiniteNumber(liveContextUsage?.rawMaxTokens);

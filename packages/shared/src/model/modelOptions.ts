@@ -28,6 +28,7 @@ const PI_THINKING_LEVEL_SET = new Set<PiThinkingLevel>([
   "medium",
   "high",
   "xhigh",
+  "max",
 ]);
 
 export function normalizeCodexModelOptions(
@@ -48,8 +49,9 @@ export function normalizeCodexModelOptions(
 export function normalizeClaudeModelOptions(
   model: string | null | undefined,
   modelOptions: ClaudeModelOptions | null | undefined,
+  capabilities: ModelCapabilities = getModelCapabilities("claudeAgent", model),
 ): ClaudeModelOptions | undefined {
-  const caps = getModelCapabilities("claudeAgent", model);
+  const caps = capabilities;
   const defaultReasoningEffort = getDefaultEffort(caps);
   const defaultAutoCompactWindow = getDefaultAutoCompactWindow(caps);
   const resolvedEffort = trimOrNull(modelOptions?.effort);

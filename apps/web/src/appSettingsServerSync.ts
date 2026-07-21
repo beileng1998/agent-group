@@ -69,9 +69,18 @@ export function appSettingsPatchToServerSettingsPatch(
         : {}),
     };
   }
-  if (hasOwn(patch, "claudeBinaryPath") || hasOwn(patch, "customClaudeModels")) {
+  if (
+    hasOwn(patch, "claudeBinaryPath") ||
+    hasOwn(patch, "claudeMaxTurns") ||
+    hasOwn(patch, "claudeResponseIdleTimeoutMs") ||
+    hasOwn(patch, "customClaudeModels")
+  ) {
     providers.claudeAgent = {
       ...(hasOwn(patch, "claudeBinaryPath") ? { binaryPath: patch.claudeBinaryPath ?? "" } : {}),
+      ...(hasOwn(patch, "claudeMaxTurns") ? { maxTurns: patch.claudeMaxTurns } : {}),
+      ...(hasOwn(patch, "claudeResponseIdleTimeoutMs")
+        ? { responseIdleTimeoutMs: patch.claudeResponseIdleTimeoutMs }
+        : {}),
       ...(hasOwn(patch, "customClaudeModels")
         ? { customModels: patch.customClaudeModels ?? [] }
         : {}),
@@ -181,6 +190,8 @@ export function buildInitialServerSettingsMigrationPatch(
 
   for (const key of [
     "claudeBinaryPath",
+    "claudeMaxTurns",
+    "claudeResponseIdleTimeoutMs",
     "codexBinaryPath",
     "codexHomePath",
     "cursorApiEndpoint",

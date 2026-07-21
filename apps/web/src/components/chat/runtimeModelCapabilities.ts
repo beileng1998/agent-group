@@ -31,6 +31,8 @@ function runtimeEffortLabel(value: string): string {
       return "High";
     case "xhigh":
       return "Extra High";
+    case "max":
+      return "Max";
     default:
       return value
         .split(/[-_\s]+/u)
@@ -78,7 +80,10 @@ export function getRuntimeAwareModelCapabilities(input: {
   const staticCapabilities = getModelCapabilities(input.provider, input.model);
   // Runtime discovery is authoritative when available; the static table is only a startup fallback.
   const supportsFastMode =
-    (input.provider === "codex" || input.provider === "cursor") && input.runtimeModel
+    (input.provider === "codex" ||
+      input.provider === "cursor" ||
+      input.provider === "claudeAgent") &&
+    input.runtimeModel
       ? input.runtimeModel.supportsFastMode === true
       : staticCapabilities.supportsFastMode;
   const supportsThinkingToggle =
@@ -89,6 +94,14 @@ export function getRuntimeAwareModelCapabilities(input: {
       label: option.label,
       ...(option.isDefault === true ? { isDefault: true as const } : {}),
     })) ?? staticCapabilities.contextWindowOptions;
+  const autoCompactWindowOptions =
+    input.runtimeModel?.autoCompactWindowOptions?.map((option) => ({
+      value: option.value,
+      label: option.label,
+      ...(option.isDefault === true ? { isDefault: true as const } : {}),
+    })) ?? staticCapabilities.autoCompactWindowOptions;
+  const contextWindowTokens =
+    input.runtimeModel?.contextWindowTokens ?? staticCapabilities.contextWindowTokens;
   const optionDescriptors =
     input.runtimeModel?.optionDescriptors ?? staticCapabilities.optionDescriptors;
   const runtimeEfforts = input.runtimeModel?.supportedReasoningEfforts;
@@ -96,6 +109,7 @@ export function getRuntimeAwareModelCapabilities(input: {
   if (
     (input.provider !== "codex" &&
       input.provider !== "cursor" &&
+      input.provider !== "claudeAgent" &&
       input.provider !== "antigravity" &&
       input.provider !== "grok" &&
       input.provider !== "droid" &&
@@ -111,6 +125,8 @@ export function getRuntimeAwareModelCapabilities(input: {
       supportsFastMode,
       supportsThinkingToggle,
       contextWindowOptions,
+      ...(autoCompactWindowOptions ? { autoCompactWindowOptions } : {}),
+      ...(contextWindowTokens ? { contextWindowTokens } : {}),
     };
   }
 
@@ -147,6 +163,8 @@ export function getRuntimeAwareModelCapabilities(input: {
     supportsFastMode,
     supportsThinkingToggle,
     contextWindowOptions,
+    ...(autoCompactWindowOptions ? { autoCompactWindowOptions } : {}),
+    ...(contextWindowTokens ? { contextWindowTokens } : {}),
     reasoningEffortLevels: runtimeOptions,
   };
 }

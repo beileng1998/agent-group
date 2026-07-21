@@ -38,6 +38,8 @@ function resetProviderInstallSettings(
 ): void {
   updateSettings({
     claudeBinaryPath: defaults.claudeBinaryPath,
+    claudeMaxTurns: defaults.claudeMaxTurns,
+    claudeResponseIdleTimeoutMs: defaults.claudeResponseIdleTimeoutMs,
     codexBinaryPath: defaults.codexBinaryPath,
     codexHomePath: defaults.codexHomePath,
     cursorBinaryPath: defaults.cursorBinaryPath,

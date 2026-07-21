@@ -50,6 +50,7 @@ export interface ContextWindowMeterDisplay {
 
 const KNOWN_CONTEXT_WINDOW_MAX_TOKENS = {
   "200k": 200_000,
+  "512k": 512_000,
   "1m": 1_000_000,
 } as const;
 
