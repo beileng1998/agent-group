@@ -139,6 +139,12 @@ jobs:
         with:
           node-version-file: package.json
 
+      - name: Setup Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: apps/tailnet/go.mod
+          cache-dependency-path: apps/tailnet/go.sum
+
       - name: Install dependencies
         # Preflight already runs the full lifecycle-script install plus lint,
         # typecheck, and tests. Artifact jobs only need dependencies available.
