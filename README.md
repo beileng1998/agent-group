@@ -86,12 +86,12 @@ continuity in local, inspectable files rather than a hidden global memory.
 
 ## Groups, Sessions, Turns, and Agents
 
-| Concept | What it means |
-| --- | --- |
-| **Group** | One project, one canonical workspace root, and shared Group rules. |
-| **Session** | A durable, nestable conversation with its own Context and preferred Agent. |
-| **Turn** | One immutable request with the provider, model, and options selected when it was sent. |
-| **Agent** | The Turn's provider and model selection—not another copy of the project. |
+| Concept     | What it means                                                                          |
+| ----------- | -------------------------------------------------------------------------------------- |
+| **Group**   | One project, one canonical workspace root, and shared Group rules.                     |
+| **Session** | A durable, nestable conversation with its own Context and preferred Agent.             |
+| **Turn**    | One immutable request with the provider, model, and options selected when it was sent. |
+| **Agent**   | The Turn's provider and model selection—not another copy of the project.               |
 
 ```text
 Group: one project directory
@@ -169,11 +169,11 @@ and security invariants. For a manually hosted authenticated web server, see
 
 ### Install a desktop release
 
-| Platform | Release artifact |
-| --- | --- |
-| macOS | Apple Silicon or Intel `.dmg` |
-| Windows | Windows 10/11 x64 `.exe` |
-| Linux | x64 AppImage |
+| Platform | Release artifact              |
+| -------- | ----------------------------- |
+| macOS    | Apple Silicon or Intel `.dmg` |
+| Windows  | Windows 10/11 x64 `.exe`      |
+| Linux    | x64 AppImage                  |
 
 1. Install and sign in to at least one supported Agent CLI.
 2. [Download Agent Group](https://github.com/beileng1998/agent-group/releases/latest) and open a
@@ -207,16 +207,16 @@ See [Development](docs/development.md) for isolated development instances and fo
 Agent Group is a Bun monorepo with a React web client, a local orchestration server, an Electron
 desktop shell, and a small Go Tailnet sidecar.
 
-| Path | Responsibility |
-| --- | --- |
-| `apps/web` | Responsive React workspace shared by desktop, web, and PWA surfaces. |
-| `apps/server` | Local API, durable orchestration, provider adapters, Context, Git, and terminals. |
-| `apps/desktop` | Electron lifecycle, native browser integration, updates, and OS features. |
-| `apps/tailnet` | Embedded `tsnet` sidecar and private reverse proxy for mobile access. |
-| `apps/marketing` | Astro download and project site. |
-| `packages/contracts` | Schema-only contracts shared across process boundaries. |
-| `packages/shared` | Explicit shared runtime and UI utilities. |
-| `packages/effect-acp` | ACP protocol support used by compatible provider adapters. |
+| Path                  | Responsibility                                                                    |
+| --------------------- | --------------------------------------------------------------------------------- |
+| `apps/web`            | Responsive React workspace shared by desktop, web, and PWA surfaces.              |
+| `apps/server`         | Local API, durable orchestration, provider adapters, Context, Git, and terminals. |
+| `apps/desktop`        | Electron lifecycle, native browser integration, updates, and OS features.         |
+| `apps/tailnet`        | Embedded `tsnet` sidecar and private reverse proxy for mobile access.             |
+| `apps/marketing`      | Astro download and project site.                                                  |
+| `packages/contracts`  | Schema-only contracts shared across process boundaries.                           |
+| `packages/shared`     | Explicit shared runtime and UI utilities.                                         |
+| `packages/effect-acp` | ACP protocol support used by compatible provider adapters.                        |
 
 Provider adapters are replaceable runtime bindings beneath the same Group/Session/Turn model. The
 orchestration layer owns durable conversations; provider-native session IDs are implementation
