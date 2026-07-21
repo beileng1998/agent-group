@@ -106,6 +106,7 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
 
   const platformBuildConfigInput = {
     platform,
+    signed,
     target,
     ...(windowsAzureSignOptions ? { windowsAzureSignOptions } : {}),
   } as const;

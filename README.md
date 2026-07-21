@@ -175,6 +175,9 @@ and security invariants. For a manually hosted authenticated web server, see
 | Windows  | Windows 10/11 x64 `.exe`      |
 | Linux    | x64 AppImage                  |
 
+macOS builds use an ad-hoc signature when Developer ID signing is unavailable. On first launch,
+Gatekeeper may still require **Control-click → Open** or approval in **Privacy & Security**.
+
 1. Install and sign in to at least one supported Agent CLI.
 2. [Download Agent Group](https://github.com/beileng1998/agent-group/releases/latest) and open a
    project directory.

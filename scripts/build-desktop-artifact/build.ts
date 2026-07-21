@@ -295,7 +295,6 @@ export const buildDesktopArtifact = Effect.fn("buildDesktopArtifact")(function* 
       try: () =>
         finalizeMacUpdateZip({
           stageDistDir,
-          signed: options.signed,
           requireManifest: resolveGitHubPublishConfig() !== undefined || options.mockUpdates,
           verbose: options.verbose,
         }),

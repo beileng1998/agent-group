@@ -32,6 +32,7 @@ export interface DesktopPlatformBuildConfig {
 
 export interface CreateDesktopPlatformBuildConfigInput {
   readonly platform: "linux" | "mac" | "win";
+  readonly signed: boolean;
   readonly target: string;
   readonly windowsAzureSignOptions?: Record<string, string>;
 }
@@ -77,6 +78,7 @@ export function createDesktopPlatformBuildConfig(
       hardenedRuntime: true,
       entitlements: MAC_ENTITLEMENTS_PATH,
       entitlementsInherit: MAC_INHERITED_ENTITLEMENTS_PATH,
+      ...(input.signed ? {} : { identity: "-" }),
       binaries: [MAC_APPSNAP_HELPER_BUNDLE_PATH, TAILNET_SIDECAR_MAC_BUNDLE_PATH],
       // The universal build stages the same pre-lipo'd helper in both app trees.
       // @electron/universal needs this pattern to preserve that existing fat binary.
