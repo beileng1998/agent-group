@@ -4,7 +4,7 @@
 // Exports: provider discovery schemas and inferred types used by the WS/native API.
 
 import { Schema } from "effect";
-import { ThreadId, TrimmedNonEmptyString } from "./baseSchemas";
+import { PositiveInt, ThreadId, TrimmedNonEmptyString } from "./baseSchemas";
 import { ProviderOptionDescriptor } from "./model/providerOptions";
 
 const ProviderDiscoveryKind = Schema.Literals([
@@ -290,9 +290,12 @@ export const ProviderModelDescriptor = Schema.Struct({
   supportedReasoningEfforts: Schema.optional(Schema.Array(ProviderReasoningEffortDescriptor)),
   defaultReasoningEffort: Schema.optional(TrimmedNonEmptyString),
   supportsFastMode: Schema.optional(Schema.Boolean),
+  supportsAdaptiveThinking: Schema.optional(Schema.Boolean),
   supportsThinkingToggle: Schema.optional(Schema.Boolean),
   contextWindowOptions: Schema.optional(Schema.Array(ProviderContextWindowDescriptor)),
   defaultContextWindow: Schema.optional(TrimmedNonEmptyString),
+  autoCompactWindowOptions: Schema.optional(Schema.Array(ProviderContextWindowDescriptor)),
+  contextWindowTokens: Schema.optional(PositiveInt),
 });
 export type ProviderModelDescriptor = typeof ProviderModelDescriptor.Type;
 

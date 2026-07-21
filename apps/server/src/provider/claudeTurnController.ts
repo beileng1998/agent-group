@@ -1,4 +1,4 @@
-import { TurnId, type ProviderRuntimeEvent } from "@agent-group/contracts";
+import { TurnId, type ModelCapabilities, type ProviderRuntimeEvent } from "@agent-group/contracts";
 import { resolveApiModelId } from "@agent-group/shared/model";
 import { Deferred, Effect, FileSystem, Queue, Random } from "effect";
 
@@ -13,8 +13,10 @@ import {
 } from "./claudeTokenUsage.ts";
 import { ProviderAdapterRequestError, type ProviderAdapterError } from "./Errors.ts";
 import type { ClaudeAdapterShape } from "./Services/ClaudeAdapter.ts";
+import { runTurnIdleWatchdog } from "./turnIdleWatchdog.ts";
 
 const PROVIDER = "claudeAgent" as const;
+const CLAUDE_TURN_WATCHDOG_MAX_INTERVAL_MS = 15_000;
 
 export function makeClaudeTurnController(input: {
   readonly attachmentsDir: string;
@@ -34,6 +36,10 @@ export function makeClaudeTurnController(input: {
   readonly requireSession: (
     threadId: Parameters<ClaudeAdapterShape["hasSession"]>[0],
   ) => Effect.Effect<ClaudeSessionContext, ProviderAdapterError>;
+  readonly resolveModelCapabilities: (
+    modelDiscoveryKey: string,
+    model: string | undefined,
+  ) => ModelCapabilities;
   readonly snapshotThread: (
     context: ClaudeSessionContext,
   ) => ReturnType<ClaudeAdapterShape["readThread"]>;
@@ -47,14 +53,55 @@ export function makeClaudeTurnController(input: {
     effect: Effect.Effect<A, E, R>,
   ) => Effect.Effect<A, E, R>;
 }) {
+  const startTurnWatchdog = (context: ClaudeSessionContext, turnId: TurnId): void => {
+    const idleTimeoutMs = context.responseIdleTimeoutMs;
+    const checkIntervalMs = Math.min(
+      CLAUDE_TURN_WATCHDOG_MAX_INTERVAL_MS,
+      Math.max(250, Math.floor(idleTimeoutMs / 4)),
+    );
+    const fiber = Effect.runFork(
+      runTurnIdleWatchdog({
+        idleTimeoutMs,
+        checkIntervalMs,
+        isTurnActive: () => !context.stopped && context.turnState?.turnId === turnId,
+        isAwaitingHuman: () =>
+          context.pendingApprovals.size > 0 || context.pendingUserInputs.size > 0,
+        lastActivityAt: () => context.turnState?.lastActivityAt ?? Date.now(),
+        touchActivity: () => {
+          if (context.turnState?.turnId === turnId) {
+            context.turnState.lastActivityAt = Date.now();
+          }
+        },
+        onIdleTimeout: (idleMs) =>
+          Effect.gen(function* () {
+            if (context.turnState?.turnId !== turnId) return;
+            context.turnWatchdogFiber = undefined;
+            const idleMinutes = Math.max(1, Math.round(idleMs / 60_000));
+            yield* input.completeTurn(
+              context,
+              "failed",
+              `Claude produced no SDK activity for ${idleMinutes} minute${idleMinutes === 1 ? "" : "s"}.`,
+            );
+            yield* input.stopSessionInternal(context, { emitExitEvent: true });
+          }),
+      }),
+    );
+    context.turnWatchdogFiber = fiber;
+  };
+
   const sendTurn: ClaudeAdapterShape["sendTurn"] = (turnInput) =>
     Effect.gen(function* () {
       const context = yield* input.requireSession(turnInput.threadId);
       const modelSelection =
         turnInput.modelSelection?.provider === PROVIDER ? turnInput.modelSelection : undefined;
+      const selectedCapabilities = input.resolveModelCapabilities(
+        context.modelDiscoveryKey,
+        modelSelection?.model ?? context.currentApiModelId,
+      );
       const requestedAutoCompactWindow = resolveSelectedClaudeAutoCompactWindow(
         modelSelection?.model,
         modelSelection?.options?.autoCompactWindow ?? modelSelection?.options?.contextWindow,
+        selectedCapabilities,
       );
 
       if (context.turnState) {
@@ -79,6 +126,10 @@ export function makeClaudeTurnController(input: {
             context.currentApiModelId = effectiveFallbackApiModelId;
             context.lastKnownContextWindow = resolveClaudeApiModelIdContextWindowMaxTokens(
               effectiveFallbackApiModelId,
+              input.resolveModelCapabilities(
+                context.modelDiscoveryKey,
+                effectiveFallbackApiModelId,
+              ),
             );
             yield* input.updateResumeCursor(context);
           }
@@ -91,8 +142,10 @@ export function makeClaudeTurnController(input: {
           }
           context.currentApiModelId = apiModelId;
           context.rerouteOriginalApiModelId = undefined;
-          context.lastKnownContextWindow =
-            resolveClaudeApiModelIdContextWindowMaxTokens(apiModelId);
+          context.lastKnownContextWindow = resolveClaudeApiModelIdContextWindowMaxTokens(
+            apiModelId,
+            input.resolveModelCapabilities(context.modelDiscoveryKey, apiModelId),
+          );
           yield* input.updateResumeCursor(context);
         }
       }
@@ -137,6 +190,7 @@ export function makeClaudeTurnController(input: {
         assistantTextBlockOrder: [],
         capturedProposedPlanKeys: new Set(),
         sawFileChange: false,
+        lastActivityAt: Date.now(),
         nextSyntheticAssistantBlockIndex: -1,
       };
       const updatedAt = yield* input.nowIso;
@@ -147,6 +201,7 @@ export function makeClaudeTurnController(input: {
         activeTurnId: turnId,
         updatedAt,
       };
+      startTurnWatchdog(context, turnId);
 
       const startedStamp = yield* input.makeEventStamp();
       yield* input.offerRuntimeEvent({

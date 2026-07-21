@@ -4,7 +4,7 @@ import {
   type ModelSelection,
 } from "@agent-group/contracts";
 import { getModelCapabilities, hasEffortLevel } from "./modelCapabilities";
-import { trimOrNull } from "./modelSlugs";
+import { getModelOptions, trimOrNull } from "./modelSlugs";
 
 export function isClaudeUltrathinkPrompt(text: string | null | undefined): boolean {
   return typeof text === "string" && /\bultrathink\b/i.test(text);
@@ -71,15 +71,23 @@ function sameClaudeRequestedSpawnOptions(
 function claudeSpawnProfile(selection: Extract<ModelSelection, { provider: "claudeAgent" }>) {
   const caps = getModelCapabilities("claudeAgent", selection.model);
   const requestedEffort = trimOrNull(selection.options?.effort ?? null);
-  const effort = requestedEffort && hasEffortLevel(caps, requestedEffort) ? requestedEffort : null;
+  const hasStaticCapabilities = getModelOptions("claudeAgent").some(
+    (model) => model.slug === selection.model,
+  );
+  const effort =
+    requestedEffort && (!hasStaticCapabilities || hasEffortLevel(caps, requestedEffort))
+      ? requestedEffort
+      : null;
   return {
-    effectiveEffort: getEffectiveClaudeCodeEffort(effort),
+    effectiveEffort: getEffectiveClaudeCodeEffort(effort as ClaudeCodeEffort | null),
     thinking:
-      typeof selection.options?.thinking === "boolean" && caps.supportsThinkingToggle
+      typeof selection.options?.thinking === "boolean" &&
+      (!hasStaticCapabilities || caps.supportsThinkingToggle)
         ? selection.options.thinking
         : undefined,
-    fastMode: selection.options?.fastMode === true && caps.supportsFastMode,
-    ultracode: effort === "ultracode" && hasEffortLevel(caps, "xhigh"),
+    fastMode:
+      selection.options?.fastMode === true && (!hasStaticCapabilities || caps.supportsFastMode),
+    ultracode: effort === "ultracode" && (!hasStaticCapabilities || hasEffortLevel(caps, "xhigh")),
   } satisfies ClaudeSpawnProfile;
 }
 

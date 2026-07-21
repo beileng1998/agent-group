@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import { TrimmedString } from "./baseSchemas";
+import { PositiveInt, TrimmedString } from "./baseSchemas";
 import { DEFAULT_GIT_TEXT_GENERATION_MODEL, DEFAULT_MODEL_BY_PROVIDER } from "./model";
 import { ModelSelection, ProviderKind, ThreadEnvironmentMode } from "./orchestration";
 import {
@@ -11,6 +11,13 @@ import {
 const StringSetting = TrimmedString.check(Schema.isMaxLength(4096));
 const CustomModels = Schema.Array(Schema.String.check(Schema.isMaxLength(256))).pipe(
   Schema.withDecodingDefault(() => []),
+);
+
+export const DEFAULT_CLAUDE_MAX_TURNS = 64;
+export const DEFAULT_CLAUDE_RESPONSE_IDLE_TIMEOUT_MS = 30 * 60 * 1_000;
+const ClaudeMaxTurns = PositiveInt.check(Schema.isLessThanOrEqualTo(10_000));
+const ClaudeResponseIdleTimeoutMs = PositiveInt.check(
+  Schema.isLessThanOrEqualTo(24 * 60 * 60 * 1_000),
 );
 
 const ProviderSettingsBase = {
@@ -31,6 +38,10 @@ export const ClaudeServerProviderSettings = Schema.Struct({
   binaryPath: StringSetting.pipe(Schema.withDecodingDefault(() => "claude")),
   launchArgs: Schema.String.check(Schema.isMaxLength(4096)).pipe(
     Schema.withDecodingDefault(() => ""),
+  ),
+  maxTurns: ClaudeMaxTurns.pipe(Schema.withDecodingDefault(() => DEFAULT_CLAUDE_MAX_TURNS)),
+  responseIdleTimeoutMs: ClaudeResponseIdleTimeoutMs.pipe(
+    Schema.withDecodingDefault(() => DEFAULT_CLAUDE_RESPONSE_IDLE_TIMEOUT_MS),
   ),
 });
 export type ClaudeServerProviderSettings = typeof ClaudeServerProviderSettings.Type;
@@ -188,6 +199,8 @@ export const ServerSettingsPatch = Schema.Struct({
         Schema.Struct({
           ...ProviderSettingsBasePatch,
           launchArgs: Schema.optionalKey(Schema.String.check(Schema.isMaxLength(4096))),
+          maxTurns: Schema.optionalKey(ClaudeMaxTurns),
+          responseIdleTimeoutMs: Schema.optionalKey(ClaudeResponseIdleTimeoutMs),
         }),
       ),
       cursor: Schema.optionalKey(

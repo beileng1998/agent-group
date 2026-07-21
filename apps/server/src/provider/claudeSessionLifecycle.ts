@@ -52,6 +52,11 @@ export function makeClaudeSessionLifecycle(input: {
       if (context.stopped) return;
 
       context.stopped = true;
+      const turnWatchdogFiber = context.turnWatchdogFiber;
+      context.turnWatchdogFiber = undefined;
+      if (turnWatchdogFiber && turnWatchdogFiber.pollUnsafe() === undefined) {
+        yield* Fiber.interrupt(turnWatchdogFiber);
+      }
       for (const toolUseId of [...context.subagentRuns.keys()]) {
         yield* input.settleSubagentRun(context, { toolUseId }, "stopped");
       }

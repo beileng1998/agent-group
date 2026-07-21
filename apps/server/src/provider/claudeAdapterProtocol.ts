@@ -16,6 +16,7 @@ import {
 } from "@agent-group/contracts";
 
 import { parseClaudeTrackedTasks, type ClaudeTrackedTask } from "./claudeTaskTracker.ts";
+import { knownClaudeModelCapabilities } from "./claudeRuntimeModelCapabilities.ts";
 import { readNonEmptyString, stripClaudeContextWindowSuffix } from "./claudeTokenUsage.ts";
 
 export interface ClaudeResumeState {
@@ -41,7 +42,7 @@ export function mapSupportedCommands(commands: SlashCommand[]): ProviderListComm
 
 export function mapSupportedModels(models: ModelInfo[]): ProviderListModelsResult {
   const resolvedModels: Array<ProviderListModelsResult["models"][number]> = [];
-  const seen = new Set<string>();
+  const indexBySlug = new Map<string, number>();
   const orderedModels = [
     ...models.filter((model) => model.value.trim().toLowerCase() !== "default"),
     ...models.filter((model) => model.value.trim().toLowerCase() === "default"),
@@ -49,18 +50,60 @@ export function mapSupportedModels(models: ModelInfo[]): ProviderListModelsResul
   for (const model of orderedModels) {
     const resolvedModel = model.resolvedModel?.trim() || model.value.trim();
     const slug = stripClaudeContextWindowSuffix(resolvedModel);
-    if (!slug || seen.has(slug)) continue;
-    seen.add(slug);
+    if (!slug) continue;
     const isDefaultAlias = model.value.trim().toLowerCase() === "default";
     const displayName = model.displayName.trim();
     const description = model.description.trim();
-    resolvedModels.push({
+    const supportedReasoningEfforts = model.supportedEffortLevels?.map((value) => ({
+      value,
+      label: value === "xhigh" ? "Extra High" : value.charAt(0).toUpperCase() + value.slice(1),
+    }));
+    const candidate: ProviderListModelsResult["models"][number] = {
       slug,
       name: isDefaultAlias || !displayName ? slug : displayName,
       ...(description ? { description } : {}),
-    });
+      ...(supportedReasoningEfforts ? { supportedReasoningEfforts } : {}),
+      ...(supportedReasoningEfforts?.some((effort) => effort.value === "high")
+        ? { defaultReasoningEffort: "high" }
+        : {}),
+      ...(model.supportsFastMode !== undefined ? { supportsFastMode: model.supportsFastMode } : {}),
+      ...(model.supportsAdaptiveThinking !== undefined
+        ? { supportsAdaptiveThinking: model.supportsAdaptiveThinking }
+        : {}),
+    };
+    const existingIndex = indexBySlug.get(slug);
+    if (existingIndex === undefined) {
+      indexBySlug.set(slug, resolvedModels.length);
+      resolvedModels.push(candidate);
+      continue;
+    }
+    const existing = resolvedModels[existingIndex]!;
+    const effortByValue = new Map(
+      [
+        ...(existing.supportedReasoningEfforts ?? []),
+        ...(candidate.supportedReasoningEfforts ?? []),
+      ].map((effort) => [effort.value, effort]),
+    );
+    resolvedModels[existingIndex] = {
+      ...candidate,
+      ...existing,
+      ...(effortByValue.size > 0 ? { supportedReasoningEfforts: [...effortByValue.values()] } : {}),
+      ...(existing.supportsFastMode === true || candidate.supportsFastMode === true
+        ? { supportsFastMode: true }
+        : {}),
+      ...(existing.supportsAdaptiveThinking === true || candidate.supportsAdaptiveThinking === true
+        ? { supportsAdaptiveThinking: true }
+        : {}),
+    };
   }
-  return { models: resolvedModels, source: "sdk", cached: false };
+  return {
+    models: resolvedModels.map((model) => ({
+      ...knownClaudeModelCapabilities(model.slug),
+      ...model,
+    })),
+    source: "sdk",
+    cached: false,
+  };
 }
 
 export function neverResolvingUserMessageStream(): AsyncIterable<SDKUserMessage> {

@@ -29,6 +29,9 @@ export function makeClaudeSdkMessageRouter(input: {
 }) {
   return (context: ClaudeSessionContext, message: SDKMessage): Effect.Effect<void> =>
     Effect.gen(function* () {
+      if (context.turnState) {
+        context.turnState.lastActivityAt = Date.now();
+      }
       yield* input.logNativeSdkMessage(context, message);
 
       const subagentToolUseId = readClaudeSubagentParentToolUseId(message);

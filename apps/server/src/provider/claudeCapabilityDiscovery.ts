@@ -23,6 +23,8 @@ import {
   neverResolvingUserMessageStream,
 } from "./claudeAdapterProtocol.ts";
 import { ProviderAdapterProcessError } from "./Errors.ts";
+import { resolveClaudeModelCapabilities } from "./claudeRuntimeModelCapabilities.ts";
+import { stripClaudeContextWindowSuffix } from "./claudeTokenUsage.ts";
 
 const PROVIDER = "claudeAgent" as const;
 const MODEL_CACHE_TTL_MS = 60_000;
@@ -89,6 +91,16 @@ export function makeClaudeCapabilityDiscovery(input: {
         .then(cacheAgents)
         .catch(() => undefined);
     }
+  };
+
+  const resolveModelCapabilities = (modelDiscoveryKey: string, model: string | undefined) => {
+    const normalizedModel = model ? stripClaudeContextWindowSuffix(model).toLowerCase() : undefined;
+    const discovered = normalizedModel
+      ? modelCache
+          .get(modelDiscoveryKey)
+          ?.result.models.find((candidate) => candidate.slug.toLowerCase() === normalizedModel)
+      : undefined;
+    return resolveClaudeModelCapabilities(model, discovered);
   };
 
   async function withTemporaryProcess<A>(
@@ -235,5 +247,6 @@ export function makeClaudeCapabilityDiscovery(input: {
     listCommands,
     listModels,
     prefetchFromQuery,
+    resolveModelCapabilities,
   };
 }

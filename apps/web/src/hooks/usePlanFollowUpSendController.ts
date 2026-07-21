@@ -97,6 +97,7 @@ export function usePlanFollowUpSendController(input: {
       input.sendInFlightRef.current = true;
       input.beginLocalDispatch();
       input.setThreadError(threadId, null);
+      input.armTranscriptAutoFollow(threadId, true);
       input.appendOptimisticUserMessage({
         id: messageId,
         role: "user",
@@ -106,7 +107,6 @@ export function usePlanFollowUpSendController(input: {
         streaming: false,
         source: "native",
       });
-      input.armTranscriptAutoFollow(threadId, true);
 
       try {
         const modelSelection = queuedTurn?.modelSelection ?? input.modelSelection;

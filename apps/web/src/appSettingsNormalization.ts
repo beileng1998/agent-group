@@ -110,6 +110,8 @@ export function normalizeAppSettings(settings: AppSettings): AppSettings {
 export function serverSettingsToAppSettings(settings: ServerSettings): Partial<AppSettings> {
   return {
     claudeBinaryPath: settings.providers.claudeAgent.binaryPath,
+    claudeMaxTurns: settings.providers.claudeAgent.maxTurns,
+    claudeResponseIdleTimeoutMs: settings.providers.claudeAgent.responseIdleTimeoutMs,
     codexBinaryPath: settings.providers.codex.binaryPath,
     codexHomePath: settings.providers.codex.homePath,
     cursorApiEndpoint: settings.providers.cursor.apiEndpoint,

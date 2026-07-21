@@ -63,7 +63,13 @@ function serverSettings(overrides: Partial<ServerSettings["providers"]> = {}): S
     textGenerationModelSelection: { provider: "codex", model: "gpt-5.4-mini" },
     providers: {
       codex: { ...provider, binaryPath: "codex", homePath: "" },
-      claudeAgent: { ...provider, binaryPath: "claude", launchArgs: "" },
+      claudeAgent: {
+        ...provider,
+        binaryPath: "claude",
+        launchArgs: "",
+        maxTurns: DEFAULT_SERVER_SETTINGS.providers.claudeAgent.maxTurns,
+        responseIdleTimeoutMs: DEFAULT_SERVER_SETTINGS.providers.claudeAgent.responseIdleTimeoutMs,
+      },
       cursor: { ...provider, binaryPath: "cursor-agent", apiEndpoint: "" },
       antigravity: { ...provider, binaryPath: "agy" },
       grok: { ...provider, binaryPath: "grok" },

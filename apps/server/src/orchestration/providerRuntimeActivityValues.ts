@@ -303,14 +303,17 @@ export function buildConfiguredContextWindowPayload(
     return undefined;
   }
   const config = asObject(event.payload.config);
-  const configuredContextWindow = asString(config?.contextWindow)?.trim().toLowerCase();
+  const rawContextWindow = config?.contextWindow ?? config?.autoCompactWindow;
+  const configuredContextWindow = asString(rawContextWindow)?.trim().toLowerCase();
   const maxTokens =
-    asPositiveFiniteNumber(config?.contextWindow) ??
+    asPositiveFiniteNumber(rawContextWindow) ??
     (configuredContextWindow === "1m"
       ? 1_000_000
-      : configuredContextWindow === "200k"
-        ? 200_000
-        : undefined);
+      : configuredContextWindow === "512k"
+        ? 512_000
+        : configuredContextWindow === "200k"
+          ? 200_000
+          : undefined);
   if (maxTokens === undefined) {
     return undefined;
   }

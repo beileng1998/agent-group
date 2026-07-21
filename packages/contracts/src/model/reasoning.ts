@@ -25,6 +25,7 @@ export const PI_THINKING_LEVEL_OPTIONS = [
   "medium",
   "high",
   "xhigh",
+  "max",
 ] as const;
 export type PiThinkingLevel = (typeof PI_THINKING_LEVEL_OPTIONS)[number];
 

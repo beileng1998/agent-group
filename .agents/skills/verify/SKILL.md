@@ -1,3 +1,8 @@
+---
+name: verify
+description: Verify Agent Group locally with isolated state and explicit ports. Use when an agent needs to run or prepare local interactive verification without colliding with an existing desktop or development instance.
+---
+
 # Verify Agent Group locally
 
 Use an isolated state directory and explicit ports:

@@ -3,7 +3,13 @@
 // Layer: Web settings schema
 
 import { Option, Schema, SchemaTransformation } from "effect";
-import { ProviderKind, ThreadMarkerColor, TrimmedNonEmptyString } from "@agent-group/contracts";
+import {
+  DEFAULT_CLAUDE_MAX_TURNS,
+  DEFAULT_CLAUDE_RESPONSE_IDLE_TIMEOUT_MS,
+  ProviderKind,
+  ThreadMarkerColor,
+  TrimmedNonEmptyString,
+} from "@agent-group/contracts";
 import { EnvMode } from "./components/BranchToolbar.logic";
 import { DEFAULT_PROVIDER_ORDER } from "./providerOrdering";
 import { DEFAULT_UI_DENSITY, UI_DENSITY_MODES } from "./lib/appDensity";
@@ -11,6 +17,10 @@ import { DEFAULT_UI_DENSITY, UI_DENSITY_MODES } from "./lib/appDensity";
 export const APP_SETTINGS_STORAGE_KEY = "agent-group:app-settings:v1";
 export const SERVER_SETTINGS_MIGRATION_STORAGE_KEY = "agent-group:server-settings-migrated:v1";
 export const MAX_CUSTOM_MODEL_LENGTH = 256;
+export const MIN_CLAUDE_MAX_TURNS = 1;
+export const MAX_CLAUDE_MAX_TURNS = 10_000;
+export const MIN_CLAUDE_RESPONSE_IDLE_TIMEOUT_MS = 60_000;
+export const MAX_CLAUDE_RESPONSE_IDLE_TIMEOUT_MS = 24 * 60 * 60 * 1_000;
 export const MIN_CHAT_FONT_SIZE_PX = 11;
 export const MAX_CHAT_FONT_SIZE_PX = 18;
 export const DEFAULT_CHAT_FONT_SIZE_PX = 12;
@@ -94,6 +104,15 @@ export const PersistedProviderKind = Schema.Literals([
 
 export const AppSettingsSchema = Schema.Struct({
   claudeBinaryPath: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
+  claudeMaxTurns: Schema.Int.check(
+    Schema.isBetween({ minimum: MIN_CLAUDE_MAX_TURNS, maximum: MAX_CLAUDE_MAX_TURNS }),
+  ).pipe(withDefaults(() => DEFAULT_CLAUDE_MAX_TURNS)),
+  claudeResponseIdleTimeoutMs: Schema.Int.check(
+    Schema.isBetween({
+      minimum: MIN_CLAUDE_RESPONSE_IDLE_TIMEOUT_MS,
+      maximum: MAX_CLAUDE_RESPONSE_IDLE_TIMEOUT_MS,
+    }),
+  ).pipe(withDefaults(() => DEFAULT_CLAUDE_RESPONSE_IDLE_TIMEOUT_MS)),
   uiDensity: UiDensity.pipe(withDefaults(() => DEFAULT_UI_DENSITY)),
   chatFontSizePx: Schema.Number.pipe(withDefaults(() => DEFAULT_CHAT_FONT_SIZE_PX)),
   chatCodeFontFamily: Schema.String.check(Schema.isMaxLength(256)).pipe(withDefaults(() => "")),

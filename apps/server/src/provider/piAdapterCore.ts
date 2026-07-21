@@ -30,7 +30,8 @@ export const PI_THINKING_OPTIONS: ReadonlyArray<{
   { value: "low", label: "Low", description: "Faster reasoning" },
   { value: "medium", label: "Medium", description: "Balanced reasoning", isDefault: true },
   { value: "high", label: "High", description: "Deeper reasoning" },
-  { value: "xhigh", label: "Extra High", description: "Maximum reasoning" },
+  { value: "xhigh", label: "Extra High", description: "Very deep reasoning" },
+  { value: "max", label: "Max", description: "Maximum reasoning" },
 ];
 const PI_DEFAULT_SUPPORTED_THINKING_LEVELS = new Set<ThinkingLevel>([
   "off",
@@ -106,7 +107,8 @@ export function isPiThinkingLevel(value: string | null | undefined): value is Th
     value === "low" ||
     value === "medium" ||
     value === "high" ||
-    value === "xhigh"
+    value === "xhigh" ||
+    value === "max"
   );
 }
 
