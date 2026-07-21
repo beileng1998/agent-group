@@ -194,7 +194,7 @@ jobs:
               echo "macOS signing enabled."
               args+=(--signed)
             else
-              echo "macOS signing is not configured; the artifact will be unsigned."
+              echo "Developer ID signing is not configured; the artifact will use an ad-hoc signature."
             fi
           elif [[ "${{ matrix.platform }}" == "win" ]]; then
             if has_all \
@@ -316,8 +316,9 @@ jobs:
           name: Agent Group v${{ needs.preflight.outputs.version }}
           generate_release_notes: true
           body: |
-            macOS and Windows artifacts may be unsigned. Your operating system may display an
-            unknown-developer warning. Verify downloads against `SHA256SUMS.txt`.
+            macOS artifacts use an ad-hoc signature when Developer ID signing is unavailable, and
+            Windows artifacts may be unsigned. Your operating system may require manual approval.
+            Verify downloads against `SHA256SUMS.txt`.
           append_body: true
           prerelease: ${{ needs.preflight.outputs.is_prerelease }}
           make_latest: ${{ needs.preflight.outputs.make_latest }}

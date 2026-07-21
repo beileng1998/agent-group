@@ -29,7 +29,6 @@ import {
 
 export interface FinalizeMacUpdateZipOptions {
   readonly stageDistDir: string;
-  readonly signed: boolean;
   readonly requireManifest?: boolean;
   readonly verbose?: boolean;
 }
@@ -125,11 +124,7 @@ function assertMacZipFrameworkSymlinks(zipPath: string): string {
   return appBundleName;
 }
 
-function verifyMacAppSignature(appBundlePath: string, requireSignature: boolean): void {
-  const codeResourcesPath = join(appBundlePath, "Contents", "_CodeSignature", "CodeResources");
-  if (!requireSignature && !existsSync(codeResourcesPath)) {
-    return;
-  }
+function verifyMacAppSignature(appBundlePath: string): void {
   runTextCommand("codesign", ["--verify", "--deep", "--strict", "--verbose=4", appBundlePath]);
 }
 
@@ -173,12 +168,12 @@ export async function finalizeMacUpdateZip(
   });
 
   const zippedAppBundleName = assertMacZipFrameworkSymlinks(zipPath);
-  verifyMacAppSignature(appBundlePath, options.signed);
+  verifyMacAppSignature(appBundlePath);
 
   const extractedZipRoot = mkdtempSync(join(tmpdir(), "agent-group-mac-update-zip-"));
   try {
     runTextCommand("ditto", ["-x", "-k", zipPath, extractedZipRoot], { verbose });
-    verifyMacAppSignature(join(extractedZipRoot, zippedAppBundleName), options.signed);
+    verifyMacAppSignature(join(extractedZipRoot, zippedAppBundleName));
   } finally {
     rmSync(extractedZipRoot, { force: true, recursive: true });
   }

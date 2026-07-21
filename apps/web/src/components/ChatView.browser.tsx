@@ -1271,7 +1271,8 @@ const worker = setupWorker(
       if (
         method === WS_METHODS.subscribeServerProviderStatuses ||
         method === WS_METHODS.subscribeServerSettings ||
-        method === WS_METHODS.subscribeTerminalEvents
+        method === WS_METHODS.subscribeTerminalEvents ||
+        method === WS_METHODS.subscribeProjectDevServerEvents
       ) {
         return;
       }

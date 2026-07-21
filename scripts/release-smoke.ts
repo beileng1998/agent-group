@@ -160,8 +160,8 @@ function verifyReleaseWorkflowSafety(): void {
   );
   assertContains(
     workflow,
-    "macOS signing is not configured; the artifact will be unsigned.",
-    "Expected macOS signing to remain optional.",
+    "Developer ID signing is not configured; the artifact will use an ad-hoc signature.",
+    "Expected macOS builds to fall back to ad-hoc signing.",
   );
   assertContains(
     workflow,

@@ -20,6 +20,7 @@ describe("createDesktopPlatformBuildConfig", () => {
   it("adds explicit microphone entitlements to macOS builds", () => {
     const config = createDesktopPlatformBuildConfig({
       platform: "mac",
+      signed: false,
       target: "dmg",
     });
     const mac = config.mac as Record<string, unknown>;
@@ -31,6 +32,7 @@ describe("createDesktopPlatformBuildConfig", () => {
     assert.equal(mac.hardenedRuntime, true);
     assert.equal(mac.entitlements, MAC_ENTITLEMENTS_PATH);
     assert.equal(mac.entitlementsInherit, MAC_INHERITED_ENTITLEMENTS_PATH);
+    assert.equal(mac.identity, "-");
     assert.equal(MAC_APPSNAP_HELPER_BUNDLE_PATH, "Contents/Helpers/agent-group-appsnap-helper");
     assert.deepStrictEqual(mac.binaries, [
       "Contents/Helpers/agent-group-appsnap-helper",
@@ -54,13 +56,25 @@ describe("createDesktopPlatformBuildConfig", () => {
     assert.equal(extendInfo.NSScreenCaptureUsageDescription, undefined);
   });
 
+  it("uses certificate discovery only for configured macOS signing", () => {
+    const config = createDesktopPlatformBuildConfig({
+      platform: "mac",
+      signed: true,
+      target: "dmg",
+    });
+
+    assert.equal((config.mac as Record<string, unknown>).identity, undefined);
+  });
+
   it("leaves non-macOS platform configs unchanged", () => {
     const linux = createDesktopPlatformBuildConfig({
       platform: "linux",
+      signed: false,
       target: "AppImage",
     });
     const win = createDesktopPlatformBuildConfig({
       platform: "win",
+      signed: true,
       target: "nsis",
       windowsAzureSignOptions: { publisherName: "Agent Group" },
     });
@@ -97,6 +111,7 @@ describe("createDesktopPlatformBuildConfig", () => {
   it("keeps Windows signing optional", () => {
     const config = createDesktopPlatformBuildConfig({
       platform: "win",
+      signed: false,
       target: "nsis",
     });
 
@@ -109,6 +124,7 @@ describe("createDesktopPlatformBuildConfig", () => {
   it("keeps Windows signing optional", () => {
     const config = createDesktopPlatformBuildConfig({
       platform: "win",
+      signed: false,
       target: "nsis",
     });
 
@@ -121,6 +137,7 @@ describe("createDesktopPlatformBuildConfig", () => {
   it("keeps node-pty unpacked from ASAR in generated build config", () => {
     const config = createDesktopPlatformBuildConfig({
       platform: "linux",
+      signed: false,
       target: "AppImage",
     });
 
