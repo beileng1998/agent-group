@@ -7,6 +7,23 @@ import { useCallback, useEffect, useRef } from "react";
 
 import type { ComposerPromptEditorHandle } from "../components/ComposerPromptEditor";
 import { useComposerFocusRequestStore } from "../composerFocusRequestStore";
+import { useIsMobile, useMediaQuery } from "./useMediaQuery";
+
+export function shouldAutoFocusComposerOnThreadActivation(input: {
+  activeThreadId: ThreadId | null;
+  inactiveSplitPane: boolean;
+  terminalOpen: boolean;
+  mobileViewport: boolean;
+  coarsePointer: boolean;
+}): boolean {
+  return (
+    input.activeThreadId !== null &&
+    !input.inactiveSplitPane &&
+    !input.terminalOpen &&
+    !input.mobileViewport &&
+    !input.coarsePointer
+  );
+}
 
 export function useComposerFocusController(input: {
   threadId: ThreadId;
@@ -22,6 +39,8 @@ export function useComposerFocusController(input: {
   requestTerminalFocus: () => void;
   openTerminalThreadPage: (threadId: ThreadId) => void;
 }) {
+  const mobileViewport = useIsMobile();
+  const coarsePointer = useMediaQuery({ pointer: "coarse" });
   const editorRef = useRef<ComposerPromptEditorHandle>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const pendingFocusRef = useRef(false);
@@ -63,10 +82,27 @@ export function useComposerFocusController(input: {
     return () => window.cancelAnimationFrame(frame);
   }, [focus, input.secondaryChromeReady, input.secondaryChromeThreadId]);
   useEffect(() => {
-    if (!input.activeThreadId || input.terminalOpen || input.inactiveSplitPane) return;
+    if (
+      !shouldAutoFocusComposerOnThreadActivation({
+        activeThreadId: input.activeThreadId,
+        inactiveSplitPane: input.inactiveSplitPane,
+        terminalOpen: input.terminalOpen,
+        mobileViewport,
+        coarsePointer,
+      })
+    ) {
+      return;
+    }
     const frame = window.requestAnimationFrame(focus);
     return () => window.cancelAnimationFrame(frame);
-  }, [focus, input.activeThreadId, input.inactiveSplitPane, input.terminalOpen]);
+  }, [
+    coarsePointer,
+    focus,
+    input.activeThreadId,
+    input.inactiveSplitPane,
+    input.terminalOpen,
+    mobileViewport,
+  ]);
   useEffect(() => {
     if (!input.activeThreadId) return;
     const previous = terminalOpenByThreadRef.current[input.activeThreadId] ?? false;
