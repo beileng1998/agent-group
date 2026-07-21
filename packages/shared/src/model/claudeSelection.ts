@@ -87,8 +87,7 @@ function claudeSpawnProfile(selection: Extract<ModelSelection, { provider: "clau
         : undefined,
     fastMode:
       selection.options?.fastMode === true && (!hasStaticCapabilities || caps.supportsFastMode),
-    ultracode:
-      effort === "ultracode" && (!hasStaticCapabilities || hasEffortLevel(caps, "xhigh")),
+    ultracode: effort === "ultracode" && (!hasStaticCapabilities || hasEffortLevel(caps, "xhigh")),
   } satisfies ClaudeSpawnProfile;
 }
 

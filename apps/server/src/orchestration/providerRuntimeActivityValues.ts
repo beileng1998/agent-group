@@ -311,9 +311,9 @@ export function buildConfiguredContextWindowPayload(
       ? 1_000_000
       : configuredContextWindow === "512k"
         ? 512_000
-      : configuredContextWindow === "200k"
-        ? 200_000
-        : undefined);
+        : configuredContextWindow === "200k"
+          ? 200_000
+          : undefined);
   if (maxTokens === undefined) {
     return undefined;
   }

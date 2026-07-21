@@ -63,7 +63,9 @@ function runtimeEfforts(
   }
   const defaultEffort =
     model.defaultReasoningEffort ??
-    (model.supportedReasoningEfforts.some((effort) => effort.value === "high") ? "high" : undefined);
+    (model.supportedReasoningEfforts.some((effort) => effort.value === "high")
+      ? "high"
+      : undefined);
   return model.supportedReasoningEfforts.map((effort) => ({
     value: effort.value,
     label: effort.label ?? runtimeEffortLabel(effort.value),

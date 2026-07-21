@@ -142,11 +142,10 @@ export function makeClaudeTurnController(input: {
           }
           context.currentApiModelId = apiModelId;
           context.rerouteOriginalApiModelId = undefined;
-          context.lastKnownContextWindow =
-            resolveClaudeApiModelIdContextWindowMaxTokens(
-              apiModelId,
-              input.resolveModelCapabilities(context.modelDiscoveryKey, apiModelId),
-            );
+          context.lastKnownContextWindow = resolveClaudeApiModelIdContextWindowMaxTokens(
+            apiModelId,
+            input.resolveModelCapabilities(context.modelDiscoveryKey, apiModelId),
+          );
           yield* input.updateResumeCursor(context);
         }
       }

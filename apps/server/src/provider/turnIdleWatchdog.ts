@@ -62,4 +62,5 @@ export function runTurnIdleWatchdog(params: TurnIdleWatchdogParams): Effect.Effe
 
 export const forkTurnIdleWatchdog = (
   params: TurnIdleWatchdogParams & { readonly scope: Scope.Closeable },
-): Effect.Effect<Fiber.Fiber<void>> => runTurnIdleWatchdog(params).pipe(Effect.forkIn(params.scope));
+): Effect.Effect<Fiber.Fiber<void>> =>
+  runTurnIdleWatchdog(params).pipe(Effect.forkIn(params.scope));

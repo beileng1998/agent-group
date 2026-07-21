@@ -69,11 +69,7 @@ describe("Claude dynamic model capabilities", () => {
     expect(resolveSelectedClaudeAutoCompactWindow("kimi-k3", undefined, capabilities)).toBe(
       512_000,
     );
-    expect(resolveSelectedClaudeAutoCompactWindow("kimi-k3", "1m", capabilities)).toBe(
-      1_000_000,
-    );
-    expect(resolveClaudeApiModelIdContextWindowMaxTokens("kimi-k3", capabilities)).toBe(
-      1_000_000,
-    );
+    expect(resolveSelectedClaudeAutoCompactWindow("kimi-k3", "1m", capabilities)).toBe(1_000_000);
+    expect(resolveClaudeApiModelIdContextWindowMaxTokens("kimi-k3", capabilities)).toBe(1_000_000);
   });
 });

@@ -57,16 +57,17 @@ function ScrollControllerHarness({ calls }: { calls: ScrollCall[] }) {
   }, [calls, scroll.legendListRef]);
 
   return (
-    <button
-      type="button"
-      onWheel={scroll.onMessagesWheelBase}
-      onClick={() => {
-        scroll.armTranscriptAutoFollow(THREAD_ID, true);
-        setEntries([userEntry()]);
-      }}
-    >
-      Send follow-up
-    </button>
+    <div onWheel={scroll.onMessagesWheelBase}>
+      <button
+        type="button"
+        onClick={() => {
+          scroll.armTranscriptAutoFollow(THREAD_ID, true);
+          setEntries([userEntry()]);
+        }}
+      >
+        Send follow-up
+      </button>
+    </div>
   );
 }
 
@@ -90,8 +91,7 @@ describe("useTranscriptScrollController", () => {
         .poll(() =>
           calls.some(
             (call) =>
-              !call.animated &&
-              call.at - startedAt >= TRANSCRIPT_AUTO_FOLLOW_SETTLE_DELAY_MS - 24,
+              !call.animated && call.at - startedAt >= TRANSCRIPT_AUTO_FOLLOW_SETTLE_DELAY_MS - 24,
           ),
         )
         .toBe(true);

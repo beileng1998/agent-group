@@ -103,10 +103,7 @@ export function makeClaudeSystemMessageProjection(input: {
         context.currentApiModelId = refusalFallback.fallbackModel;
         context.lastKnownContextWindow = resolveClaudeApiModelIdContextWindowMaxTokens(
           refusalFallback.fallbackModel,
-          input.resolveModelCapabilities(
-            context.modelDiscoveryKey,
-            refusalFallback.fallbackModel,
-          ),
+          input.resolveModelCapabilities(context.modelDiscoveryKey, refusalFallback.fallbackModel),
         );
         yield* input.updateResumeCursor(context);
         yield* input.offerRuntimeEvent({

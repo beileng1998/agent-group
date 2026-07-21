@@ -79,16 +79,15 @@ export function mapSupportedModels(models: ModelInfo[]): ProviderListModelsResul
     }
     const existing = resolvedModels[existingIndex]!;
     const effortByValue = new Map(
-      [...(existing.supportedReasoningEfforts ?? []), ...(candidate.supportedReasoningEfforts ?? [])].map(
-        (effort) => [effort.value, effort],
-      ),
+      [
+        ...(existing.supportedReasoningEfforts ?? []),
+        ...(candidate.supportedReasoningEfforts ?? []),
+      ].map((effort) => [effort.value, effort]),
     );
     resolvedModels[existingIndex] = {
       ...candidate,
       ...existing,
-      ...(effortByValue.size > 0
-        ? { supportedReasoningEfforts: [...effortByValue.values()] }
-        : {}),
+      ...(effortByValue.size > 0 ? { supportedReasoningEfforts: [...effortByValue.values()] } : {}),
       ...(existing.supportsFastMode === true || candidate.supportsFastMode === true
         ? { supportsFastMode: true }
         : {}),

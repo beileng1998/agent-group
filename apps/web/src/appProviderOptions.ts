@@ -71,9 +71,7 @@ export function getProviderStartOptions(
       ? {
           claudeAgent: {
             ...(claudeBinaryPath ? { binaryPath: claudeBinaryPath } : {}),
-            ...(settings.claudeMaxTurns !== undefined
-              ? { maxTurns: settings.claudeMaxTurns }
-              : {}),
+            ...(settings.claudeMaxTurns !== undefined ? { maxTurns: settings.claudeMaxTurns } : {}),
             ...(settings.claudeResponseIdleTimeoutMs !== undefined
               ? { responseIdleTimeoutMs: settings.claudeResponseIdleTimeoutMs }
               : {}),
