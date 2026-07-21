@@ -74,6 +74,16 @@ function runtimeEfforts(
   }));
 }
 
+function runtimeContextWindowOptions(
+  options: readonly ProviderContextWindowDescriptor[] | undefined,
+): ModelCapabilities["contextWindowOptions"] | undefined {
+  return options?.map((option) => ({
+    value: option.value,
+    label: option.label,
+    ...(option.isDefault === true ? { isDefault: true as const } : {}),
+  }));
+}
+
 export function resolveClaudeModelCapabilities(
   model: string | null | undefined,
   discovered?: ProviderModelDescriptor | undefined,
@@ -86,18 +96,18 @@ export function resolveClaudeModelCapabilities(
   }
 
   const efforts = runtimeEfforts(runtimeModel);
+  const contextWindowOptions = runtimeContextWindowOptions(runtimeModel.contextWindowOptions);
+  const autoCompactWindowOptions = runtimeContextWindowOptions(
+    runtimeModel.autoCompactWindowOptions,
+  );
   return {
     ...staticCapabilities,
     ...(efforts ? { reasoningEffortLevels: efforts } : {}),
     supportsFastMode: runtimeModel.supportsFastMode ?? staticCapabilities.supportsFastMode,
     supportsThinkingToggle:
       runtimeModel.supportsThinkingToggle ?? staticCapabilities.supportsThinkingToggle,
-    ...(runtimeModel.contextWindowOptions
-      ? { contextWindowOptions: runtimeModel.contextWindowOptions }
-      : {}),
-    ...(runtimeModel.autoCompactWindowOptions
-      ? { autoCompactWindowOptions: runtimeModel.autoCompactWindowOptions }
-      : {}),
+    ...(contextWindowOptions ? { contextWindowOptions } : {}),
+    ...(autoCompactWindowOptions ? { autoCompactWindowOptions } : {}),
     ...(runtimeModel.contextWindowTokens
       ? { contextWindowTokens: runtimeModel.contextWindowTokens }
       : {}),
