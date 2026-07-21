@@ -1,0 +1,309 @@
+import * as Http from "node:http";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import { assert, it } from "@effect/vitest";
+import * as ConfigProvider from "effect/ConfigProvider";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import * as Command from "effect/unstable/cli/Command";
+import { FetchHttpClient } from "effect/unstable/http";
+import { afterEach, beforeEach, vi } from "vitest";
+import { NetService } from "@agent-group/shared/Net";
+
+import { ServerConfig, type ServerConfigShape } from "./config";
+import { Open, type OpenShape } from "./open";
+import { Server, type ServerShape } from "./effectServer";
+
+vi.mock("./threadRetention", async () => {
+  const Effect = await import("effect/Effect");
+  return {
+    startThreadRetentionJob: () => Effect.void,
+  };
+});
+
+import { agentGroupCli, CliConfig, type CliConfigShape } from "./main";
+
+const start = vi.fn(() => undefined);
+const stop = vi.fn(() => undefined);
+let resolvedConfig: ServerConfigShape | null = null;
+const serverStart = Effect.acquireRelease(
+  Effect.gen(function* () {
+    resolvedConfig = yield* ServerConfig;
+    start();
+    return {} as unknown as Http.Server;
+  }),
+  () => Effect.sync(() => stop()),
+);
+const findAvailablePort = vi.fn((preferred: number) => Effect.succeed(preferred));
+let defaultAgentGroupHome = "";
+const tempHomes = new Set<string>();
+
+function makeTempHome(prefix = "agent-group-main-test-"): string {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  tempHomes.add(directory);
+  return directory;
+}
+
+// Shared service layer used by this CLI test suite.
+const testLayer = Layer.mergeAll(
+  Layer.succeed(CliConfig, {
+    cwd: "/tmp/agent-group-test-workspace",
+    fixPath: Effect.void,
+    resolveStaticDir: Effect.undefined,
+  } satisfies CliConfigShape),
+  Layer.succeed(NetService, {
+    canListenOnHost: () => Effect.succeed(true),
+    isPortAvailableOnLoopback: () => Effect.succeed(true),
+    reserveLoopbackPort: () => Effect.succeed(0),
+    findAvailablePort,
+  }),
+  Layer.succeed(Server, {
+    start: serverStart,
+    stopSignal: Effect.void,
+  } satisfies ServerShape),
+  Layer.succeed(Open, {
+    openBrowser: (_target: string) => Effect.void,
+    openInEditor: () => Effect.void,
+  } satisfies OpenShape),
+  FetchHttpClient.layer,
+  NodeServices.layer,
+);
+
+const runCli = (args: ReadonlyArray<string>, env: Record<string, string> = {}) => {
+  const program = Command.runWith(agentGroupCli, { version: "0.0.0-test" })(args).pipe(
+    Effect.provide(
+      ConfigProvider.layer(
+        ConfigProvider.fromEnv({
+          env: {
+            AGENT_GROUP_HOME: defaultAgentGroupHome,
+            AGENT_GROUP_NO_BROWSER: "true",
+            ...env,
+          },
+        }),
+      ),
+    ),
+  );
+  return program as Effect.Effect<void, unknown, never>;
+};
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  defaultAgentGroupHome = makeTempHome();
+  resolvedConfig = null;
+  start.mockImplementation(() => undefined);
+  stop.mockImplementation(() => undefined);
+  findAvailablePort.mockImplementation((preferred: number) => Effect.succeed(preferred));
+});
+
+afterEach(() => {
+  for (const directory of tempHomes) {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+  tempHomes.clear();
+});
+
+it.layer(testLayer)("server CLI command", (it) => {
+  it.effect("parses all CLI flags and wires scoped start/stop", () =>
+    Effect.gen(function* () {
+      const flagHome = makeTempHome("agent-group-main-flag-");
+
+      yield* runCli([
+        "--mode",
+        "desktop",
+        "--port",
+        "4010",
+        "--host",
+        "0.0.0.0",
+        "--home-dir",
+        flagHome,
+        "--dev-url",
+        "http://127.0.0.1:5173",
+        "--no-browser",
+        "--auth-token",
+        "auth-secret",
+      ]);
+
+      assert.equal(start.mock.calls.length, 1);
+      assert.equal(resolvedConfig?.mode, "desktop");
+      assert.equal(resolvedConfig?.port, 4010);
+      assert.equal(resolvedConfig?.host, "0.0.0.0");
+      assert.equal(resolvedConfig?.baseDir, flagHome);
+      assert.equal(resolvedConfig?.stateDir, path.join(flagHome, "dev"));
+      assert.equal(resolvedConfig?.devUrl?.toString(), "http://127.0.0.1:5173/");
+      assert.equal(resolvedConfig?.noBrowser, true);
+      assert.equal(resolvedConfig?.authToken, "auth-secret");
+      assert.equal(resolvedConfig?.autoBootstrapProjectFromCwd, false);
+      assert.equal(resolvedConfig?.logProviderEvents, false);
+      assert.equal(resolvedConfig?.logWebSocketEvents, false);
+      assert.equal(stop.mock.calls.length, 1);
+    }),
+  );
+
+  it.effect("supports --token as an alias for --auth-token", () =>
+    Effect.gen(function* () {
+      yield* runCli(["--token", "token-secret"]);
+
+      assert.equal(start.mock.calls.length, 1);
+      assert.equal(resolvedConfig?.authToken, "token-secret");
+    }),
+  );
+
+  it.effect("uses env fallbacks when flags are not provided", () =>
+    Effect.gen(function* () {
+      const envHome = makeTempHome("agent-group-main-env-");
+
+      yield* runCli([], {
+        AGENT_GROUP_MODE: "desktop",
+        AGENT_GROUP_PORT: "4999",
+        AGENT_GROUP_HOST: "100.88.10.4",
+        AGENT_GROUP_HOME: envHome,
+        VITE_DEV_SERVER_URL: "http://localhost:5173",
+        AGENT_GROUP_NO_BROWSER: "true",
+        AGENT_GROUP_AUTH_TOKEN: "env-token",
+      });
+
+      assert.equal(start.mock.calls.length, 1);
+      assert.equal(resolvedConfig?.mode, "desktop");
+      assert.equal(resolvedConfig?.port, 4999);
+      assert.equal(resolvedConfig?.host, "100.88.10.4");
+      assert.equal(resolvedConfig?.baseDir, envHome);
+      assert.equal(resolvedConfig?.stateDir, path.join(envHome, "dev"));
+      assert.equal(resolvedConfig?.devUrl?.toString(), "http://localhost:5173/");
+      assert.equal(resolvedConfig?.noBrowser, true);
+      assert.equal(resolvedConfig?.authToken, "env-token");
+      assert.equal(resolvedConfig?.autoBootstrapProjectFromCwd, false);
+      assert.equal(resolvedConfig?.logProviderEvents, false);
+      assert.equal(resolvedConfig?.logWebSocketEvents, false);
+      assert.equal(findAvailablePort.mock.calls.length, 0);
+    }),
+  );
+
+  it.effect("prefers --mode over AGENT_GROUP_MODE", () =>
+    Effect.gen(function* () {
+      findAvailablePort.mockImplementation((_preferred: number) => Effect.succeed(4666));
+      yield* runCli(["--mode", "web"], {
+        AGENT_GROUP_MODE: "desktop",
+        AGENT_GROUP_NO_BROWSER: "true",
+      });
+
+      assert.deepStrictEqual(findAvailablePort.mock.calls, [[3773]]);
+      assert.equal(start.mock.calls.length, 1);
+      assert.equal(resolvedConfig?.mode, "web");
+      assert.equal(resolvedConfig?.port, 4666);
+      assert.equal(resolvedConfig?.host, "127.0.0.1");
+    }),
+  );
+
+  it.effect("prefers --no-browser over AGENT_GROUP_NO_BROWSER", () =>
+    Effect.gen(function* () {
+      yield* runCli(["--no-browser"], {
+        AGENT_GROUP_NO_BROWSER: "false",
+      });
+
+      assert.equal(start.mock.calls.length, 1);
+      assert.equal(resolvedConfig?.noBrowser, true);
+    }),
+  );
+
+  it.effect("uses dynamic port discovery in web mode when port is omitted", () =>
+    Effect.gen(function* () {
+      findAvailablePort.mockImplementation((_preferred: number) => Effect.succeed(5444));
+      yield* runCli([]);
+
+      assert.deepStrictEqual(findAvailablePort.mock.calls, [[3773]]);
+      assert.equal(start.mock.calls.length, 1);
+      assert.equal(resolvedConfig?.port, 5444);
+      assert.equal(resolvedConfig?.mode, "web");
+    }),
+  );
+
+  it.effect("uses fixed localhost defaults in desktop mode", () =>
+    Effect.gen(function* () {
+      yield* runCli([], {
+        AGENT_GROUP_MODE: "desktop",
+        AGENT_GROUP_NO_BROWSER: "true",
+      });
+
+      assert.equal(findAvailablePort.mock.calls.length, 0);
+      assert.equal(start.mock.calls.length, 1);
+      assert.equal(resolvedConfig?.port, 3773);
+      assert.equal(resolvedConfig?.host, "127.0.0.1");
+      assert.equal(resolvedConfig?.mode, "desktop");
+    }),
+  );
+
+  it.effect("allows overriding desktop host with --host", () =>
+    Effect.gen(function* () {
+      yield* runCli(["--host", "0.0.0.0"], {
+        AGENT_GROUP_MODE: "desktop",
+        AGENT_GROUP_NO_BROWSER: "true",
+        AGENT_GROUP_AUTH_TOKEN: "test-secret",
+      });
+
+      assert.equal(start.mock.calls.length, 1);
+      assert.equal(resolvedConfig?.mode, "desktop");
+      assert.equal(resolvedConfig?.host, "0.0.0.0");
+    }),
+  );
+
+  it.effect("refuses a remote-reachable host without authentication", () =>
+    Effect.gen(function* () {
+      const exit = yield* Effect.exit(
+        runCli(["--host", "0.0.0.0"], {
+          AGENT_GROUP_MODE: "desktop",
+          AGENT_GROUP_NO_BROWSER: "true",
+        }),
+      );
+
+      assert.equal(exit._tag, "Failure");
+      assert.equal(start.mock.calls.length, 0);
+    }),
+  );
+
+  it.effect("supports CLI and env for bootstrap/provider-log/websocket toggles", () =>
+    Effect.gen(function* () {
+      yield* runCli(["--auto-bootstrap-project-from-cwd"], {
+        AGENT_GROUP_MODE: "desktop",
+        AGENT_GROUP_LOG_PROVIDER_EVENTS: "true",
+        AGENT_GROUP_LOG_WS_EVENTS: "false",
+        AGENT_GROUP_AUTO_BOOTSTRAP_PROJECT_FROM_CWD: "false",
+        AGENT_GROUP_NO_BROWSER: "true",
+      });
+
+      assert.equal(start.mock.calls.length, 1);
+      assert.equal(resolvedConfig?.autoBootstrapProjectFromCwd, true);
+      assert.equal(resolvedConfig?.logProviderEvents, true);
+      assert.equal(resolvedConfig?.logWebSocketEvents, false);
+    }),
+  );
+
+  it.effect("does not start server for invalid --mode values", () =>
+    Effect.gen(function* () {
+      yield* runCli(["--mode", "invalid"]);
+
+      assert.equal(start.mock.calls.length, 0);
+      assert.equal(stop.mock.calls.length, 0);
+    }),
+  );
+
+  it.effect("does not start server for invalid --dev-url values", () =>
+    Effect.gen(function* () {
+      yield* runCli(["--dev-url", "not-a-url"]).pipe(Effect.catch(() => Effect.void));
+
+      assert.equal(start.mock.calls.length, 0);
+      assert.equal(stop.mock.calls.length, 0);
+    }),
+  );
+
+  it.effect("does not start server for out-of-range --port values", () =>
+    Effect.gen(function* () {
+      yield* runCli(["--port", "70000"]);
+
+      // effect/unstable/cli renders help/errors for parse failures and returns success.
+      assert.equal(start.mock.calls.length, 0);
+      assert.equal(stop.mock.calls.length, 0);
+    }),
+  );
+});
