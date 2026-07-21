@@ -60,7 +60,6 @@ export const stageTailnetSidecar = Effect.fn("stageTailnetSidecar")(function* (
         cwd: sourceDir,
         env: { ...process.env, CGO_ENABLED: "0", GOOS: goos, GOARCH: goarch },
         ...commandOutputOptions(verbose),
-        shell: process.platform === "win32",
       })`go build -trimpath -ldflags ${"-s -w"} -o ${target} ./cmd/agent-group-tailnet`,
     );
 
