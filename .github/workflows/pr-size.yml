@@ -1,0 +1,116 @@
+name: PR Size
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review, converted_to_draft]
+
+permissions:
+  contents: read
+
+jobs:
+  label:
+    name: Label PR size
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    concurrency:
+      group: pr-size-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    steps:
+      - name: Sync labels and classify PR
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        with:
+          script: |
+            const labels = [
+              ["size:XS", "0e8a16", "0-9 effective changed lines."],
+              ["size:S", "5ebd3e", "10-29 effective changed lines."],
+              ["size:M", "fbca04", "30-99 effective changed lines."],
+              ["size:L", "fe7d37", "100-499 effective changed lines."],
+              ["size:XL", "d93f0b", "500-999 effective changed lines."],
+              ["size:XXL", "b60205", "1,000+ effective changed lines."],
+            ];
+
+            for (const [name, color, description] of labels) {
+              try {
+                const { data: current } = await github.rest.issues.getLabel({
+                  ...context.repo,
+                  name,
+                });
+                if (current.color !== color || (current.description ?? "") !== description) {
+                  await github.rest.issues.updateLabel({
+                    ...context.repo,
+                    name,
+                    color,
+                    description,
+                  });
+                }
+              } catch (error) {
+                if (error.status !== 404) throw error;
+                await github.rest.issues.createLabel({
+                  ...context.repo,
+                  name,
+                  color,
+                  description,
+                });
+              }
+            }
+
+            const testPatterns = [
+              /(^|\/)__tests__(\/|$)/,
+              /(^|\/)tests?(\/|$)/,
+              /^apps\/server\/integration\//,
+              /\.(test|spec|browser|integration)\.[^.\/]+$/,
+            ];
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              ...context.repo,
+              pull_number: context.issue.number,
+              per_page: 100,
+            });
+
+            let testLines = 0;
+            let sourceLines = 0;
+            for (const file of files) {
+              const changed = (file.additions ?? 0) + (file.deletions ?? 0);
+              if (testPatterns.some((pattern) => pattern.test(file.filename))) {
+                testLines += changed;
+              } else {
+                sourceLines += changed;
+              }
+            }
+
+            const effectiveLines = sourceLines === 0 ? testLines : sourceLines;
+            const next =
+              effectiveLines < 10 ? "size:XS" :
+              effectiveLines < 30 ? "size:S" :
+              effectiveLines < 100 ? "size:M" :
+              effectiveLines < 500 ? "size:L" :
+              effectiveLines < 1000 ? "size:XL" : "size:XXL";
+            const managed = new Set(labels.map(([name]) => name));
+            const { data: current } = await github.rest.issues.listLabelsOnIssue({
+              ...context.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+
+            for (const label of current) {
+              if (!managed.has(label.name) || label.name === next) continue;
+              await github.rest.issues.removeLabel({
+                ...context.repo,
+                issue_number: context.issue.number,
+                name: label.name,
+              }).catch((error) => {
+                if (error.status !== 404) throw error;
+              });
+            }
+
+            if (!current.some((label) => label.name === next)) {
+              await github.rest.issues.addLabels({
+                ...context.repo,
+                issue_number: context.issue.number,
+                labels: [next],
+              });
+            }
+
+            core.info(`${sourceLines} source lines, ${testLines} test lines -> ${next}`);

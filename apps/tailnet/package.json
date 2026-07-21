@@ -1,0 +1,10 @@
+{
+  "name": "@agent-group/tailnet",
+  "version": "0.6.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs"
+  }
+}

@@ -1,0 +1,163 @@
+// FILE: PiAdapter.test.ts
+// Purpose: Verifies Pi adapter model discovery respects auth and SDK-supported thinking levels.
+// Layer: Provider adapter tests
+// Depends on: PiAdapter discovery helpers and Pi model metadata shapes.
+
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+
+import { ModelRuntime } from "@earendil-works/pi-coding-agent";
+import { InMemoryCredentialStore, type Api, type Model } from "@earendil-works/pi-ai";
+import { describe, expect, it } from "vitest";
+import { getPiDiscoverableModels, resolveFreshPiModel } from "../piModelRuntime";
+import {
+  getPiSupportedThinkingOptions,
+  makePiUserInputOptions,
+  PLAIN_PI_EXTENSION_THEME,
+} from "./PiAdapter";
+
+function makePiModel(input: {
+  reasoning: boolean;
+  thinkingLevelMap?: Model<Api>["thinkingLevelMap"];
+}): Pick<Model<Api>, "reasoning" | "thinkingLevelMap"> {
+  return {
+    reasoning: input.reasoning,
+    ...(input.thinkingLevelMap !== undefined ? { thinkingLevelMap: input.thinkingLevelMap } : {}),
+  };
+}
+
+async function createAuthenticatedModelRuntime(modelsPath: string): Promise<ModelRuntime> {
+  const credentials = new InMemoryCredentialStore();
+  await credentials.modify("local", async () => ({ type: "api_key", key: "test-key" }));
+  return ModelRuntime.create({ credentials, modelsPath, allowModelNetwork: false });
+}
+
+describe("getPiDiscoverableModels", () => {
+  it("includes custom-provider models authenticated through auth.json semantics", async () => {
+    const agentDir = mkdtempSync(path.join(tmpdir(), "agent-group-pi-models-"));
+    const modelsPath = path.join(agentDir, "models.json");
+
+    try {
+      writeFileSync(
+        modelsPath,
+        JSON.stringify({
+          providers: {
+            local: {
+              api: "openai-completions",
+              baseUrl: "http://127.0.0.1:11434/v1",
+              models: [{ id: "glm-5.2" }],
+            },
+          },
+        }),
+      );
+      const runtime = await createAuthenticatedModelRuntime(modelsPath);
+
+      const models = await getPiDiscoverableModels(runtime);
+
+      expect(models.some((model) => model.provider === "local" && model.id === "glm-5.2")).toBe(
+        true,
+      );
+      expect(models.some((model) => model.provider === "anthropic")).toBe(false);
+    } finally {
+      rmSync(agentDir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("resolveFreshPiModel", () => {
+  it("reloads models.json before resolving a runtime model", async () => {
+    const agentDir = mkdtempSync(path.join(tmpdir(), "agent-group-pi-model-refresh-"));
+    const modelsPath = path.join(agentDir, "models.json");
+    const writeModel = (contextWindow: number) =>
+      writeFileSync(
+        modelsPath,
+        JSON.stringify({
+          providers: {
+            local: {
+              api: "openai-completions",
+              baseUrl: "http://127.0.0.1:11434/v1",
+              models: [{ id: "glm-5.2", contextWindow }],
+            },
+          },
+        }),
+      );
+
+    try {
+      writeModel(128_000);
+      const runtime = await createAuthenticatedModelRuntime(modelsPath);
+      expect(runtime.getModel("local", "glm-5.2")?.contextWindow).toBe(128_000);
+
+      writeModel(1_000_000);
+
+      expect((await resolveFreshPiModel(runtime, "local/glm-5.2"))?.contextWindow).toBe(1_000_000);
+    } finally {
+      rmSync(agentDir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("getPiSupportedThinkingOptions", () => {
+  it("hides thinking controls for non-reasoning models", () => {
+    expect(getPiSupportedThinkingOptions(makePiModel({ reasoning: false }))).toEqual([]);
+  });
+
+  it("advertises xhigh only when the concrete Pi model supports it", () => {
+    const withoutXHigh = getPiSupportedThinkingOptions(makePiModel({ reasoning: true }));
+    const withXHigh = getPiSupportedThinkingOptions(
+      makePiModel({ reasoning: true, thinkingLevelMap: { xhigh: "xhigh" } }),
+    );
+
+    expect(withoutXHigh.map((option) => option.value)).toEqual([
+      "off",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+    ]);
+    expect(withXHigh.map((option) => option.value)).toEqual([
+      "off",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+    ]);
+  });
+
+  it("respects provider-level disabled thinking levels", () => {
+    const options = getPiSupportedThinkingOptions(
+      makePiModel({
+        reasoning: true,
+        thinkingLevelMap: {
+          off: null,
+          minimal: "low",
+          low: "low",
+          medium: "medium",
+          high: "high",
+        },
+      }),
+    );
+
+    expect(options.map((option) => option.value)).toEqual(["minimal", "low", "medium", "high"]);
+  });
+});
+
+describe("Pi extension UI helpers", () => {
+  it("keeps original select values while showing normalized unique labels", () => {
+    const mappings = makePiUserInputOptions(["  OpenRouter  ", "", "OpenRouter"]);
+
+    expect(mappings.map((mapping) => mapping.value)).toEqual(["  OpenRouter  ", "", "OpenRouter"]);
+    expect(mappings.map((mapping) => mapping.option.label)).toEqual([
+      "OpenRouter",
+      "Option 2",
+      "OpenRouter (2)",
+    ]);
+  });
+
+  it("provides a no-color theme object for UI-gated extensions", () => {
+    expect(PLAIN_PI_EXTENSION_THEME.fg("accent", "ready")).toBe("ready");
+    expect(PLAIN_PI_EXTENSION_THEME.bold("done")).toBe("done");
+    expect(PLAIN_PI_EXTENSION_THEME.getThinkingBorderColor("medium")("thinking")).toBe("thinking");
+  });
+});
