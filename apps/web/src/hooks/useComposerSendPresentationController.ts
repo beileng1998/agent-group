@@ -56,6 +56,9 @@ export function useComposerSendPresentationController(input: {
           }),
         );
       }
+      // Arm before the optimistic row can render so both the first tail scroll and
+      // the post-layout settle pass belong to this send.
+      input.armTranscriptAutoFollow(input.threadId, true);
       input.appendOptimisticUserMessage({
         id: messageId,
         role: "user",
@@ -70,8 +73,6 @@ export function useComposerSendPresentationController(input: {
         streaming: false,
         source: "native",
       });
-      // Anchor before the optimistic row lands so the row-count effect follows it.
-      input.armTranscriptAutoFollow(input.threadId, true);
       input.setThreadError(input.threadId, null);
 
       if (request.expiredTerminalContextCount > 0) {

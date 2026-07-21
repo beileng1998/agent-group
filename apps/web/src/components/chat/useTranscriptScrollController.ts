@@ -19,14 +19,21 @@ import {
 } from "react";
 
 import { isScrollContainerNearBottom } from "../../chat-scroll";
+import { DISCLOSURE_TRANSITION_MS } from "../../lib/disclosureMotion";
 import type { TimelineEntry } from "../../session-logic";
 import {
   readThreadScrollOffset,
   rememberThreadScrollPosition,
 } from "../../threadScrollPositionStore";
+import { ACTIVE_TURN_LAYOUT_SETTLE_DELAY_MS } from "../ChatView.dispatch";
+import { TRANSCRIPT_DISCLOSURE_CLEANUP_BUFFER_MS } from "./MessagesTimeline.motion";
 
 const PROGRAMMATIC_SCROLL_GUARD_MS = 200;
 const SCROLL_STATE_DEBOUNCE_MS = 150;
+export const TRANSCRIPT_AUTO_FOLLOW_SETTLE_DELAY_MS =
+  ACTIVE_TURN_LAYOUT_SETTLE_DELAY_MS +
+  DISCLOSURE_TRANSITION_MS +
+  TRANSCRIPT_DISCLOSURE_CLEANUP_BUFFER_MS;
 
 interface UseTranscriptScrollControllerOptions {
   threadId: ThreadId;
@@ -184,13 +191,25 @@ export function useTranscriptScrollController(options: UseTranscriptScrollContro
       return;
     }
 
+    let settleTimeoutId: number | null = null;
     const frameId = window.requestAnimationFrame(() => {
       const shouldAnimate = animateNextAutoFollowScrollRef.current;
       animateNextAutoFollowScrollRef.current = false;
       scrollToEnd(shouldAnimate);
+      if (shouldFollowPendingTurn) {
+        // A just-settled turn can keep its expanded layout briefly, then close through
+        // the shared disclosure animation after the optimistic user row has landed.
+        // Re-stick once that known presentation window finishes instead of coupling
+        // virtualizer item measurement callbacks to bottom-follow state.
+        settleTimeoutId = window.setTimeout(() => {
+          if (autoFollowThreadIdRef.current !== activeThreadId) return;
+          scrollToEnd(false);
+        }, TRANSCRIPT_AUTO_FOLLOW_SETTLE_DELAY_MS);
+      }
     });
     return () => {
       window.cancelAnimationFrame(frameId);
+      if (settleTimeoutId !== null) window.clearTimeout(settleTimeoutId);
     };
   }, [activeThreadId, scrollToEnd, transcriptMessageCount, transcriptTailKey]);
 
