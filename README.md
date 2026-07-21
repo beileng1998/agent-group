@@ -20,10 +20,9 @@
   </a>
 </p>
 
-Agent Group brings coding-agent conversations, project files, terminals, a browser, diffs, Git
-workflows, and approvals into one desktop application. Every Session has its own durable
-conversation and explicit `context.md`, while every Agent works in the Group's shared project
-directory.
+Agent Group brings coding-agent conversations, project files, terminals, a browser, diffs, and
+approvals into one desktop application. Every Session has its own durable conversation and explicit
+`context.md`, while every Agent works in the Group's shared project directory.
 
 [Download the latest desktop release](https://github.com/beileng1998/agent-group/releases/latest)
 for macOS, Windows, or Linux.
@@ -44,8 +43,8 @@ continuity in local, inspectable files rather than a hidden global memory.
   from one interface.
 - Switch provider, model, reasoning level, or mode between Turns without moving the Session to a
   different workspace.
-- Discover provider models, skills, slash commands, plugins, and usage limits when the provider
-  exposes them.
+- Discover provider models, skills, slash commands, and usage information when the provider exposes
+  them.
 - Follow streaming text, plans, tool calls, runtime subagents, approval requests, and questions in
   one consistent transcript.
 - Queue follow-up work while a Turn is active; each queued Turn retains the Agent selection made
@@ -63,26 +62,27 @@ continuity in local, inspectable files rather than a hidden global memory.
 - Keep continuity understandable: there are no hidden summaries, opaque “one brain” memories, or
   per-Session copies of the project.
 
-### A complete coding workbench
+### A focused workspace for each Session
 
-- Browse project files and preview source, images, Markdown, and PDFs without leaving the task.
+- Open Session Context, Highlights, Side, Explorer, Terminal, Browser, and Diff as tabbed panels.
+- Browse project files and preview source, images, Markdown, and PDFs without leaving the Session.
 - Run multiple terminal tabs and split terminal layouts in the same workspace.
 - Give a Session its own browser state for local app testing and agent-driven browser work.
 - Review working-tree and Turn diffs, jump between changed files, and leave line-level comments for
   the next prompt.
-- Attach files, images, pasted text, directories, terminal output, and voice input to a request.
+- Attach files, images, pasted text, directories, and terminal output to a request; Codex can also
+  transcribe voice notes when it is signed in with ChatGPT.
 - Open files or the project in installed editors and receive desktop or browser notifications when
   work needs attention.
 
-### Workflows beyond chat
+### Keep parallel work visible
 
-- Use built-in branch, commit, push, pull, and pull-request actions with generated summaries where
-  supported.
-- Track work across Sessions in the Kanban view and see running, completed, blocked, approval, and
-  plan-ready states.
-- Browse pull requests across Group repositories and hand review work to a Session.
-- Schedule reusable Automations, collect generated outputs in Studio, and manage provider skills
-  and plugins from the app.
+- Search, pin, rename, reorder, nest, and collapse Groups and Sessions from the project tree.
+- See which Agent owns the active Turn and whether a Session is working, waiting for approval or
+  input, presenting a plan, completed, or in error.
+- Start a focused Side conversation from selected transcript content, then promote it into the
+  Session tree when it should become durable work.
+- Pin useful assistant messages to Highlights so decisions and results stay easy to revisit.
 
 ## Groups, Sessions, Turns, and Agents
 
@@ -181,7 +181,7 @@ and security invariants. For a manually hosted authenticated web server, see
 3. Create a Session, choose an available Agent and model, and send the first request.
 
 Agent Group detects provider tools from `PATH`. Settings also provides provider visibility,
-installation health, custom binary paths, model overrides, and safe CLI update checks.
+installation health, custom binary paths, and automatic CLI update checks.
 
 ### Run from source
 
