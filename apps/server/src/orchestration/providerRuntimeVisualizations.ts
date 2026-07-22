@@ -32,6 +32,7 @@ export function makeProviderRuntimeVisualizations(input: {
     ) {
       return Effect.void;
     }
+    const text = params.event.payload.detail;
 
     return Effect.gen(function* () {
       const project = yield* input.getProjectShell(params.thread);
@@ -51,7 +52,7 @@ export function makeProviderRuntimeVisualizations(input: {
             : {}),
           messageId: params.messageId,
           createdAt: params.event.createdAt,
-          text: params.event.payload.detail!,
+          text,
         }),
       );
     }).pipe(
