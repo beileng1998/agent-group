@@ -3,6 +3,7 @@ import { Effect, FileSystem, Path } from "effect";
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/unstable/http";
 
 import { ServerConfig } from "../config";
+import { prepareStaticAsset } from "./staticAssetResponse";
 
 export const staticAndDevEffectRouteLayer = HttpRouter.add(
   "GET",
@@ -58,13 +59,29 @@ export const staticAndDevEffectRouteLayer = HttpRouter.add(
       .pipe(Effect.catch(() => Effect.succeed(null)));
     if (!fileInfo || fileInfo.type !== "File") {
       const indexPath = path.resolve(staticRoot, "index.html");
+      const indexInfo = yield* fileSystem
+        .stat(indexPath)
+        .pipe(Effect.catch(() => Effect.succeed(null)));
       const indexData = yield* fileSystem
         .readFile(indexPath)
         .pipe(Effect.catch(() => Effect.succeed(null)));
       if (!indexData) return HttpServerResponse.text("Not Found", { status: 404 });
-      return HttpServerResponse.uint8Array(indexData, {
+      const contentType = "text/html; charset=utf-8";
+      const version = `${String(indexInfo?.size ?? indexData.byteLength)}:${indexInfo?.mtime?.getTime() ?? 0}`;
+      const prepared = yield* Effect.promise(() =>
+        prepareStaticAsset({
+          pathname: "/index.html",
+          filePath: indexPath,
+          version,
+          contentType,
+          acceptEncoding: request.headers["accept-encoding"],
+          data: indexData,
+        }),
+      );
+      return HttpServerResponse.uint8Array(prepared.body, {
         status: 200,
-        contentType: "text/html; charset=utf-8",
+        contentType,
+        headers: prepared.headers,
       });
     }
 
@@ -72,9 +89,21 @@ export const staticAndDevEffectRouteLayer = HttpRouter.add(
       .readFile(filePath)
       .pipe(Effect.catch(() => Effect.succeed(null)));
     if (!data) return HttpServerResponse.text("Internal Server Error", { status: 500 });
-    return HttpServerResponse.uint8Array(data, {
+    const contentType = Mime.getType(filePath) ?? "application/octet-stream";
+    const prepared = yield* Effect.promise(() =>
+      prepareStaticAsset({
+        pathname: url.pathname,
+        filePath,
+        version: `${String(fileInfo.size)}:${fileInfo.mtime?.getTime() ?? 0}`,
+        contentType,
+        acceptEncoding: request.headers["accept-encoding"],
+        data,
+      }),
+    );
+    return HttpServerResponse.uint8Array(prepared.body, {
       status: 200,
-      contentType: Mime.getType(filePath) ?? "application/octet-stream",
+      contentType,
+      headers: prepared.headers,
     });
   }),
 );

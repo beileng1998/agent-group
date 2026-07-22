@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -152,8 +153,17 @@ func main() {
 		ReadHeaderTimeout: 15 * time.Second,
 		IdleTimeout:       90 * time.Second,
 	}
+	if transport == "https" {
+		httpServer.TLSConfig = newTailnetTLSConfig(localClient.GetCertificate)
+	}
 	serveDone := make(chan error, 1)
-	go func() { serveDone <- httpServer.Serve(listener) }()
+	go func() {
+		if transport == "https" {
+			serveDone <- httpServer.ServeTLS(listener, "", "")
+			return
+		}
+		serveDone <- httpServer.Serve(listener)
+	}()
 
 	select {
 	case <-ctx.Done():
@@ -206,7 +216,7 @@ func waitUntilRunning(
 func listen(srv *tsnet.Server, status *ipnstate.Status) (net.Listener, string, string, string) {
 	domains := srv.CertDomains()
 	if len(domains) > 0 {
-		listener, err := srv.ListenTLS("tcp", ":443")
+		listener, err := srv.Listen("tcp", ":443")
 		if err == nil {
 			return listener, "https://" + strings.TrimSuffix(domains[0], "."), "https", ""
 		}
@@ -225,6 +235,16 @@ func listen(srv *tsnet.Server, status *ipnstate.Status) (net.Listener, string, s
 		return nil, "", "", "Tailnet is connected but no reachable address is available."
 	}
 	return listener, "http://" + host, "http", ""
+}
+
+func newTailnetTLSConfig(
+	getCertificate func(*tls.ClientHelloInfo) (*tls.Certificate, error),
+) *tls.Config {
+	return &tls.Config{
+		MinVersion:     tls.VersionTLS12,
+		NextProtos:     []string{"h2", "http/1.1"},
+		GetCertificate: getCertificate,
+	}
 }
 
 func newReverseProxy(target *url.URL, publicURL string, secure bool) http.Handler {

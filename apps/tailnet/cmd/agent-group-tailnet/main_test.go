@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -11,6 +12,21 @@ import (
 
 	"github.com/coder/websocket"
 )
+
+func TestTailnetTLSConfigEnablesHTTP2(t *testing.T) {
+	getCertificate := func(*tls.ClientHelloInfo) (*tls.Certificate, error) { return nil, nil }
+	config := newTailnetTLSConfig(getCertificate)
+
+	if config.MinVersion != tls.VersionTLS12 {
+		t.Fatalf("expected TLS 1.2 minimum, got %d", config.MinVersion)
+	}
+	if len(config.NextProtos) < 2 || config.NextProtos[0] != "h2" || config.NextProtos[1] != "http/1.1" {
+		t.Fatalf("expected HTTP/2 and HTTP/1.1 ALPN, got %v", config.NextProtos)
+	}
+	if config.GetCertificate == nil {
+		t.Fatal("expected dynamic Tailnet certificate callback")
+	}
+}
 
 func TestLoginStateKeepsAuthURLAcrossEmptyStatus(t *testing.T) {
 	state := &loginState{}

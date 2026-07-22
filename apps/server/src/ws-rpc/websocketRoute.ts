@@ -10,12 +10,21 @@ import { ServerConfig } from "../config";
 import { shouldRejectUntrustedRequestOrigin } from "../trustedOrigins";
 import { makeWsRpcLayer } from "./layer";
 
-const makeRpcWebSocketHttpEffect = RpcServer.toHttpEffectWebsocket(WsRpcGroup, {
-  spanPrefix: "ws.rpc",
-  spanAttributes: {
-    "rpc.transport": "websocket",
-    "rpc.system": "effect-rpc",
-  },
+const makeRpcWebSocketHttpEffect = Effect.gen(function* () {
+  const { httpEffect, protocol } = yield* RpcServer.makeProtocolWithHttpEffectWebsocket;
+  yield* RpcServer.make(WsRpcGroup, {
+    spanPrefix: "ws.rpc",
+    spanAttributes: {
+      "rpc.transport": "websocket",
+      "rpc.system": "effect-rpc",
+    },
+  }).pipe(
+    // Effect RPC otherwise waits for a client ACK after every streamed chunk.
+    // WebSocket flow control is enough here and does not add a DERP-sized RTT.
+    Effect.provideService(RpcServer.Protocol, { ...protocol, supportsAck: false }),
+    Effect.forkScoped,
+  );
+  return httpEffect;
 }).pipe(Effect.provide(makeWsRpcLayer().pipe(Layer.provideMerge(RpcSerialization.layerJson))));
 
 export const websocketRpcRouteLayer = Layer.effectDiscard(

@@ -16,6 +16,7 @@ import {
 import { resolveListeningPort } from "./startupAccess";
 import { ServerConfig } from "./config";
 import { patchBunWebSocketCloseEventCompatibility } from "./bunWebSocketCompatibility";
+import { patchWebSocketCompression } from "./webSocketCompression";
 import { makeEffectHttpRouteLayer } from "./http";
 import { Keybindings } from "./keybindings";
 import { OrchestrationEngineService } from "./orchestration/Services/OrchestrationEngine";
@@ -98,6 +99,7 @@ export const createEffectServer = Effect.fn(function* () {
   yield* readiness.markKeybindingsReady;
 
   let nodeServer: http.Server | null = null;
+  patchWebSocketCompression();
   patchBunWebSocketCloseEventCompatibility();
   const listenOptions = config.host
     ? { host: config.host, port: config.port }

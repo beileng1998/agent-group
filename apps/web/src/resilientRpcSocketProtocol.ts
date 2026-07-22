@@ -132,7 +132,9 @@ const makeProtocol = RpcClient.Protocol.make(
         const encoded = parser.encode(request);
         return encoded === undefined ? Effect.void : Effect.orDie(write(encoded));
       },
-      supportsAck: true,
+      // TCP/WebSocket already provides ordered, reliable delivery. Per-chunk
+      // application ACKs turn every streamed delta into a full network RTT.
+      supportsAck: false,
       supportsTransferables: false,
     };
   }),

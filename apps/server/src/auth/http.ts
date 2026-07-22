@@ -203,19 +203,31 @@ export const serveAuthHttpRoute = Effect.fn(function* (input: AuthHttpRouteOptio
             sessions: input.sessionCredentials,
           })
         : null;
+      const websocketToken =
+        session.authenticated && input.url.searchParams.get("includeWebSocketToken") === "1"
+          ? yield* input.serverAuth
+              .authenticateHttpRequest(authRequest)
+              .pipe(Effect.flatMap(input.serverAuth.issueWebSocketToken))
+          : null;
       respondJson(
         input.respond,
         200,
-        renewal ? { ...session, expiresAt: DateTime.toUtc(renewal.expiresAt) } : session,
-        renewal
-          ? {
-              "Set-Cookie": encodeSessionCookie({
-                name: input.sessionCredentials.cookieName,
-                value: renewal.token,
-                expiresAt: renewal.expiresAt,
-              }),
-            }
-          : {},
+        {
+          ...(renewal ? { ...session, expiresAt: DateTime.toUtc(renewal.expiresAt) } : session),
+          ...(websocketToken ? { websocketToken } : {}),
+        },
+        {
+          "Cache-Control": "no-store",
+          ...(renewal
+            ? {
+                "Set-Cookie": encodeSessionCookie({
+                  name: input.sessionCredentials.cookieName,
+                  value: renewal.token,
+                  expiresAt: renewal.expiresAt,
+                }),
+              }
+            : {}),
+        },
       );
       return;
     }

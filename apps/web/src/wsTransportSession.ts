@@ -8,13 +8,16 @@ import { Effect, Exit, Layer, ManagedRuntime, Scope } from "effect";
 import { RpcClient, RpcSerialization } from "effect/unstable/rpc";
 import * as Socket from "effect/unstable/socket/Socket";
 
-import { getBrowserWebSocketToken, refreshBrowserWebSocketToken } from "./browserWebSocketAuth";
+import {
+  getBrowserWebSocketToken,
+  refreshBrowserWebSocketToken,
+  shouldRefreshBrowserWebSocketToken,
+} from "./browserWebSocketAuth";
 import { layerResilientRpcSocketProtocol } from "./resilientRpcSocketProtocol";
 import type { WsTransportState } from "./wsTransportEvents";
 
 const OPEN_TIMEOUT_MS = 30_000;
 const TOKEN_REFRESH_TIMEOUT_MS = 15_000;
-const BACKGROUND_RECONNECT_AFTER_MS = 10_000;
 const MAX_RECONNECT_DELAY_MS = 15_000;
 
 const makeRpcClient = RpcClient.make(WsRpcGroup);
@@ -38,10 +41,6 @@ export function reconnectDelayMs(failures: number, random = Math.random): number
   return Math.min(MAX_RECONNECT_DELAY_MS, Math.round(base * (0.75 + random() * 0.5)));
 }
 
-export function shouldReconnectAfterBackground(hiddenAt: number | null, now: number): boolean {
-  return hiddenAt !== null && now - hiddenAt >= BACKGROUND_RECONNECT_AFTER_MS;
-}
-
 function resolveRpcUrl(rawUrl: string): string {
   const url = new URL(rawUrl);
   url.pathname = "/ws";
@@ -62,15 +61,6 @@ function makeSocketUrl(explicitUrl: string | null): string {
   const browserToken = window.desktopBridge ? null : getBrowserWebSocketToken();
   if (browserToken) resolvedUrl.searchParams.set("wsToken", browserToken);
   return resolvedUrl.toString();
-}
-
-function isStandaloneWebApp(): boolean {
-  if (window.desktopBridge) return false;
-  const iosNavigator = navigator as Navigator & { readonly standalone?: boolean };
-  return (
-    iosNavigator.standalone === true ||
-    window.matchMedia?.("(display-mode: standalone)").matches === true
-  );
 }
 
 function makeProtocolLayer(
@@ -116,7 +106,6 @@ export class WsTransportSession {
   private sessionVersion = 0;
   private disposed = false;
   private isOpen = false;
-  private hiddenAt: number | null = null;
   private reconnectFailures = 0;
   private reconnectPromise: Promise<WsSessionHandle> | null = null;
   private wakeReconnectDelay: (() => void) | null = null;
@@ -221,7 +210,9 @@ export class WsTransportSession {
 
   private async openReconnectLoop(): Promise<WsSessionHandle> {
     while (!this.disposed) {
-      await this.waitForReconnectDelay(reconnectDelayMs(this.reconnectFailures));
+      if (this.reconnectFailures > 0) {
+        await this.waitForReconnectDelay(reconnectDelayMs(this.reconnectFailures - 1));
+      }
       if (this.disposed) break;
       await this.refreshTokenBeforeReconnect();
 
@@ -247,6 +238,7 @@ export class WsTransportSession {
 
   private async refreshTokenBeforeReconnect(): Promise<void> {
     if (this.explicitUrl || window.desktopBridge || !getBrowserWebSocketToken()) return;
+    if (this.reconnectFailures === 0 && !shouldRefreshBrowserWebSocketToken()) return;
     const controller = new AbortController();
     const timeout = globalThis.setTimeout(() => controller.abort(), TOKEN_REFRESH_TIMEOUT_MS);
     try {
@@ -286,18 +278,11 @@ export class WsTransportSession {
   private readonly handleOnline = () => {
     if (this.disposed) return;
     if (this.reconnectPromise) this.wakeReconnectDelay?.();
-    else void this.reconnect().catch(() => undefined);
+    else if (!this.isOpen) void this.reconnect().catch(() => undefined);
   };
 
   private readonly handleVisibilityChange = () => {
-    if (document.visibilityState === "hidden") {
-      this.hiddenAt = Date.now();
-      return;
-    }
-    const shouldReconnect =
-      isStandaloneWebApp() && shouldReconnectAfterBackground(this.hiddenAt, Date.now());
-    this.hiddenAt = null;
-    if (shouldReconnect || !this.isOpen) this.handleOnline();
+    if (document.visibilityState === "visible" && !this.isOpen) this.handleOnline();
   };
 
   private readonly handlePageShow = (event: PageTransitionEvent) => {

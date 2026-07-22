@@ -6,9 +6,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WS_CHANNELS } from "@agent-group/contracts";
 
-import { setBrowserWebSocketToken } from "./browserWebSocketAuth";
+import {
+  setBrowserWebSocketToken,
+  setBrowserWebSocketTokenResult,
+} from "./browserWebSocketAuth";
 import { shouldKeepServerLifecycleStream, WsTransport } from "./wsTransport";
-import { reconnectDelayMs, shouldReconnectAfterBackground } from "./wsTransportSession";
+import { reconnectDelayMs } from "./wsTransportSession";
 
 type WsEventType = "open" | "message" | "close" | "error";
 type WsEvent = { readonly code?: number; readonly data?: unknown; readonly reason?: string };
@@ -180,7 +183,10 @@ describe("WsTransport", () => {
     setBrowserWebSocketToken("initial-token");
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ token: "refreshed-token" }),
+      json: async () => ({
+        token: "refreshed-token",
+        expiresAt: "2030-01-01T00:00:00.000Z",
+      }),
     });
     vi.stubGlobal("fetch", fetchMock);
     const transport = new WsTransport();
@@ -201,12 +207,27 @@ describe("WsTransport", () => {
     transport.dispose();
   });
 
-  it("caps jittered reconnect delays and only refreshes after a meaningful background pause", () => {
+  it("reconnects immediately with an unexpired token", async () => {
+    setBrowserWebSocketTokenResult({
+      token: "still-valid-token",
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+    });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const transport = new WsTransport();
+
+    sockets[0]?.open();
+    sockets[0]?.drop();
+
+    await vi.waitFor(() => expect(sockets).toHaveLength(2));
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(sockets[1]?.url).toContain("wsToken=still-valid-token");
+    transport.dispose();
+  });
+
+  it("caps jittered reconnect delays", () => {
     expect(reconnectDelayMs(0, () => 0)).toBe(375);
     expect(reconnectDelayMs(0, () => 1)).toBe(625);
     expect(reconnectDelayMs(20, () => 1)).toBe(15_000);
-    expect(shouldReconnectAfterBackground(null, 20_000)).toBe(false);
-    expect(shouldReconnectAfterBackground(5_000, 14_999)).toBe(false);
-    expect(shouldReconnectAfterBackground(5_000, 15_000)).toBe(true);
   });
 });
