@@ -9,6 +9,7 @@ import type { ClaudeProposedPlanCapture } from "./claudePermissionBridge.ts";
 import {
   extractExitPlanModePlan,
   extractTextContent,
+  isClaudeTaskNotificationResult,
   nativeProviderRefs,
   normalizeClaudeUserVisibleErrorMessage,
   turnStatusFromResult,
@@ -141,6 +142,11 @@ export function makeClaudeAssistantMessageProjection(input: {
   ): Effect.Effect<void> =>
     Effect.gen(function* () {
       if (message.type !== "result") {
+        return;
+      }
+      // Resumed SDK sessions can drain background task notifications while a user Turn is active.
+      // Their result settles the notification, not the overlapping user Turn.
+      if (isClaudeTaskNotificationResult(message)) {
         return;
       }
       const status =

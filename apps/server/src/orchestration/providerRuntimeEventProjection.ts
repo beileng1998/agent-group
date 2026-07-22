@@ -23,6 +23,7 @@ import type { makeProviderRuntimeDiff } from "./providerRuntimeDiff.ts";
 import type { makeProviderRuntimeGeneratedImages } from "./providerRuntimeGeneratedImages.ts";
 import type { makeProviderRuntimePlans } from "./providerRuntimePlans.ts";
 import type { makeProviderRuntimeSessionCleanup } from "./providerRuntimeSessionCleanup.ts";
+import type { makeProviderRuntimeVisualizations } from "./providerRuntimeVisualizations.ts";
 import {
   inferRuntimeModeFromUserInputAnswers,
   providerCommandId,
@@ -40,6 +41,7 @@ type Images = ReturnType<typeof makeProviderRuntimeGeneratedImages>;
 type Plans = ReturnType<typeof makeProviderRuntimePlans>;
 type Diff = ReturnType<typeof makeProviderRuntimeDiff>;
 type Cleanup = ReturnType<typeof makeProviderRuntimeSessionCleanup>;
+type Visualizations = ReturnType<typeof makeProviderRuntimeVisualizations>;
 
 export function makeProviderRuntimeEventProjection(input: {
   readonly orchestrationEngine: OrchestrationEngineShape;
@@ -50,6 +52,7 @@ export function makeProviderRuntimeEventProjection(input: {
   readonly plans: Plans;
   readonly diff: Diff;
   readonly cleanup: Cleanup;
+  readonly visualizations: Visualizations;
 }) {
   const projectEvent = (params: {
     readonly event: ProviderRuntimeEvent;
@@ -151,6 +154,7 @@ export function makeProviderRuntimeEventProjection(input: {
           ...(turnId ? { turnId } : {}),
         });
         const existing = thread.messages.find((entry) => entry.id === messageId);
+        yield* input.visualizations.captureAssistantMessage({ event, thread, messageId });
         if (turnId)
           yield* input.assistants.rememberAssistantMessageId(thread.id, turnId, messageId);
         yield* input.assistants.finalizeAssistantMessage({

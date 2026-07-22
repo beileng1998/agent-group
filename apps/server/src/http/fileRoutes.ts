@@ -1,5 +1,6 @@
 import { ThreadId } from "@agent-group/contracts";
 import { threadExportBlockedReason } from "@agent-group/shared/threadExport";
+import { CODEX_VISUALIZATION_ROUTE_PATH } from "@agent-group/shared/codexVisualizations";
 import { Effect, FileSystem, Option, Stream } from "effect";
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/unstable/http";
 
@@ -12,6 +13,7 @@ import { resolveAttachmentPathById } from "../attachmentStore.ts";
 import { authErrorResponse } from "../auth/http";
 import { ServerConfig } from "../config";
 import { LOCAL_IMAGE_ROUTE_PATH, resolveAllowedLocalPreviewFile } from "../localImageFiles.ts";
+import { resolveCodexVisualizationArtifact } from "../codexVisualizations.ts";
 import { threadArchiveChunks, threadArchiveFileName } from "../orchestration/exportThreadArchive";
 import { ProjectionSnapshotQuery } from "../orchestration/Services/ProjectionSnapshotQuery";
 import { isLegacyTokenAuthorized, requireAuthenticatedRequest } from "./authRoutes";
@@ -105,6 +107,53 @@ export const localImageEffectRouteLayer = HttpRouter.add(
         ...localPreviewCorsHeaders({ config, request, url }),
         "X-Content-Type-Options": "nosniff",
         ...(isDownload ? { "Content-Disposition": `attachment; filename="${safeFileName}"` } : {}),
+      },
+    });
+  }).pipe(Effect.catchTag("AuthError", (error) => Effect.succeed(authErrorResponse(error)))),
+);
+
+export const codexVisualizationEffectRouteLayer = HttpRouter.add(
+  "GET",
+  CODEX_VISUALIZATION_ROUTE_PATH,
+  Effect.gen(function* () {
+    const request = yield* HttpServerRequest.HttpServerRequest;
+    const url = HttpServerRequest.toURL(request);
+    if (!url) return HttpServerResponse.text("Bad Request", { status: 400 });
+
+    const config = yield* ServerConfig;
+    if (!isLegacyTokenAuthorized({ config, url })) {
+      yield* requireAuthenticatedRequest;
+    }
+    const threadId = url.searchParams.get("threadId")?.trim();
+    const messageId = url.searchParams.get("messageId")?.trim();
+    const fileName = url.searchParams.get("file")?.trim();
+    if (!threadId || !messageId || !fileName) {
+      return HttpServerResponse.text("Missing visualization parameters", { status: 400 });
+    }
+
+    const artifact = yield* Effect.promise(() =>
+      resolveCodexVisualizationArtifact({
+        stateDir: config.stateDir,
+        threadId,
+        messageId,
+        fileName,
+      }),
+    );
+    if (!artifact) return HttpServerResponse.text("Not Found", { status: 404 });
+    const fileSystem = yield* FileSystem.FileSystem;
+    const fragment = yield* fileSystem
+      .readFileString(artifact.path)
+      .pipe(Effect.catch(() => Effect.succeed(null)));
+    if (fragment === null) return HttpServerResponse.text("Not Found", { status: 404 });
+
+    return HttpServerResponse.text(fragment, {
+      status: 200,
+      contentType: "text/plain; charset=utf-8",
+      headers: {
+        "Cache-Control": "private, max-age=31536000, immutable",
+        "Content-Security-Policy": "default-src 'none'",
+        "X-Content-Type-Options": "nosniff",
+        ...localPreviewCorsHeaders({ config, request, url }),
       },
     });
   }).pipe(Effect.catchTag("AuthError", (error) => Effect.succeed(authErrorResponse(error)))),

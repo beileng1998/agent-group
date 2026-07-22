@@ -7,6 +7,7 @@ import { Cause, Effect, Layer, Stream } from "effect";
 import { makeDrainableWorker } from "@agent-group/shared/DrainableWorker";
 
 import { ProviderService } from "../../provider/Services/ProviderService.ts";
+import { ServerConfig } from "../../config.ts";
 import { ProjectionTurnRepository } from "../../persistence/Services/ProjectionTurns.ts";
 import { ProjectionTurnRepositoryLive } from "../../persistence/Layers/ProjectionTurns.ts";
 import { OrchestrationEngineService } from "../Services/OrchestrationEngine.ts";
@@ -28,6 +29,7 @@ import { makeProviderRuntimeQueries } from "../providerRuntimeQueries.ts";
 import { makeProviderRuntimeSessionCleanup } from "../providerRuntimeSessionCleanup.ts";
 import { makeProviderRuntimeSubagentRouting } from "../providerRuntimeSubagentRouting.ts";
 import { makeProviderRuntimeUpdateDispatch } from "../providerRuntimeUpdateDispatch.ts";
+import { makeProviderRuntimeVisualizations } from "../providerRuntimeVisualizations.ts";
 import type { RuntimeIngestionInput } from "../providerRuntimeIngestionValues.ts";
 
 export { appendCappedBufferedText } from "../providerRuntimeBufferValues.ts";
@@ -38,6 +40,7 @@ const make = Effect.gen(function* () {
   const projectionSnapshotQuery = yield* ProjectionSnapshotQuery;
   const providerService = yield* ProviderService;
   const projectionTurnRepository = yield* ProjectionTurnRepository;
+  const serverConfig = yield* ServerConfig;
   const state = yield* makeProviderRuntimeBufferState;
 
   const updates = makeProviderRuntimeUpdateDispatch({ orchestrationEngine, state });
@@ -47,6 +50,10 @@ const make = Effect.gen(function* () {
     dispatchActivityUpdate: updates.dispatchActivityUpdate,
   });
   const assistants = makeProviderRuntimeAssistantMessages({ orchestrationEngine, state });
+  const visualizations = makeProviderRuntimeVisualizations({
+    stateDir: serverConfig.stateDir,
+    getProjectShell: queries.getProjectShell,
+  });
   const plans = makeProviderRuntimePlans({
     orchestrationEngine,
     projectionTurnRepository,
@@ -84,6 +91,7 @@ const make = Effect.gen(function* () {
     plans,
     diff,
     cleanup,
+    visualizations,
   });
   const processor = makeProviderRuntimeEventProcessor({
     orchestrationEngine,

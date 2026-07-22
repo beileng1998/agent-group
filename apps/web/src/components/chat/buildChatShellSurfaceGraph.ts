@@ -261,6 +261,7 @@ export function buildChatShellSurfaceGraph(input: ChatShellSurfaceGraphInput) {
       onScrollToBottom: timeline.scroll.onScrollToBottom,
       onTogglePinMessage: timeline.references.togglePinMessage,
       onUndoTurnFiles: runtimeActivity.checkpoint.undoTurnFiles,
+      onVisualizationFollowUp: turn.send.visualizationFollowUp,
     },
     composer: {
       content: composerSurface.composerSection,

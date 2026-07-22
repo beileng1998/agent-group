@@ -1,6 +1,6 @@
 {
   "name": "@agent-group/desktop",
-  "version": "0.6.0",
+  "version": "0.6.2",
   "private": true,
   "license": "MIT",
   "main": "dist-electron/main.js",

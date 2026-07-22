@@ -7,6 +7,7 @@ import {
   parseThreadSegmentFromAttachmentId,
   toSafeThreadAttachmentSegment,
 } from "../../../attachmentStore.ts";
+import { codexVisualizationThreadArtifactDirectory } from "../../../codexVisualizations.ts";
 import { ServerConfig } from "../../../config.ts";
 import type { ProjectionThreadMessage } from "../../../persistence/Services/ProjectionThreadMessages.ts";
 import type { AttachmentSideEffects } from "./projectorDefinitions.ts";
@@ -66,6 +67,10 @@ export const runAttachmentSideEffects = Effect.fn(function* (sideEffects: Attach
       attachmentRootEntries,
       (entry) => removeDeletedThreadAttachmentEntry(threadSegment, entry),
       { concurrency: 1 },
+    );
+    yield* fileSystem.remove(
+      codexVisualizationThreadArtifactDirectory(serverConfig.stateDir, threadId),
+      { recursive: true, force: true },
     );
   });
 

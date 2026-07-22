@@ -3,12 +3,7 @@
 // Layer: Chat transcript shell
 // Depends on: MessagesTimeline and ChatView's list-owned scroll contract.
 
-import {
-  type MessageId,
-  type ThreadId,
-  type ThreadMarker,
-  type TurnId,
-} from "@agent-group/contracts";
+import { type MessageId, ThreadId, type ThreadMarker, type TurnId } from "@agent-group/contracts";
 import { type LegendListRef } from "@legendapp/list/react";
 import {
   memo,
@@ -68,6 +63,7 @@ interface ChatTranscriptPaneProps {
   enteringUserMessageIds?: ComponentProps<typeof MessagesTimeline>["enteringUserMessageIds"];
   markdownCwd: string | undefined;
   onExpandTimelineImage: (preview: ExpandedImagePreview) => void;
+  onVisualizationFollowUp?: ((prompt: string) => boolean | Promise<boolean>) | undefined;
   onMessagesClickCapture: MouseEventHandler<HTMLDivElement>;
   onMessagesMouseUp: MouseEventHandler<HTMLDivElement>;
   onMessagesPointerCancel: PointerEventHandler<HTMLDivElement>;
@@ -127,6 +123,7 @@ export const ChatTranscriptPane = memo(function ChatTranscriptPane({
   enteringUserMessageIds,
   markdownCwd,
   onExpandTimelineImage,
+  onVisualizationFollowUp,
   onMessagesClickCapture,
   onMessagesMouseUp,
   onMessagesPointerCancel,
@@ -214,6 +211,7 @@ export const ChatTranscriptPane = memo(function ChatTranscriptPane({
         ) : (
           <MessagesTimeline
             key={activeThreadId}
+            threadId={ThreadId.makeUnsafe(activeThreadId)}
             hasMessages={hasMessages}
             isWorking={isWorking}
             worktreeSetup={worktreeSetup}
@@ -239,6 +237,7 @@ export const ChatTranscriptPane = memo(function ChatTranscriptPane({
             {...(onEditUserMessage ? { onEditUserMessage } : {})}
             isRevertingCheckpoint={isRevertingCheckpoint}
             onImageExpand={onExpandTimelineImage}
+            {...(onVisualizationFollowUp ? { onVisualizationFollowUp } : {})}
             followLiveOutput={followLiveOutput}
             {...(initialScrollOffsetPx !== undefined ? { initialScrollOffsetPx } : {})}
             onIsAtEndChange={onIsAtEndChange}

@@ -41,6 +41,11 @@ import {
   nodeToPlainText,
 } from "./MarkdownCodeBlock";
 import { restoreLiteralDollarPlaceholders } from "./markdownDollarProtection";
+import {
+  CODEX_VISUALIZATION_FILE_ATTRIBUTE,
+  CODEX_VISUALIZATION_TAG_NAME,
+} from "./codexVisualizationRemark";
+import { CodexInlineVisualization } from "../chat/CodexInlineVisualization";
 
 const EXTERNAL_HTTP_HREF_PATTERN = /^https?:\/\//i;
 const MARKDOWN_LINK_POSITION_SUFFIX_PATTERN = /:\d+(?::\d+)?$/;
@@ -139,6 +144,9 @@ export function useChatMarkdownComponents(input: {
   terminalContexts: ReadonlyArray<ParsedTerminalContextEntry> | undefined;
   onImageExpand: ((preview: ExpandedImagePreview) => void) | undefined;
   onTaskToggle: ChatMarkdownTaskToggle | undefined;
+  visualizationThreadId: string | undefined;
+  visualizationMessageId: string | undefined;
+  onVisualizationFollowUp: ((prompt: string) => boolean | Promise<boolean>) | undefined;
 }): Components {
   const {
     cwd,
@@ -150,6 +158,9 @@ export function useChatMarkdownComponents(input: {
     onTaskToggle,
     resolvedTheme,
     terminalContexts,
+    visualizationThreadId,
+    visualizationMessageId,
+    onVisualizationFollowUp,
   } = input;
 
   return useMemo<Components>(
@@ -295,6 +306,21 @@ export function useChatMarkdownComponents(input: {
             context.body.length > 0 ? `${context.header}\n${context.body}` : context.header;
           return <TerminalContextInlineChip label={context.header} tooltipText={tooltipText} />;
         },
+        [CODEX_VISUALIZATION_TAG_NAME]: (props: {
+          [CODEX_VISUALIZATION_FILE_ATTRIBUTE]?: string | undefined;
+        }) => {
+          const fileName = props[CODEX_VISUALIZATION_FILE_ATTRIBUTE];
+          if (!fileName || !visualizationThreadId || !visualizationMessageId) return null;
+          return (
+            <CodexInlineVisualization
+              fileName={fileName}
+              threadId={visualizationThreadId}
+              messageId={visualizationMessageId}
+              theme={resolvedTheme}
+              onFollowUp={onVisualizationFollowUp}
+            />
+          );
+        },
       } as unknown as Components),
     }),
     [
@@ -307,6 +333,9 @@ export function useChatMarkdownComponents(input: {
       onTaskToggle,
       resolvedTheme,
       terminalContexts,
+      visualizationThreadId,
+      visualizationMessageId,
+      onVisualizationFollowUp,
     ],
   );
 }

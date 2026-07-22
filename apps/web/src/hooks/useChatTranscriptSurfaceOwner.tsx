@@ -67,6 +67,7 @@ type TranscriptInteractionInput = Pick<
   | "onScrollToBottom"
   | "onTogglePinMessage"
   | "onUndoTurnFiles"
+  | "onVisualizationFollowUp"
 > & {
   readonly isPendingSetupBubbleId: NonNullable<TranscriptModel["canPinMessage"]>;
 };
@@ -205,6 +206,9 @@ export function buildChatTranscriptSurface(
         : {}),
       isRevertingCheckpoint: input.interactions.isRevertingCheckpoint,
       onExpandTimelineImage: input.interactions.onExpandTimelineImage,
+      ...(input.interactions.onVisualizationFollowUp !== undefined
+        ? { onVisualizationFollowUp: input.interactions.onVisualizationFollowUp }
+        : {}),
       followLiveOutput: input.timeline.hasStreamingAssistantText,
       ...(input.timeline.initialScrollOffsetPx !== null
         ? { initialScrollOffsetPx: input.timeline.initialScrollOffsetPx }

@@ -10,13 +10,18 @@ import {
 } from "./http/faviconRoutes";
 import {
   attachmentsEffectRouteLayer,
+  codexVisualizationEffectRouteLayer,
   localImageEffectRouteLayer,
   threadExportEffectRouteLayer,
 } from "./http/fileRoutes";
 import { staticAndDevEffectRouteLayer } from "./http/staticRoutes";
 
 export { isLegacyTokenAuthorized } from "./http/authRoutes";
-export { attachmentsEffectRouteLayer, localImageEffectRouteLayer } from "./http/fileRoutes";
+export {
+  attachmentsEffectRouteLayer,
+  codexVisualizationEffectRouteLayer,
+  localImageEffectRouteLayer,
+} from "./http/fileRoutes";
 export { createHttpRequestHandler, type HttpRequestHandlerOptions } from "./http/legacyHandler";
 
 export function makeEffectHttpRouteLayer(readiness: ServerReadiness) {
@@ -46,6 +51,7 @@ export function makeEffectHttpRouteLayer(readiness: ServerReadiness) {
     siteFaviconEffectRouteLayer,
     editorIconEffectRouteLayer,
     localImageEffectRouteLayer,
+    codexVisualizationEffectRouteLayer,
     attachmentsEffectRouteLayer,
     staticAndDevEffectRouteLayer,
   );

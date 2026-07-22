@@ -1,6 +1,6 @@
 {
   "name": "@agent-group/server",
-  "version": "0.6.0",
+  "version": "0.6.2",
   "private": true,
   "description": "Local-first workspace for running multiple coding agents in one project.",
   "license": "MIT",

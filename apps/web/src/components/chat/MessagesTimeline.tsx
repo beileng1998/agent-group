@@ -56,6 +56,7 @@ export { findToolDetailsEntryById } from "./MessagesTimeline.controllers";
 export type { MessagesTimelineController };
 
 interface MessagesTimelineProps {
+  threadId?: ThreadId;
   hasMessages: boolean;
   isWorking: boolean;
   activeTurnInProgress: boolean;
@@ -97,6 +98,7 @@ interface MessagesTimelineProps {
   activeTurnId?: TurnId | null;
   isRevertingCheckpoint: boolean;
   onImageExpand: (preview: ExpandedImagePreview) => void;
+  onVisualizationFollowUp?: ((prompt: string) => boolean | Promise<boolean>) | undefined;
   onIsAtEndChange?: (isAtEnd: boolean) => void;
   /** Emits current + visible sent-message anchors as the viewport scrolls (drives the trail). */
   onTrailHighlightsChange?: (snapshot: ActiveTrailSnapshot) => void;
@@ -125,6 +127,7 @@ interface MessagesTimelineProps {
 }
 
 export const MessagesTimeline = memo(function MessagesTimeline({
+  threadId,
   hasMessages,
   isWorking,
   activeTurnInProgress,
@@ -156,6 +159,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
   activeTurnId,
   isRevertingCheckpoint,
   onImageExpand,
+  onVisualizationFollowUp,
   onIsAtEndChange,
   onTrailHighlightsChange,
   onMessagesClickCapture,
@@ -310,6 +314,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
   const rowRenderContext: MessagesTimelineRowContext = {
     appTypographyScale,
     assistant: {
+      threadId,
       activeTurnInProgress,
       appTypographyScale,
       canPinMessage,
@@ -323,6 +328,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
       markdownCwd,
       normalizedChatFontSizePx,
       onImageExpand,
+      onVisualizationFollowUp,
       onOpenAgentActivity,
       onOpenAutomation,
       onOpenThread,

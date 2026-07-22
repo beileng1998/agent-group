@@ -19,7 +19,12 @@ import {
   ServerConfig,
   type ServerConfigShape,
 } from "./config";
-import { attachmentsEffectRouteLayer, localImageEffectRouteLayer } from "./http";
+import {
+  attachmentsEffectRouteLayer,
+  codexVisualizationEffectRouteLayer,
+  localImageEffectRouteLayer,
+} from "./http";
+import { captureCodexInlineVisualizations } from "./codexVisualizations";
 import { createLocalPreviewGrant } from "./localImageFiles";
 
 const tempDirs: string[] = [];
@@ -47,6 +52,7 @@ function makeServerConfig(overrides: Partial<ServerConfigShape> = {}): ServerCon
     chatWorkspaceRoot: resolveDefaultChatWorkspaceRoot({ homeDir: os.homedir() }),
     studioWorkspaceRoot: resolveDefaultStudioWorkspaceRoot({ homeDir: os.homedir() }),
     baseDir,
+    stateDir: path.join(baseDir, "userdata"),
     keybindingsConfigPath: path.join(baseDir, "keybindings.json"),
     serverRuntimeStatePath: path.join(baseDir, "runtime.json"),
     serverSettingsPath: path.join(baseDir, "settings.json"),
@@ -115,7 +121,10 @@ function makeFakeServerAuth(): ServerAuthShape {
 
 async function withEffectServer(
   config: ServerConfigShape,
-  routeLayer: typeof localImageEffectRouteLayer | typeof attachmentsEffectRouteLayer,
+  routeLayer:
+    | typeof localImageEffectRouteLayer
+    | typeof attachmentsEffectRouteLayer
+    | typeof codexVisualizationEffectRouteLayer,
   run: (origin: string) => Promise<void>,
 ): Promise<void> {
   const scope = await Effect.runPromise(Scope.make("sequential"));
@@ -320,6 +329,48 @@ describe("attachmentsEffectRouteLayer", () => {
       expect(response.headers.get("content-type")).toContain("image/png");
       expect(response.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
       await expect(response.arrayBuffer()).resolves.toHaveProperty("byteLength", 4);
+    });
+  });
+});
+
+describe("codexVisualizationEffectRouteLayer", () => {
+  it("serves a captured fragment as inert authenticated text", async () => {
+    const config = makeServerConfig({ authToken: "desktop-secret" });
+    const workspace = makeTempDir("agent-group-effect-visualization-workspace-");
+    const sourceDirectory = path.join(
+      workspace,
+      ".codex",
+      "visualizations",
+      "2026",
+      "07",
+      "22",
+      "thread-visual",
+    );
+    mkdirSync(sourceDirectory, { recursive: true });
+    const fragment = '<button class="btn">Choose</button><script>window.ready=true</script>';
+    writeFileSync(path.join(sourceDirectory, "choice-grid.html"), fragment);
+    await captureCodexInlineVisualizations({
+      stateDir: config.stateDir,
+      workspaceRoot: workspace,
+      threadId: "thread-visual",
+      messageId: "assistant:visual",
+      createdAt: "2026-07-22T08:00:00.000Z",
+      text: '::codex-inline-vis{file="choice-grid.html"}',
+    });
+
+    await withEffectServer(config, codexVisualizationEffectRouteLayer, async (origin) => {
+      const params = new URLSearchParams({
+        threadId: "thread-visual",
+        messageId: "assistant:visual",
+        file: "choice-grid.html",
+        token: "desktop-secret",
+      });
+      const response = await fetch(`${origin}/api/codex-visualization?${params}`);
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("content-type")).toContain("text/plain");
+      expect(response.headers.get("content-security-policy")).toBe("default-src 'none'");
+      await expect(response.text()).resolves.toBe(fragment);
     });
   });
 });
