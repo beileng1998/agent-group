@@ -38,6 +38,7 @@ import {
   type ChatMarkdownTaskToggle,
   useChatMarkdownComponents,
 } from "./chat-markdown/useChatMarkdownComponents";
+import { createCodexVisualizationRemarkPlugin } from "./chat-markdown/codexVisualizationRemark";
 
 interface ChatMarkdownProps {
   text: string;
@@ -51,6 +52,9 @@ interface ChatMarkdownProps {
   mentionReferences?: ReadonlyArray<MessageMentionReference> | undefined;
   terminalContexts?: ReadonlyArray<ParsedTerminalContextEntry> | undefined;
   onTaskToggle?: ChatMarkdownTaskToggle | undefined;
+  visualizationThreadId?: string | undefined;
+  visualizationMessageId?: string | undefined;
+  onVisualizationFollowUp?: ((prompt: string) => boolean | Promise<boolean>) | undefined;
 }
 
 type MarkdownRemarkPlugins = NonNullable<ComponentProps<typeof ReactMarkdown>["remarkPlugins"]>;
@@ -61,10 +65,7 @@ const MARKDOWN_REMARK_PLUGINS: MarkdownRemarkPlugins = [
   [remarkMath, { singleDollarTextMath: true }],
 ];
 const TRANSCRIPT_SOURCE_MAP_REMARK_PLUGIN = createTranscriptSourceMapRemarkPlugin();
-const ASSISTANT_MARKDOWN_REMARK_PLUGINS: MarkdownRemarkPlugins = [
-  ...MARKDOWN_REMARK_PLUGINS,
-  TRANSCRIPT_SOURCE_MAP_REMARK_PLUGIN,
-];
+const CODEX_VISUALIZATION_REMARK_PLUGIN = createCodexVisualizationRemarkPlugin();
 const USER_MARKDOWN_REMARK_PLUGINS: MarkdownRemarkPlugins = [remarkGfm, remarkBreaks];
 const USER_MARKDOWN_REHYPE_PLUGINS: MarkdownRehypePlugins = [];
 const MARKDOWN_REHYPE_PLUGINS: MarkdownRehypePlugins = [
@@ -84,6 +85,9 @@ function ChatMarkdown({
   variant = "assistant",
   mentionReferences,
   terminalContexts,
+  visualizationThreadId,
+  visualizationMessageId,
+  onVisualizationFollowUp,
 }: ChatMarkdownProps) {
   const { resolvedTheme } = useTheme();
   const diffThemeName = resolveDiffThemeName(resolvedTheme);
@@ -117,10 +121,22 @@ function ChatMarkdown({
     if (composerChipsRemarkPlugin) {
       return [...USER_MARKDOWN_REMARK_PLUGINS, composerChipsRemarkPlugin];
     }
+    const assistantPlugins: MarkdownRemarkPlugins = [
+      ...MARKDOWN_REMARK_PLUGINS,
+      ...(visualizationThreadId && visualizationMessageId
+        ? [CODEX_VISUALIZATION_REMARK_PLUGIN]
+        : []),
+      TRANSCRIPT_SOURCE_MAP_REMARK_PLUGIN,
+    ];
     return threadMarkerRemarkPlugin
-      ? [...ASSISTANT_MARKDOWN_REMARK_PLUGINS, threadMarkerRemarkPlugin]
-      : ASSISTANT_MARKDOWN_REMARK_PLUGINS;
-  }, [composerChipsRemarkPlugin, threadMarkerRemarkPlugin]);
+      ? [...assistantPlugins, threadMarkerRemarkPlugin]
+      : assistantPlugins;
+  }, [
+    composerChipsRemarkPlugin,
+    threadMarkerRemarkPlugin,
+    visualizationMessageId,
+    visualizationThreadId,
+  ]);
   const rehypePlugins = isUserVariant ? USER_MARKDOWN_REHYPE_PLUGINS : MARKDOWN_REHYPE_PLUGINS;
   const markdownUrlTransform = useCallback((href: string) => {
     const restoredHref = restoreLiteralDollarPlaceholders(href);
@@ -136,6 +152,9 @@ function ChatMarkdown({
     terminalContexts,
     onImageExpand,
     onTaskToggle,
+    visualizationThreadId,
+    visualizationMessageId,
+    onVisualizationFollowUp,
   });
 
   return (

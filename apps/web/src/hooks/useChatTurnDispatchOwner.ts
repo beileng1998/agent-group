@@ -2,11 +2,12 @@
 // Purpose: Own chat turn admission, dispatch, edit, queue, and plan orchestration.
 // Layer: Web chat controller
 
-import type { MutableRefObject } from "react";
+import { useCallback, useRef, type MutableRefObject } from "react";
 
 import type { ComposerPromptEditorHandle } from "../components/ComposerPromptEditor";
 import { type QueuedComposerChatTurn, useComposerDraftStore } from "../composerDraftStore";
 import { prepareComposerSendSnapshot } from "../lib/prepareComposerSendSnapshot";
+import { randomUUID } from "../lib/utils";
 import { readNativeApi } from "../nativeApi";
 import { useComposerSendAdmissionController } from "./useComposerSendAdmissionController";
 import { useComposerSendPresentationController } from "./useComposerSendPresentationController";
@@ -144,6 +145,11 @@ export interface ChatTurnDispatchOwnerInput {
 }
 
 export function useChatTurnDispatchOwner(input: ChatTurnDispatchOwnerInput) {
+  const visualizationFollowUpRef = useRef<(prompt: string) => Promise<boolean>>(async () => false);
+  const visualizationFollowUp = useCallback(
+    (prompt: string) => visualizationFollowUpRef.current(prompt),
+    [],
+  );
   const activeThreadId = input.thread.active?.id ?? null;
   const dispatchThreadId = activeThreadId ?? input.thread.routeId;
 
@@ -307,6 +313,44 @@ export function useChatTurnDispatchOwner(input: ChatTurnDispatchOwnerInput) {
     return startTurn({ api, activeThread, routing, dispatchMode });
   };
 
+  visualizationFollowUpRef.current = async (rawPrompt) => {
+    const prompt = rawPrompt.trim();
+    if (
+      !prompt ||
+      prompt.length > 8_000 ||
+      prompt.startsWith("/") ||
+      input.runtime.pending.hasProgress
+    ) {
+      return false;
+    }
+    const queuedTurn: QueuedComposerChatTurn = {
+      id: randomUUID(),
+      kind: "chat",
+      createdAt: new Date().toISOString(),
+      previewText: prompt,
+      prompt,
+      images: [],
+      files: [],
+      assistantSelections: [],
+      terminalContexts: [],
+      fileComments: [],
+      pastedTexts: [],
+      skills: [],
+      mentions: [],
+      selectedProvider: input.provider.selectedProvider,
+      selectedModel: input.provider.selectedModel,
+      selectedPromptEffort: input.provider.selectedPromptEffort,
+      modelSelection: input.provider.modelSelection,
+      ...(input.provider.options
+        ? { providerOptionsForDispatch: input.provider.options }
+        : {}),
+      runtimeMode: input.runtime.runtimeMode,
+      interactionMode: input.runtime.interactionMode,
+      envMode: input.composer.content.envMode,
+    };
+    return dispatch(undefined, "queue", queuedTurn);
+  };
+
   const editUserMessage = useEditUserMessageController({
     activeThread: input.thread.active,
     isServerThread: input.thread.state.isServerThread,
@@ -368,7 +412,7 @@ export function useChatTurnDispatchOwner(input: ChatTurnDispatchOwnerInput) {
   });
 
   return {
-    send: { dispatch },
+    send: { dispatch, visualizationFollowUp },
     edit: { userMessage: editUserMessage },
     queue: {
       edit: queue.editQueuedTurn,

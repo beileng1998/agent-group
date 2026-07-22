@@ -43,6 +43,7 @@ const EMPTY_MESSAGE_MARKERS: readonly ThreadMarker[] = [];
 type AssistantMessageRow = Extract<MessagesTimelineRow, { kind: "message" }>;
 
 export interface AssistantMessageRowContext {
+  threadId?: ThreadId | undefined;
   activeTurnInProgress: boolean;
   appTypographyScale: { chatMetaPx: number };
   canPinMessage?: ((messageId: MessageId) => boolean) | undefined;
@@ -56,6 +57,7 @@ export interface AssistantMessageRowContext {
   markdownCwd: string | undefined;
   normalizedChatFontSizePx: number;
   onImageExpand: (preview: ExpandedImagePreview) => void;
+  onVisualizationFollowUp?: ((prompt: string) => boolean | Promise<boolean>) | undefined;
   onOpenAgentActivity?: ((activityId: string) => void) | undefined;
   onOpenAutomation?: ((automationId: string) => void) | undefined;
   onOpenThread?: ((threadId: ThreadId) => void) | undefined;
@@ -80,6 +82,7 @@ export function renderAssistantMessageRow(
   context: AssistantMessageRowContext,
 ): ReactNode {
   const {
+    threadId,
     activeTurnInProgress,
     appTypographyScale,
     canPinMessage,
@@ -93,6 +96,7 @@ export function renderAssistantMessageRow(
     markdownCwd,
     normalizedChatFontSizePx,
     onImageExpand,
+    onVisualizationFollowUp,
     onOpenAgentActivity,
     onOpenAutomation,
     onOpenThread,
@@ -299,6 +303,9 @@ export function renderAssistantMessageRow(
           isStreaming={false}
           style={chatTypographyStyle}
           onImageExpand={onImageExpand}
+          visualizationThreadId={threadId}
+          visualizationMessageId={threadId ? item.message.id : undefined}
+          onVisualizationFollowUp={onVisualizationFollowUp}
         />
       </div>
     );
@@ -376,6 +383,11 @@ export function renderAssistantMessageRow(
               style={chatTypographyStyle}
               onImageExpand={onImageExpand}
               markers={messageMarkers}
+              visualizationThreadId={!row.message.streaming ? threadId : undefined}
+              visualizationMessageId={
+                threadId && !row.message.streaming ? row.message.id : undefined
+              }
+              onVisualizationFollowUp={onVisualizationFollowUp}
             />
           </div>
         ) : null}

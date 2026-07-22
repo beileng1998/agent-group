@@ -45,6 +45,10 @@
       "types": "./src/codexConfig.ts",
       "import": "./src/codexConfig.ts"
     },
+    "./codexVisualizations": {
+      "types": "./src/codexVisualizations.ts",
+      "import": "./src/codexVisualizations.ts"
+    },
     "./desktopChrome": {
       "types": "./src/desktopChrome.ts",
       "import": "./src/desktopChrome.ts"
