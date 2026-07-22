@@ -28,6 +28,10 @@ export function turnStatusFromResult(result: SDKResultMessage): ProviderRuntimeT
   return "failed";
 }
 
+export function isClaudeTaskNotificationResult(result: SDKResultMessage): boolean {
+  return result.origin?.kind === "task-notification";
+}
+
 export function streamKindFromDeltaType(deltaType: string): ClaudeTextStreamKind {
   return deltaType.includes("thinking") ? "reasoning_text" : "assistant_text";
 }
