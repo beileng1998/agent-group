@@ -96,6 +96,10 @@ func main() {
 	defer cancel()
 	emit := &emitter{}
 	login := &loginState{}
+	adaptiveProxy, adaptiveProxyErr := installAdaptiveDERPProxy()
+	if adaptiveProxyErr != nil {
+		log.Printf("adaptive DERP proxy unavailable: %v", adaptiveProxyErr)
+	}
 	srv := &tsnet.Server{
 		Dir:      *stateDir,
 		Hostname: normalizeHostname(*hostname),
@@ -128,6 +132,27 @@ func main() {
 		}
 		return
 	}
+	routingMessage := ""
+	if adaptiveProxy != nil {
+		probeCtx, probeCancel := context.WithTimeout(ctx, 4*time.Second)
+		routing, routingErr := optimizeDERPRouting(
+			probeCtx,
+			localClient,
+			adaptiveProxy,
+			probeDERPHTTPS,
+		)
+		probeCancel()
+		if routingErr != nil {
+			log.Printf("adaptive DERP probe kept proxy fallback: %v", routingErr)
+		} else {
+			routingMessage = routing.message()
+			if routing.changed {
+				if err := refreshTailnetRoutes(ctx, localClient, routing.preferredRegion); err != nil {
+					log.Printf("adaptive DERP selection kept native routing: %v", err)
+				}
+			}
+		}
+	}
 
 	listener, publicURL, transport, listenError := listen(srv, status)
 	if listener == nil {
@@ -144,8 +169,17 @@ func main() {
 		IPv4:      firstIPv4(status),
 		DNSName:   dnsName(status),
 		Health:    status.Health,
+		Message:   routingMessage,
 	}
 	emit.emit(ready)
+	go monitorTailnetLiveness(ctx, localClient)
+	if adaptiveProxy != nil {
+		go maintainAdaptiveDERPRouting(ctx, localClient, adaptiveProxy, func(result derpRoutingResult) {
+			updated := ready
+			updated.Message = result.message()
+			emit.emit(updated)
+		})
+	}
 
 	proxy := newReverseProxy(target, publicURL, transport == "https")
 	httpServer := &http.Server{

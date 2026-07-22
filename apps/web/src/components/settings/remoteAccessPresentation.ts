@@ -43,7 +43,12 @@ export function remoteAccessStatusCopy(status: RemoteAccessStatus | undefined): 
         detail: "Approve this host in the Tailscale admin console.",
       };
     case "ready":
-      return { title: "Ready", detail: status.url ?? "Private Tailnet access is available." };
+      return {
+        title: "Ready",
+        detail: [status.url ?? "Private Tailnet access is available.", status.message]
+          .filter(Boolean)
+          .join(" · "),
+      };
     case "error":
       return {
         title: "Needs attention",

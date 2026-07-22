@@ -30,6 +30,17 @@ describe("remote access presentation", () => {
     expect(copy).toEqual({ title: "Ready", detail: "http://agent-group.example.ts.net" });
   });
 
+  it("surfaces the sidecar's measured relay route while ready", () => {
+    const copy = remoteAccessStatusCopy(
+      status({
+        url: "https://agent-group.example.ts.net",
+        message: "Adaptive relay preference: hkg (314 ms; current sfo 653 ms).",
+      }),
+    );
+
+    expect(copy.detail).toContain("Adaptive relay preference: hkg");
+  });
+
   it("turns login transport failures into a short actionable status", () => {
     const copy = remoteAccessStatusCopy(
       status({
