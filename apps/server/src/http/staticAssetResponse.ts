@@ -71,6 +71,25 @@ function compress(data: Uint8Array, encoding: StaticContentEncoding): Promise<Ui
   });
 }
 
+/** Compresses a dynamic response without retaining its private contents in the asset cache. */
+export async function prepareCompressedResponseBody(
+  data: Uint8Array,
+  acceptEncoding: string | undefined,
+): Promise<{ readonly body: Uint8Array; readonly headers: Record<string, string> }> {
+  if (data.byteLength < MIN_COMPRESSIBLE_BYTES) return { body: data, headers: {} };
+  const headers: Record<string, string> = { Vary: "Accept-Encoding" };
+  const encoding = selectStaticContentEncoding(acceptEncoding);
+  if (!encoding) return { body: data, headers };
+  try {
+    const body = await compress(data, encoding);
+    if (body.byteLength >= data.byteLength) return { body: data, headers };
+    headers["Content-Encoding"] = encoding;
+    return { body, headers };
+  } catch {
+    return { body: data, headers };
+  }
+}
+
 function compressedAsset(
   cacheKey: string,
   data: Uint8Array,

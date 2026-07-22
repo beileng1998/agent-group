@@ -47,6 +47,11 @@ async function startRenderer() {
       );
       return;
     }
+
+    const { hydrateCachedRemoteBootstrapForCurrentRoute, startRemoteBootstrapFallbackSync } =
+      await import("./remoteBootstrapHydration");
+    await hydrateCachedRemoteBootstrapForCurrentRoute();
+    startRemoteBootstrapFallbackSync();
   }
 
   await import("./main");

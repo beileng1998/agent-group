@@ -26,6 +26,10 @@ import {
 import { showConfirmDialogFallback } from "./confirmDialogFallback";
 import { showContextMenuFallback } from "./contextMenuFallback";
 import { requireHttpExternalUrl } from "./lib/externalUrl";
+import {
+  getRemoteAgentGroupSession,
+  getRemoteShellSnapshot,
+} from "./remoteBootstrapClient";
 import { WsTransport } from "./wsTransport";
 import { emitWsTransportState } from "./wsTransportEvents";
 import { createBrowserApi, resetFallbackBrowserApi } from "./ws-native/fallbackBrowserApi";
@@ -48,6 +52,28 @@ export {
 } from "./ws-native/wsNativeEventRegistry";
 
 let instance: { api: NativeApi; transport: WsTransport } | null = null;
+const REMOTE_READ_WS_FALLBACK_DELAY_MS = 8_000;
+
+function remoteReadWithWsFallback<T>(
+  remoteRead: () => Promise<T>,
+  wsRead: () => Promise<T>,
+): Promise<T> {
+  let fallbackPromise: Promise<T> | null = null;
+  const startFallback = () => (fallbackPromise ??= wsRead());
+  let timer: number | null = null;
+  const delayedFallback = new Promise<T>((resolve, reject) => {
+    timer = window.setTimeout(
+      () => void startFallback().then(resolve, reject),
+      REMOTE_READ_WS_FALLBACK_DELAY_MS,
+    );
+  });
+  const primary = remoteRead().catch(() => startFallback());
+  return Promise.any([primary, delayedFallback])
+    .catch(() => startFallback())
+    .finally(() => {
+      if (timer !== null) window.clearTimeout(timer);
+    });
+}
 
 function omitNullUserInputAnswers(
   command: Parameters<NativeApi["orchestration"]["dispatchCommand"]>[0],
@@ -175,7 +201,11 @@ export function createWsNativeApi(): NativeApi {
     agentGroup: {
       getConfig: (input) => transport.request(WS_METHODS.agentGroupGetConfig, input),
       getOverview: (input) => transport.request(WS_METHODS.agentGroupGetOverview, input),
-      getSession: (input) => transport.request(WS_METHODS.agentGroupGetSession, input),
+      getSession: (input) =>
+        remoteReadWithWsFallback(
+          () => getRemoteAgentGroupSession(input.sessionId),
+          () => transport.request(WS_METHODS.agentGroupGetSession, input),
+        ),
       writeContext: (input) => transport.request(WS_METHODS.agentGroupWriteContext, input),
       updateConfig: (input) => transport.request(WS_METHODS.agentGroupUpdateConfig, input),
       updateSession: (input) => transport.request(WS_METHODS.agentGroupUpdateSession, input),
@@ -367,7 +397,11 @@ export function createWsNativeApi(): NativeApi {
     },
     orchestration: {
       getSnapshot: () => transport.request(ORCHESTRATION_WS_METHODS.getSnapshot),
-      getShellSnapshot: () => transport.request(ORCHESTRATION_WS_METHODS.getShellSnapshot),
+      getShellSnapshot: () =>
+        remoteReadWithWsFallback(
+          () => getRemoteShellSnapshot(),
+          () => transport.request(ORCHESTRATION_WS_METHODS.getShellSnapshot),
+        ),
       listHighlights: (input) => transport.request(ORCHESTRATION_WS_METHODS.listHighlights, input),
       dispatchCommand: (command) => {
         return transport.request(ORCHESTRATION_WS_METHODS.dispatchCommand, {

@@ -2,6 +2,7 @@ import { brotliDecompressSync, gunzipSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 
 import {
+  prepareCompressedResponseBody,
   prepareStaticAsset,
   selectStaticContentEncoding,
   staticCacheControl,
@@ -37,5 +38,13 @@ describe("static asset responses", () => {
     expect(response.headers["Content-Encoding"]).toBe(encoding);
     expect(response.body.byteLength).toBeLessThan(data.byteLength);
     expect(decompress(response.body)).toEqual(Buffer.from(data));
+  });
+
+  it("compresses private dynamic JSON without requiring an asset cache key", async () => {
+    const data = new TextEncoder().encode(JSON.stringify({ rows: ["snapshot".repeat(2_000)] }));
+    const response = await prepareCompressedResponseBody(data, "br");
+
+    expect(response.headers).toEqual({ Vary: "Accept-Encoding", "Content-Encoding": "br" });
+    expect(brotliDecompressSync(response.body)).toEqual(Buffer.from(data));
   });
 });

@@ -4,11 +4,11 @@ import { Effect, Option, Stream } from "effect";
 import {
   getAgentGroupConfig,
   getAgentGroupOverview,
-  getAgentGroupSession,
   updateAgentGroupConfig,
   updateAgentGroupSession,
   writeAgentGroupContext,
 } from "../agentGroup/runtime";
+import { queryAgentGroupSession } from "../agentGroup/sessionQuery";
 import {
   resolveAgentGroupConfigCoordinates,
   resolveAgentGroupSessionCoordinates,
@@ -20,7 +20,7 @@ import { ProjectionSnapshotQuery } from "../orchestration/Services/ProjectionSna
 import { pickHostFolder } from "../hostFolderPicker";
 import { createLocalPreviewGrant } from "../localImageFiles";
 import { resolveThreadWorkspaceCwd } from "../checkpointing/Utils";
-import type { ServerSettingsService } from "../serverSettings";
+import { ServerSettingsService } from "../serverSettings";
 import { listStudioThreadOutputs } from "../studioOutputs";
 import { WorkspaceEntries } from "../workspace/Services/WorkspaceEntries";
 import { WorkspaceFileSystem } from "../workspace/Services/WorkspaceFileSystem";
@@ -79,16 +79,10 @@ export function makeWorkspaceHandlers(dependencies: {
       ),
     [WS_METHODS.agentGroupGetSession]: (input) =>
       dependencies.rpcEffect(
-        Effect.gen(function* () {
-          const settings = yield* dependencies.serverSettings.getSettings;
-          const coordinates = yield* resolveAgentGroupSessionCoordinates(
-            dependencies.projectionReadModelQuery,
-            input.sessionId,
-          );
-          return yield* Effect.tryPromise(() =>
-            getAgentGroupSession({ ...coordinates, globalSettings: settings.agentGroup }),
-          );
-        }),
+        queryAgentGroupSession(input.sessionId).pipe(
+          Effect.provideService(ProjectionSnapshotQuery, dependencies.projectionReadModelQuery),
+          Effect.provideService(ServerSettingsService, dependencies.serverSettings),
+        ),
         "Failed to load Agent Group session context",
       ),
     [WS_METHODS.agentGroupWriteContext]: (input) =>
