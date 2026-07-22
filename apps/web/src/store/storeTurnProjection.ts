@@ -2,6 +2,7 @@
 // Purpose: Normalize proposed plans, latest Turn state, and checkpoint diff summaries.
 // Layer: Web state Turn projection
 
+import { decodeGitQuotedPath } from "@agent-group/shared/gitQuotedPath";
 import type { Thread } from "../types";
 import { arraysShallowEqual } from "./storeEquality";
 import type { ReadModelThread } from "./storeState";
@@ -42,16 +43,18 @@ function mergeTurnDiffFilesByPath(
 ): Thread["turnDiffSummaries"][number]["files"] {
   const filesByPath = new Map<string, Thread["turnDiffSummaries"][number]["files"][number]>();
   for (const file of files) {
-    const existing = filesByPath.get(file.path);
+    const decodedPath = decodeGitQuotedPath(file.path);
+    const normalizedFile = decodedPath === file.path ? file : { ...file, path: decodedPath };
+    const existing = filesByPath.get(decodedPath);
     if (!existing) {
-      filesByPath.set(file.path, file);
+      filesByPath.set(decodedPath, normalizedFile);
       continue;
     }
-    filesByPath.set(file.path, {
-      path: file.path,
+    filesByPath.set(decodedPath, {
+      path: decodedPath,
       kind: existing.kind,
-      additions: (existing.additions ?? 0) + (file.additions ?? 0),
-      deletions: (existing.deletions ?? 0) + (file.deletions ?? 0),
+      additions: (existing.additions ?? 0) + (normalizedFile.additions ?? 0),
+      deletions: (existing.deletions ?? 0) + (normalizedFile.deletions ?? 0),
     });
   }
   return Array.from(filesByPath.values());

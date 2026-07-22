@@ -88,6 +88,25 @@ describe("file diff identity helpers", () => {
     expect(paths).toContain("src/two.ts");
   });
 
+  it("decodes Git quoted UTF-8 paths for display and selection", () => {
+    const encodedPath = "docs/\\344\\270\\255\\346\\226\\207.md";
+    const patch = [
+      `diff --git "a/${encodedPath}" "b/${encodedPath}"`,
+      "index 1111111..2222222 100644",
+      `--- "a/${encodedPath}"`,
+      `+++ "b/${encodedPath}"`,
+      "@@ -1 +1 @@",
+      "-old",
+      "+new",
+      "",
+    ].join("\n");
+    const renderable = getRenderablePatch(patch, "git-pane:unicode-path");
+    expect(renderable?.kind).toBe("files");
+    if (renderable?.kind !== "files") return;
+
+    expect(renderable.files.map((file) => resolveFileDiffPath(file))).toEqual(["docs/中文.md"]);
+  });
+
   it("derives a unique, stable render key per file", () => {
     const renderable = getRenderablePatch(twoFilePatch, "git-pane:test");
     expect(renderable?.kind).toBe("files");
