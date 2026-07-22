@@ -112,7 +112,10 @@ describe("ClaudeAdapterLive result origin", () => {
         (event) => event.type === "content.delta" && event.payload.delta === "Learning plan",
       );
       assert.equal(String(assistantDelta?.turnId), String(turn.turnId));
-      assert.equal(events.some((event) => event.type === "runtime.error"), false);
+      assert.equal(
+        events.some((event) => event.type === "runtime.error"),
+        false,
+      );
     }).pipe(
       Effect.provideService(Random.Random, makeDeterministicRandomService()),
       Effect.provide(harness.layer),

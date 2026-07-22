@@ -114,9 +114,8 @@ export function CodexInlineVisualization(props: {
       setFollowUpFailed(false);
       if (title) {
         const api = readNativeApi();
-        const confirmed = await (api
-          ? api.dialogs.confirm(title)
-          : showConfirmDialogFallback(title)
+        const confirmed = await (
+          api ? api.dialogs.confirm(title) : showConfirmDialogFallback(title)
         ).catch(() => false);
         if (!confirmed) {
           followUpPendingRef.current = false;

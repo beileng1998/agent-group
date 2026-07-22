@@ -131,10 +131,7 @@ export async function captureCodexInlineVisualizations(input: {
   const directives = extractCodexInlineVisualizationDirectives(input.text);
   if (directives.length === 0) return [];
 
-  const threadDirectories = uniqueSafeThreadDirectories([
-    input.threadId,
-    input.providerThreadId,
-  ]);
+  const threadDirectories = uniqueSafeThreadDirectories([input.threadId, input.providerThreadId]);
   const captured: CapturedCodexVisualization[] = [];
   for (const directive of directives) {
     const source = await resolveTrustedVisualizationSource({

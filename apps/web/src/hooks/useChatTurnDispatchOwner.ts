@@ -341,9 +341,7 @@ export function useChatTurnDispatchOwner(input: ChatTurnDispatchOwnerInput) {
       selectedModel: input.provider.selectedModel,
       selectedPromptEffort: input.provider.selectedPromptEffort,
       modelSelection: input.provider.modelSelection,
-      ...(input.provider.options
-        ? { providerOptionsForDispatch: input.provider.options }
-        : {}),
+      ...(input.provider.options ? { providerOptionsForDispatch: input.provider.options } : {}),
       runtimeMode: input.runtime.runtimeMode,
       interactionMode: input.runtime.interactionMode,
       envMode: input.composer.content.envMode,

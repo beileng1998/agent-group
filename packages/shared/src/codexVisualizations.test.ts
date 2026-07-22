@@ -13,10 +13,12 @@ describe("Codex visualization compatibility contract", () => {
         '::codex-inline-vis{file="awareness-state-options.html"}',
       ),
     ).toEqual({ fileName: "awareness-state-options.html" });
-    expect(parseCodexInlineVisualizationDirective("prefix ::codex-inline-vis{file=\"x.html\"}"))
-      .toBeNull();
-    expect(parseCodexInlineVisualizationDirective('::codex-inline-vis{file="../x.html"}'))
-      .toBeNull();
+    expect(
+      parseCodexInlineVisualizationDirective('prefix ::codex-inline-vis{file="x.html"}'),
+    ).toBeNull();
+    expect(
+      parseCodexInlineVisualizationDirective('::codex-inline-vis{file="../x.html"}'),
+    ).toBeNull();
   });
 
   it("deduplicates directives while preserving message order", () => {
