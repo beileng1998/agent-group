@@ -4,6 +4,10 @@
 // Exports: lifecycle detection helpers and notification copy helpers
 
 import {
+  isTemporarySidechatThread,
+  type AgentGroupThreadCandidate,
+} from "@agent-group/shared/agentGroupSessions";
+import {
   defaultTerminalTitleForCliKind,
   type TerminalCliKind,
   type TerminalVisualState,
@@ -58,6 +62,21 @@ export interface TerminalAttentionCandidate {
 }
 
 type ThreadSessionStatus = ThreadSession["status"];
+
+// Temporary sidechats are intentionally quiet. Once promoted to a child Session,
+// shared thread classification makes them notification-eligible again.
+export function excludeTemporarySidechatNotificationCandidates<
+  Candidate extends { readonly threadId: string },
+>(
+  candidates: readonly Candidate[],
+  threads: readonly AgentGroupThreadCandidate[],
+): Candidate[] {
+  const latestThreadById = new Map(threads.map((thread) => [thread.id, thread] as const));
+  return candidates.filter((candidate) => {
+    const thread = latestThreadById.get(candidate.threadId);
+    return !thread || !isTemporarySidechatThread(thread);
+  });
+}
 
 // Thread completion toasts are for off-screen work; visible threads already show the result inline.
 export function shouldShowThreadNotificationToast(input: {
