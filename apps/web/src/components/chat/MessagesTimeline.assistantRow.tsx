@@ -277,38 +277,21 @@ export function renderAssistantMessageRow(
       )}
     </>
   );
-  const renderCollapsedTurnItem = (item: CollapsedTurnItem, keyPrefix: string) =>
-    item.kind === "work" ? (
-      <SimpleWorkEntryRow
-        key={`${keyPrefix}:work:${row.message.id}:${item.id}`}
-        workEntry={item.entry}
-        chatMetaFontSizePx={appTypographyScale.chatMetaPx}
-        textFontSizePx={normalizedChatFontSizePx}
-        density={prefersCompactWorkEntryRow(item.entry) ? "compact" : "default"}
-        markdownCwd={markdownCwd}
-        onImageExpand={onImageExpand}
-        onOpenToolDetails={openToolDetails}
-        {...(onOpenAgentActivity ? { onOpenAgentActivity } : {})}
-        {...(onOpenThread ? { onOpenThread } : {})}
-        {...(onOpenAutomation ? { onOpenAutomation } : {})}
-      />
-    ) : (
-      <div
-        key={`${keyPrefix}:narration:${row.message.id}:${item.id}`}
-        className="text-muted-foreground/80"
-      >
-        <ChatMarkdown
-          text={item.message.text}
-          cwd={markdownCwd}
-          isStreaming={false}
-          style={chatTypographyStyle}
-          onImageExpand={onImageExpand}
-          visualizationThreadId={threadId}
-          visualizationMessageId={threadId ? item.message.id : undefined}
-          onVisualizationFollowUp={onVisualizationFollowUp}
-        />
-      </div>
-    );
+  const renderCollapsedTurnItem = (item: CollapsedTurnItem, keyPrefix: string) => (
+    <SimpleWorkEntryRow
+      key={`${keyPrefix}:work:${row.message.id}:${item.id}`}
+      workEntry={item.entry}
+      chatMetaFontSizePx={appTypographyScale.chatMetaPx}
+      textFontSizePx={normalizedChatFontSizePx}
+      density={prefersCompactWorkEntryRow(item.entry) ? "compact" : "default"}
+      markdownCwd={markdownCwd}
+      onImageExpand={onImageExpand}
+      onOpenToolDetails={openToolDetails}
+      {...(onOpenAgentActivity ? { onOpenAgentActivity } : {})}
+      {...(onOpenThread ? { onOpenThread } : {})}
+      {...(onOpenAutomation ? { onOpenAutomation } : {})}
+    />
+  );
   return (
     <>
       {settledCollapseTransition && (

@@ -14,12 +14,9 @@ import type { MessageId, TurnId } from "@agent-group/contracts";
 
 export const MAX_VISIBLE_WORK_LOG_ENTRIES = 6;
 
-// Ordered item folded into a settled turn's single "Worked for Xs" disclosure.
-// A turn can interleave tool work and intermediate assistant narration
-// (preambles), so the collapsed panel keeps both in chronological order.
-export type CollapsedTurnItem =
-  | { kind: "work"; id: string; entry: WorkLogEntry }
-  | { kind: "narration"; id: string; message: ChatMessage };
+// Work item folded into a settled turn's single "Worked for Xs" disclosure.
+// Assistant narration always remains visible in the transcript.
+export type CollapsedTurnItem = { kind: "work"; id: string; entry: WorkLogEntry };
 
 export interface TimelineDurationMessage {
   id: string;

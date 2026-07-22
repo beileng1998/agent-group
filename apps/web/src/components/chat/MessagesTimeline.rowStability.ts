@@ -182,14 +182,7 @@ function collapsedTurnItemsEqual(
   if (left.length !== right.length) return false;
   return left.every((item, index) => {
     const other = right[index]!;
-    if (item.kind !== other.kind || item.id !== other.id) return false;
-    if (item.kind === "work" && other.kind === "work") {
-      return workLogEntryContentEqual(item.entry, other.entry);
-    }
-    if (item.kind === "narration" && other.kind === "narration") {
-      return item.message === other.message;
-    }
-    return false;
+    return item.id === other.id && workLogEntryContentEqual(item.entry, other.entry);
   });
 }
 

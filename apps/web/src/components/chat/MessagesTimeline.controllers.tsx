@@ -48,9 +48,9 @@ export function findToolDetailsEntryById(
     const matchingInlineEntry = row.inlineWorkEntries?.find((entry) => entry.id === entryId);
     if (matchingInlineEntry) return matchingInlineEntry;
     const matchingCollapsedEntry = row.collapsedTurnItems?.find(
-      (item) => item.kind === "work" && item.entry.id === entryId,
+      (item) => item.entry.id === entryId,
     );
-    if (matchingCollapsedEntry?.kind === "work") return matchingCollapsedEntry.entry;
+    if (matchingCollapsedEntry) return matchingCollapsedEntry.entry;
   }
   return null;
 }
