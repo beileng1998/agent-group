@@ -216,9 +216,6 @@ export function PullRequestsIndexView({ search, updateSearch }: PullRequestsInde
           : {})}
         onClosePane={controller.closeDetail}
         onCollapse={controller.closeDetail}
-        onOpenChange={(open) => {
-          if (!open) controller.closeDetail();
-        }}
         onAddPane={() => {}}
         renderPane={(pane, context) => (
           <Suspense fallback={<PanelStateMessage>Loading pull request...</PanelStateMessage>}>

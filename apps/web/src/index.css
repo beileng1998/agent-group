@@ -99,6 +99,13 @@
 }
 
 @layer components {
+  /* The dock remains a direct sibling of the primary route surface. Its resolved
+     placement flips only the host flex axis, so browser/terminal pane runtimes stay
+     mounted while Automatic moves between right and bottom. */
+  .chat-adaptive-dock-host:has(> [data-right-dock-root][data-dock-placement="bottom"]) {
+    flex-direction: column;
+  }
+
   .sidebar-icon-button {
     @apply items-center justify-center rounded-sm p-0.5 text-muted-foreground/60 transition-colors hover:text-foreground/82 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring;
     background: transparent;
