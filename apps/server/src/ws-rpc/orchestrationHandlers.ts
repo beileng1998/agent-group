@@ -8,7 +8,7 @@ import { Effect, FileSystem, Option, Path, Stream } from "effect";
 
 import { CheckpointDiffQuery } from "../checkpointing/Services/CheckpointDiffQuery";
 import { ServerConfig } from "../config";
-import { makeDispatchCommandNormalizer } from "../orchestration/dispatchCommandNormalization";
+import { makeOrchestrationCommandDispatcher } from "../orchestration/commandDispatcher";
 import { makeImportThreadHandler } from "../orchestration/importThreadRoute";
 import { OrchestrationEngineService } from "../orchestration/Services/OrchestrationEngine";
 import { HighlightsQuery } from "../orchestration/Services/HighlightsQuery";
@@ -24,7 +24,7 @@ import {
   isThreadDetailEventFor,
   makeShellStreamProjector,
 } from "./streamSupport";
-import type { WorkspaceSupport } from "./workspaceSupport";
+import type { WorkspaceSupport } from "../workspace/workspaceSupport";
 import type { WsRpcHandlers } from "./types";
 
 export function makeOrchestrationHandlers(dependencies: {
@@ -44,16 +44,13 @@ export function makeOrchestrationHandlers(dependencies: {
     fallbackMessage: string,
   ) => Effect.Effect<A, WsRpcError, R>;
 }) {
-  const normalizeDispatchCommand = makeDispatchCommandNormalizer<WsRpcError>({
-    attachmentsDir: dependencies.config.attachmentsDir,
-    chatWorkspaceRoot: dependencies.config.chatWorkspaceRoot,
-    studioWorkspaceRoot: dependencies.config.studioWorkspaceRoot,
+  const dispatchCommand = makeOrchestrationCommandDispatcher({
+    config: dependencies.config,
     fileSystem: dependencies.fileSystem,
+    orchestrationEngine: dependencies.orchestrationEngine,
     path: dependencies.path,
-    canonicalizeProjectWorkspaceRoot:
-      dependencies.workspaceSupport.canonicalizeProjectWorkspaceRoot,
-    prepareChatWorkspaceRoot: dependencies.workspaceSupport.prepareChatWorkspaceRoot,
-    prepareStudioWorkspaceRoot: dependencies.workspaceSupport.prepareStudioWorkspaceRoot,
+    runtimeStartup: dependencies.runtimeStartup,
+    workspaceSupport: dependencies.workspaceSupport,
   });
 
   const importThread = makeImportThreadHandler({
@@ -70,15 +67,7 @@ export function makeOrchestrationHandlers(dependencies: {
   return {
     [ORCHESTRATION_WS_METHODS.dispatchCommand]: (command) =>
       dependencies.rpcEffect(
-        Effect.gen(function* () {
-          const { command: normalizedCommand, prepareWorkspaceRoot } =
-            yield* normalizeDispatchCommand({ command });
-          const result = yield* dependencies.runtimeStartup.enqueueCommand(
-            dependencies.orchestrationEngine.dispatch(normalizedCommand),
-          );
-          if (prepareWorkspaceRoot) yield* prepareWorkspaceRoot;
-          return result;
-        }),
+        dispatchCommand(command),
         "Failed to dispatch orchestration command",
       ),
     [ORCHESTRATION_WS_METHODS.importThread]: (input) =>

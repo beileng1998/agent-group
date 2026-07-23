@@ -30,13 +30,17 @@ import {
   getRemoteAgentGroupSession,
   getRemoteShellSnapshot,
 } from "./remoteBootstrapClient";
+import {
+  createRemoteOrchestrationTransport,
+  type RemoteOrchestrationTransport,
+} from "./remoteOrchestrationTransport";
 import { WsTransport } from "./wsTransport";
 import { emitWsTransportState } from "./wsTransportEvents";
 import { createBrowserApi, resetFallbackBrowserApi } from "./ws-native/fallbackBrowserApi";
 import {
   gitActionProgressListeners,
-  orchestrationShellEventListeners,
-  orchestrationThreadEventListeners,
+  onOrchestrationShellEvent,
+  onOrchestrationThreadEvent,
   projectDevServerEventListeners,
   registerWsPushSubscriptions,
   resetWsEventRegistry,
@@ -51,7 +55,11 @@ export {
   onServerWelcome,
 } from "./ws-native/wsNativeEventRegistry";
 
-let instance: { api: NativeApi; transport: WsTransport } | null = null;
+let instance: {
+  api: NativeApi;
+  transport: WsTransport;
+  remoteOrchestration: RemoteOrchestrationTransport;
+} | null = null;
 const REMOTE_READ_WS_FALLBACK_DELAY_MS = 8_000;
 
 function remoteReadWithWsFallback<T>(
@@ -135,6 +143,7 @@ export function createWsNativeApi(): NativeApi {
   }
 
   const transport = new WsTransport();
+  const remoteOrchestration = createRemoteOrchestrationTransport(transport);
   transport.onStateChange((state) => emitWsTransportState(state));
   registerWsPushSubscriptions(transport);
   const api: NativeApi = {
@@ -404,9 +413,7 @@ export function createWsNativeApi(): NativeApi {
         ),
       listHighlights: (input) => transport.request(ORCHESTRATION_WS_METHODS.listHighlights, input),
       dispatchCommand: (command) => {
-        return transport.request(ORCHESTRATION_WS_METHODS.dispatchCommand, {
-          command: omitNullUserInputAnswers(command),
-        });
+        return remoteOrchestration.dispatchCommand(omitNullUserInputAnswers(command));
       },
       importThread: (input) => transport.request(ORCHESTRATION_WS_METHODS.importThread, input),
       repairState: () => transport.request(ORCHESTRATION_WS_METHODS.repairState),
@@ -414,9 +421,7 @@ export function createWsNativeApi(): NativeApi {
       getFullThreadDiff: (input) =>
         transport.request(ORCHESTRATION_WS_METHODS.getFullThreadDiff, input),
       replayEvents: (fromSequenceExclusive) =>
-        transport.request(ORCHESTRATION_WS_METHODS.replayEvents, {
-          fromSequenceExclusive,
-        }),
+        remoteOrchestration.replayEvents(fromSequenceExclusive),
       subscribeShell: () => transport.request<void>(ORCHESTRATION_WS_METHODS.subscribeShell, {}),
       unsubscribeShell: () =>
         transport.request<void>(ORCHESTRATION_WS_METHODS.unsubscribeShell, {}),
@@ -425,16 +430,10 @@ export function createWsNativeApi(): NativeApi {
       unsubscribeThread: (input) =>
         transport.request<void>(ORCHESTRATION_WS_METHODS.unsubscribeThread, input),
       onShellEvent: (callback) => {
-        orchestrationShellEventListeners.add(callback);
-        return () => {
-          orchestrationShellEventListeners.delete(callback);
-        };
+        return onOrchestrationShellEvent(callback);
       },
       onThreadEvent: (callback) => {
-        orchestrationThreadEventListeners.add(callback);
-        return () => {
-          orchestrationThreadEventListeners.delete(callback);
-        };
+        return onOrchestrationThreadEvent(callback);
       },
     },
     automation: {
@@ -452,13 +451,14 @@ export function createWsNativeApi(): NativeApi {
     browser: createBrowserApi(),
   };
 
-  instance = { api, transport };
+  instance = { api, transport, remoteOrchestration };
   return api;
 }
 
 // Browser-mode tests mount full app roots repeatedly in one page; reset the
 // singleton so each test gets a fresh WebSocket stream and cached push state.
 export function resetWsNativeApiForTest(): void {
+  instance?.remoteOrchestration.dispose();
   instance?.transport.dispose();
   instance = null;
   resetWsEventRegistry(true);
@@ -467,6 +467,7 @@ export function resetWsNativeApiForTest(): void {
 
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
+    instance?.remoteOrchestration.dispose();
     instance?.transport.dispose();
     instance = null;
     resetWsEventRegistry(false);

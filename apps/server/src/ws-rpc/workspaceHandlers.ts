@@ -27,7 +27,7 @@ import { WorkspaceFileSystem } from "../workspace/Services/WorkspaceFileSystem";
 import { bufferLiveUiStream } from "../wsStreamBackpressure";
 import { failLiveUiStreamForSnapshotResync } from "./streamSupport";
 import type { WsRpcHandlers } from "./types";
-import type { WorkspaceSupport } from "./workspaceSupport";
+import type { WorkspaceSupport } from "../workspace/workspaceSupport";
 
 export function makeWorkspaceHandlers(dependencies: {
   readonly config: typeof ServerConfig.Service;

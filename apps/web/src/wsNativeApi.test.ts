@@ -63,9 +63,13 @@ vi.mock("./wsTransport", () => {
       onStateChange() {
         return () => undefined;
       }
+      getState() {
+        return "open" as const;
+      }
       getLatestPush(channel: string) {
         return latestPushByChannel.get(channel) ?? null;
       }
+      dispose() {}
     },
   };
 });
@@ -444,6 +448,10 @@ describe("wsNativeApi", () => {
 
   it("wraps orchestration dispatch commands in the command envelope", async () => {
     requestMock.mockResolvedValue(undefined);
+    Object.defineProperty(getWindowForTest(), "desktopBridge", {
+      configurable: true,
+      value: {},
+    });
     const { createWsNativeApi } = await import("./wsNativeApi");
 
     const api = createWsNativeApi();
@@ -480,6 +488,10 @@ describe("wsNativeApi", () => {
 
   it("omits null user-input answers before dispatching to orchestration", async () => {
     requestMock.mockResolvedValue(undefined);
+    Object.defineProperty(getWindowForTest(), "desktopBridge", {
+      configurable: true,
+      value: {},
+    });
     const { createWsNativeApi } = await import("./wsNativeApi");
 
     const api = createWsNativeApi();

@@ -15,6 +15,7 @@ import {
   threadExportEffectRouteLayer,
 } from "./http/fileRoutes";
 import { remoteBootstrapEffectRouteLayer } from "./http/remoteBootstrapRoutes";
+import { remoteOrchestrationEffectRouteLayer } from "./http/remoteOrchestrationRoutes";
 import { staticAndDevEffectRouteLayer } from "./http/staticRoutes";
 
 export { isLegacyTokenAuthorized } from "./http/authRoutes";
@@ -48,6 +49,7 @@ export function makeEffectHttpRouteLayer(readiness: ServerReadiness) {
     ),
     authEffectRouteLayer,
     remoteBootstrapEffectRouteLayer,
+    remoteOrchestrationEffectRouteLayer,
     projectFaviconEffectRouteLayer,
     threadExportEffectRouteLayer,
     siteFaviconEffectRouteLayer,

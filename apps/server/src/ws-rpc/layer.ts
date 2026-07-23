@@ -28,6 +28,7 @@ import { ServerSettingsService } from "../serverSettings";
 import { TerminalManager } from "../terminal/Services/Manager";
 import { WorkspaceEntries } from "../workspace/Services/WorkspaceEntries";
 import { WorkspaceFileSystem } from "../workspace/Services/WorkspaceFileSystem";
+import { makeWorkspaceSupport } from "../workspace/workspaceSupport";
 import { toWsRpcError } from "../wsRpcError";
 import { makeDiagnosticsHandlers } from "./diagnostics";
 import { makeGitHandlers } from "./gitHandlers";
@@ -36,7 +37,6 @@ import { makeProviderAutomationHandlers } from "./providerAutomationHandlers";
 import { makeServerHandlers } from "./serverHandlers";
 import { makeTerminalHandlers } from "./terminalHandlers";
 import { makeWorkspaceHandlers } from "./workspaceHandlers";
-import { makeWorkspaceSupport } from "./workspaceSupport";
 
 export const makeWsRpcLayer = () =>
   WsRpcGroup.toLayer(
