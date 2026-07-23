@@ -4,12 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -109,8 +107,6 @@ func normalizeDERPHost(host string) string {
 
 type derpRoutingClient interface {
 	CurrentDERPMap(context.Context) (*tailcfg.DERPMap, error)
-	DebugAction(context.Context, string) error
-	DebugActionBody(context.Context, string, io.Reader) error
 	Status(context.Context) (*ipnstate.Status, error)
 }
 
@@ -148,9 +144,17 @@ func (r derpRoutingResult) message() string {
 	if r.best.directSelected {
 		path = "direct"
 	}
+	if r.currentRegionCode == r.best.regionCode {
+		return fmt.Sprintf(
+			"Active relay: %s (%d ms %s).",
+			r.best.regionCode,
+			latency.Milliseconds(),
+			path,
+		)
+	}
 	if r.preferredRegion != 0 && r.currentRegionCode != "" && r.currentReachable {
 		return fmt.Sprintf(
-			"Adaptive relay preference: %s (%d ms %s; current %s %d ms).",
+			"Switching relay to %s (%d ms %s; current %s %d ms).",
 			r.best.regionCode,
 			latency.Milliseconds(),
 			path,
@@ -434,28 +438,11 @@ func meaningfullyFaster(direct, proxied time.Duration) bool {
 		direct*100 <= proxied*minimumDERPLatencyPercent
 }
 
-func refreshTailnetRoutes(
-	ctx context.Context,
-	client derpRoutingClient,
-	preferredRegion int,
-) error {
-	// Tailscale v1.98 exposes preferred-DERP override through this local action.
-	// Keep it isolated here so a future API change degrades to native selection.
-	actionCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
-	defer cancel()
-	forceErr := client.DebugActionBody(
-		actionCtx,
-		"force-prefer-derp",
-		strings.NewReader(strconv.Itoa(preferredRegion)),
-	)
-	restunErr := client.DebugAction(actionCtx, "restun")
-	return errors.Join(forceErr, restunErr)
-}
-
 func maintainAdaptiveDERPRouting(
 	ctx context.Context,
 	client derpRoutingClient,
 	proxy *adaptiveDERPProxy,
+	home derpHomeController,
 	onChange func(derpRoutingResult),
 ) {
 	ticker := time.NewTicker(derpRefreshInterval)
@@ -466,11 +453,13 @@ func maintainAdaptiveDERPRouting(
 			return
 		case <-ticker.C:
 			result, err := optimizeDERPRouting(ctx, client, proxy, probeDERPHTTPS)
-			if err != nil || !result.changed {
+			if err != nil || !result.shouldApplyHome() {
 				continue
 			}
-			if err := refreshTailnetRoutes(ctx, client, result.preferredRegion); err != nil {
+			if err := applyDERPHome(home, result.preferredRegion); err != nil {
 				log.Printf("adaptive DERP refresh kept native selection: %v", err)
+			} else {
+				result.markHomeApplied()
 			}
 			onChange(result)
 		}

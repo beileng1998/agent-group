@@ -123,6 +123,7 @@ func main() {
 		emit.emit(event{Type: "error", State: "error", Message: err.Error()})
 		os.Exit(1)
 	}
+	derpHome := srv.Sys().MagicSock.Get()
 
 	status, err := waitUntilRunning(ctx, localClient.Status, emit, login)
 	if err != nil {
@@ -146,9 +147,12 @@ func main() {
 			log.Printf("adaptive DERP probe kept proxy fallback: %v", routingErr)
 		} else {
 			routingMessage = routing.message()
-			if routing.changed {
-				if err := refreshTailnetRoutes(ctx, localClient, routing.preferredRegion); err != nil {
+			if routing.shouldApplyHome() {
+				if err := applyDERPHome(derpHome, routing.preferredRegion); err != nil {
 					log.Printf("adaptive DERP selection kept native routing: %v", err)
+				} else {
+					routing.markHomeApplied()
+					routingMessage = routing.message()
 				}
 			}
 		}
@@ -174,11 +178,17 @@ func main() {
 	emit.emit(ready)
 	go monitorTailnetLiveness(ctx, localClient)
 	if adaptiveProxy != nil {
-		go maintainAdaptiveDERPRouting(ctx, localClient, adaptiveProxy, func(result derpRoutingResult) {
-			updated := ready
-			updated.Message = result.message()
-			emit.emit(updated)
-		})
+		go maintainAdaptiveDERPRouting(
+			ctx,
+			localClient,
+			adaptiveProxy,
+			derpHome,
+			func(result derpRoutingResult) {
+				updated := ready
+				updated.Message = result.message()
+				emit.emit(updated)
+			},
+		)
 	}
 
 	proxy := newReverseProxy(target, publicURL, transport == "https")

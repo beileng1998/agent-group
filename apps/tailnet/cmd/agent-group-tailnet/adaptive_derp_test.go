@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"io"
 	"net/http"
 	"net/url"
 	"testing"
@@ -16,37 +15,10 @@ import (
 type fakeDERPRoutingClient struct {
 	derpMap *tailcfg.DERPMap
 	status  *ipnstate.Status
-	actions []string
 }
 
 func (f *fakeDERPRoutingClient) CurrentDERPMap(context.Context) (*tailcfg.DERPMap, error) {
 	return f.derpMap, nil
-}
-
-func (f *fakeDERPRoutingClient) DebugAction(_ context.Context, action string) error {
-	f.actions = append(f.actions, action)
-	return nil
-}
-
-func (f *fakeDERPRoutingClient) DebugActionBody(
-	_ context.Context,
-	action string,
-	body io.Reader,
-) error {
-	encoded, _ := io.ReadAll(body)
-	f.actions = append(f.actions, action+":"+string(encoded))
-	return nil
-}
-
-func TestRefreshTailnetRoutesForcesPreferenceBeforeRestun(t *testing.T) {
-	client := &fakeDERPRoutingClient{}
-	if err := refreshTailnetRoutes(context.Background(), client, 20); err != nil {
-		t.Fatal(err)
-	}
-	want := []string{"force-prefer-derp:20", "restun"}
-	if len(client.actions) != len(want) || client.actions[0] != want[0] || client.actions[1] != want[1] {
-		t.Fatalf("unexpected route refresh actions %v", client.actions)
-	}
 }
 
 func TestPreferredDERPRegionKeepsAppliedPreferenceAfterSwitch(t *testing.T) {
@@ -129,7 +101,7 @@ func TestOptimizeDERPRoutingSelectsOnlyMeaningfullyFasterDirectPaths(t *testing.
 	if result.preferredRegion != 20 {
 		t.Fatalf("expected hkg to replace slower current sfo relay, got region %d", result.preferredRegion)
 	}
-	if got := result.message(); got != "Adaptive relay preference: hkg (40 ms direct; current sfo 190 ms)." {
+	if got := result.message(); got != "Switching relay to hkg (40 ms direct; current sfo 190 ms)." {
 		t.Fatalf("unexpected route message %q", got)
 	}
 }
@@ -207,7 +179,7 @@ func TestOptimizeDERPRoutingCorrectsRelayMisselectionWithoutForcingDirect(t *tes
 	if !result.changed || result.preferredRegion != 20 || result.best.regionCode != "hkg" {
 		t.Fatalf("expected hkg relay preference, got %+v", result)
 	}
-	if got := result.message(); got != "Adaptive relay preference: hkg (314 ms through the system proxy; current sfo 653 ms)." {
+	if got := result.message(); got != "Switching relay to hkg (314 ms through the system proxy; current sfo 653 ms)." {
 		t.Fatalf("unexpected route message %q", got)
 	}
 }
