@@ -7,10 +7,7 @@ import { Button } from "../ui/button";
 import { Menu, MenuRadioGroup, MenuRadioItem, MenuTrigger } from "../ui/menu";
 import { ComposerPickerMenuPopup } from "./ComposerPickerMenuPopup";
 import { DOCK_HEADER_ICON_BUTTON_CLASS } from "./chatHeaderControls";
-import type {
-  RightDockPlacement,
-  RightDockPlacementPreference,
-} from "./rightDockPlacement";
+import type { RightDockPlacement, RightDockPlacementPreference } from "./rightDockPlacement";
 
 export function RightDockPlacementMenu(props: {
   preference: RightDockPlacementPreference;

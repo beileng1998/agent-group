@@ -66,10 +66,7 @@ export function makeOrchestrationHandlers(dependencies: {
 
   return {
     [ORCHESTRATION_WS_METHODS.dispatchCommand]: (command) =>
-      dependencies.rpcEffect(
-        dispatchCommand(command),
-        "Failed to dispatch orchestration command",
-      ),
+      dependencies.rpcEffect(dispatchCommand(command), "Failed to dispatch orchestration command"),
     [ORCHESTRATION_WS_METHODS.importThread]: (input) =>
       dependencies.rpcEffect(importThread(input), "Failed to import thread"),
     [ORCHESTRATION_WS_METHODS.getSnapshot]: () =>

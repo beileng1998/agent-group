@@ -16,18 +16,18 @@ describe("resolveRightDockPlacement", () => {
   });
 
   it("moves automatic docks below narrow or portrait hosts", () => {
-    expect(
-      resolveRightDockPlacement({ preference: "auto", hostWidth: 900, hostHeight: 700 }),
-    ).toBe("bottom");
+    expect(resolveRightDockPlacement({ preference: "auto", hostWidth: 900, hostHeight: 700 })).toBe(
+      "bottom",
+    );
     expect(
       resolveRightDockPlacement({ preference: "auto", hostWidth: 1100, hostHeight: 1600 }),
     ).toBe("bottom");
   });
 
   it("keeps a short host side by side when stacking would leave no readable panes", () => {
-    expect(
-      resolveRightDockPlacement({ preference: "auto", hostWidth: 700, hostHeight: 500 }),
-    ).toBe("right");
+    expect(resolveRightDockPlacement({ preference: "auto", hostWidth: 700, hostHeight: 500 })).toBe(
+      "right",
+    );
   });
 
   it("honors an explicit placement regardless of host shape", () => {

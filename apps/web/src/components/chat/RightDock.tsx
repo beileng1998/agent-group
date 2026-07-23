@@ -27,11 +27,7 @@ import {
   EMPTY_PANE_ID_SET,
   reconcileKeepMountedPaneIds,
 } from "~/lib/dockPaneActivation";
-import {
-  ChevronDownIcon,
-  PanelRightCloseIcon,
-  PlusIcon,
-} from "~/lib/icons";
+import { ChevronDownIcon, PanelRightCloseIcon, PlusIcon } from "~/lib/icons";
 import { createPanelResizeOverlay, removePanelResizeOverlay } from "~/lib/panelResize";
 import type {
   RightDockPane,
@@ -197,10 +193,7 @@ export function RightDock(props: RightDockProps) {
     if (props.state.open && resolvedPlacement === "right") {
       const currentWidth = root.getBoundingClientRect().width;
       const nextWidth = shouldCenter
-        ? Math.min(
-            hostSize.width,
-            Math.max(props.minWidth, Math.round(hostSize.width / 2)),
-          )
+        ? Math.min(hostSize.width, Math.max(props.minWidth, Math.round(hostSize.width / 2)))
         : Math.min(hostSize.width, Math.max(props.minWidth, currentWidth));
       root.style.setProperty("--sidebar-width", `${nextWidth}px`);
     } else if (props.state.open) {
@@ -231,10 +224,7 @@ export function RightDock(props: RightDockProps) {
       const onPointerMove = (moveEvent: PointerEvent) => {
         if (resolvedPlacement === "right") {
           const requestedWidth = rootRect.width + startX - moveEvent.clientX;
-          const nextWidth = Math.min(
-            hostRect.width,
-            Math.max(props.minWidth, requestedWidth),
-          );
+          const nextWidth = Math.min(hostRect.width, Math.max(props.minWidth, requestedWidth));
           if (props.shouldAcceptWidth({ nextWidth, wrapper: root })) {
             root.style.setProperty("--sidebar-width", `${nextWidth}px`);
           }

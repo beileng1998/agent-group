@@ -26,10 +26,7 @@ import {
 import { showConfirmDialogFallback } from "./confirmDialogFallback";
 import { showContextMenuFallback } from "./contextMenuFallback";
 import { requireHttpExternalUrl } from "./lib/externalUrl";
-import {
-  getRemoteAgentGroupSession,
-  getRemoteShellSnapshot,
-} from "./remoteBootstrapClient";
+import { getRemoteAgentGroupSession, getRemoteShellSnapshot } from "./remoteBootstrapClient";
 import {
   createRemoteOrchestrationTransport,
   type RemoteOrchestrationTransport,

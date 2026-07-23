@@ -60,11 +60,7 @@ function compress(data: Uint8Array, encoding: StaticContentEncoding): Promise<Ui
       else resolve(result);
     };
     if (encoding === "br") {
-      brotliCompress(
-        data,
-        { params: { [constants.BROTLI_PARAM_QUALITY]: 5 } },
-        done,
-      );
+      brotliCompress(data, { params: { [constants.BROTLI_PARAM_QUALITY]: 5 } }, done);
       return;
     }
     gzip(data, { level: 6 }, done);

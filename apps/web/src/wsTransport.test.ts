@@ -6,10 +6,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WS_CHANNELS } from "@agent-group/contracts";
 
-import {
-  setBrowserWebSocketToken,
-  setBrowserWebSocketTokenResult,
-} from "./browserWebSocketAuth";
+import { setBrowserWebSocketToken, setBrowserWebSocketTokenResult } from "./browserWebSocketAuth";
 import { shouldKeepServerLifecycleStream, WsTransport } from "./wsTransport";
 import { reconnectDelayMs } from "./wsTransportSession";
 

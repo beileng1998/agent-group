@@ -11,10 +11,7 @@ import {
   refreshRemoteBootstrap,
   resolveRemoteBootstrapThreadId,
 } from "./remoteBootstrapClient";
-import {
-  addWsTransportStateListener,
-  type WsTransportState,
-} from "./wsTransportEvents";
+import { addWsTransportStateListener, type WsTransportState } from "./wsTransportEvents";
 
 const DEGRADED_REFRESH_INTERVAL_MS = 15_000;
 let fallbackStarted = false;
@@ -32,7 +29,9 @@ export function hydrateRemoteBootstrapSnapshot(snapshot: RemoteBootstrapSnapshot
 }
 
 export async function hydrateCachedRemoteBootstrapForCurrentRoute(): Promise<boolean> {
-  const cached = await readCachedRemoteBootstrap(resolveRemoteBootstrapThreadId()).catch(() => null);
+  const cached = await readCachedRemoteBootstrap(resolveRemoteBootstrapThreadId()).catch(
+    () => null,
+  );
   if (!cached) return false;
   hydrateRemoteBootstrapSnapshot(cached);
   return true;

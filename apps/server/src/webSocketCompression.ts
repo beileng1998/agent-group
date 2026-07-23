@@ -33,8 +33,7 @@ export function patchWebSocketCompression(): void {
     head,
     callback,
   ) {
-    (this as CompressibleWebSocketServer).options.perMessageDeflate =
-      PER_MESSAGE_DEFLATE_OPTIONS;
+    (this as CompressibleWebSocketServer).options.perMessageDeflate = PER_MESSAGE_DEFLATE_OPTIONS;
     return originalHandleUpgrade.call(this, request, socket, head, callback);
   } as NodeWS.WebSocketServer["handleUpgrade"];
 

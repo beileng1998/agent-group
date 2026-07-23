@@ -307,9 +307,7 @@ function collapseSettledTurns(
 
     const collapsedItems: CollapsedTurnItem[] = [];
     const standaloneWorkIndices: number[] = [];
-    const precedingAssistantRows: Array<
-      Extract<MessagesTimelineRow, { kind: "message" }>
-    > = [];
+    const precedingAssistantRows: Array<Extract<MessagesTimelineRow, { kind: "message" }>> = [];
     let mergedTurnDiffSummary = row.assistantTurnDiffSummary;
     // "Worked for" covers the whole response even though its narration stays
     // visible. The terminal row's own durationStart advances past intermediate

@@ -30,7 +30,7 @@ function deletedProjectEvent(sequence: number): OrchestrationEvent {
     causationEventId: null,
     correlationId: null,
     metadata: {},
-    payload: { projectId },
+    payload: { projectId, deletedAt: occurredAt },
   };
 }
 

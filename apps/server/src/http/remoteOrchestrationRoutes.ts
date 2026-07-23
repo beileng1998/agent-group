@@ -10,6 +10,7 @@ import { Effect, Fiber, FileSystem, Layer, Option, Path, Schema, Stream } from "
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/unstable/http";
 
 import { authErrorResponse } from "../auth/http";
+import { AuthError } from "../auth/Services/ServerAuth";
 import { ServerConfig } from "../config";
 import { makeOrchestrationCommandDispatcher } from "../orchestration/commandDispatcher";
 import {
@@ -51,7 +52,12 @@ function jsonError(error: unknown, status: number, fallback: string) {
 const authenticateRemoteRequest = Effect.gen(function* () {
   const request = yield* HttpServerRequest.HttpServerRequest;
   const url = HttpServerRequest.toURL(request);
-  if (!url) return yield* Effect.fail(new Error("Invalid request URL."));
+  if (!url) {
+    return yield* new AuthError({
+      message: "Invalid request URL.",
+      status: 400,
+    });
+  }
   const config = yield* ServerConfig;
   if (!isLegacyTokenAuthorized({ config, url })) yield* requireAuthenticatedRequest;
   return { request, url, config };
@@ -63,8 +69,10 @@ function compressedJsonResponse(
 ) {
   return Effect.gen(function* () {
     const json = JSON.stringify(value);
+    const acceptEncodingValue =
+      typeof acceptEncoding === "string" ? acceptEncoding : acceptEncoding?.join(", ");
     const prepared = yield* Effect.promise(() =>
-      prepareCompressedResponseBody(new TextEncoder().encode(json), acceptEncoding),
+      prepareCompressedResponseBody(new TextEncoder().encode(json), acceptEncodingValue),
     );
     return HttpServerResponse.uint8Array(prepared.body, {
       status: 200,
@@ -77,19 +85,13 @@ function compressedJsonResponse(
   });
 }
 
-function readEventsAfter(
-  engine: typeof OrchestrationEngineService.Service,
-  afterSequence: number,
-) {
+function readEventsAfter(engine: typeof OrchestrationEngineService.Service, afterSequence: number) {
   return Stream.runCollect(
     engine.readEvents(afterSequence).pipe(Stream.take(MAX_EVENT_BATCH_SIZE + 1)),
   ).pipe(Effect.map((events) => Array.from(events)));
 }
 
-function waitForNewEvent(
-  engine: typeof OrchestrationEngineService.Service,
-  afterSequence: number,
-) {
+function waitForNewEvent(engine: typeof OrchestrationEngineService.Service, afterSequence: number) {
   return Stream.runHead(
     engine.streamDomainEvents.pipe(Stream.filter((event) => event.sequence > afterSequence)),
   ).pipe(Effect.timeoutOption(EVENT_WAIT_MS));
@@ -243,9 +245,7 @@ const remoteEventsEffectRouteLayer = HttpRouter.add(
       // Never advance the durable HTTP cursor past projections used to build
       // shell upserts. A temporarily lagging projector will be retried instead
       // of turning a missing shell row into a permanently dropped update.
-      const projectionSafeEvents = events.filter(
-        (event) => event.sequence <= projectionSequence,
-      );
+      const projectionSafeEvents = events.filter((event) => event.sequence <= projectionSequence);
       const batch = yield* makeRemoteEventBatch({
         afterSequence,
         events: projectionSafeEvents,

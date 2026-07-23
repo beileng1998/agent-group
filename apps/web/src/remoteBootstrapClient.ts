@@ -109,9 +109,11 @@ export function refreshRemoteBootstrap(
     }
   })();
   inFlightByKey.set(key, pending);
-  void pending.finally(() => {
-    if (inFlightByKey.get(key) === pending) inFlightByKey.delete(key);
-  }).catch(() => undefined);
+  void pending
+    .finally(() => {
+      if (inFlightByKey.get(key) === pending) inFlightByKey.delete(key);
+    })
+    .catch(() => undefined);
   return pending;
 }
 

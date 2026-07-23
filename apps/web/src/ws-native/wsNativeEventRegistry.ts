@@ -87,9 +87,7 @@ export function publishOrchestrationShellEvent(payload: OrchestrationShellStream
 
 export function publishOrchestrationThreadEvent(payload: OrchestrationThreadStreamItem): void {
   const threadId =
-    payload.kind === "snapshot"
-      ? payload.snapshot.thread.id
-      : String(payload.event.aggregateId);
+    payload.kind === "snapshot" ? payload.snapshot.thread.id : String(payload.event.aggregateId);
   const sequence =
     payload.kind === "snapshot" ? payload.snapshot.snapshotSequence : payload.event.sequence;
   const latestSequence = latestThreadSequenceById.get(threadId) ?? -1;
@@ -102,9 +100,7 @@ export function publishOrchestrationThreadEvent(payload: OrchestrationThreadStre
     const retainedEvents = retainedThreadEventsById.get(threadId) ?? [];
     retainedThreadEventsById.set(
       threadId,
-      retainedEvents.filter(
-        (item) => item.kind !== "snapshot" && item.event.sequence > sequence,
-      ),
+      retainedEvents.filter((item) => item.kind !== "snapshot" && item.event.sequence > sequence),
     );
     while (latestThreadSnapshots.size > MAX_RETAINED_THREAD_SNAPSHOTS) {
       const oldest = latestThreadSnapshots.keys().next().value as string | undefined;

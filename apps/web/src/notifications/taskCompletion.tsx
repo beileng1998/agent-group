@@ -205,10 +205,7 @@ export function TaskCompletionNotifications() {
       notificationPolicyThreads,
     );
     const terminalCompletions = excludeTemporarySidechatNotificationCandidates(
-      collectCompletedTerminalCandidates(
-        previousTerminalStateRef.current,
-        terminalStateByThreadId,
-      ),
+      collectCompletedTerminalCandidates(previousTerminalStateRef.current, terminalStateByThreadId),
       notificationPolicyThreads,
     );
     const inputNeededCandidates = excludeTemporarySidechatNotificationCandidates(
@@ -218,10 +215,7 @@ export function TaskCompletionNotifications() {
       notificationPolicyThreads,
     );
     const terminalAttentionCandidates = excludeTemporarySidechatNotificationCandidates(
-      collectTerminalAttentionCandidates(
-        previousTerminalStateRef.current,
-        terminalStateByThreadId,
-      ),
+      collectTerminalAttentionCandidates(previousTerminalStateRef.current, terminalStateByThreadId),
       notificationPolicyThreads,
     );
     previousThreadsRef.current = threads;

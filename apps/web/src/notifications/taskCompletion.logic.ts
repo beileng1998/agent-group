@@ -67,10 +67,7 @@ type ThreadSessionStatus = ThreadSession["status"];
 // shared thread classification makes them notification-eligible again.
 export function excludeTemporarySidechatNotificationCandidates<
   Candidate extends { readonly threadId: string },
->(
-  candidates: readonly Candidate[],
-  threads: readonly AgentGroupThreadCandidate[],
-): Candidate[] {
+>(candidates: readonly Candidate[], threads: readonly AgentGroupThreadCandidate[]): Candidate[] {
   const latestThreadById = new Map(threads.map((thread) => [thread.id, thread] as const));
   return candidates.filter((candidate) => {
     const thread = latestThreadById.get(candidate.threadId);

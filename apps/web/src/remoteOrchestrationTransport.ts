@@ -49,9 +49,7 @@ function responseError(response: Response, payload: unknown, fallback: string): 
   return new RemoteHttpError(message, response.status);
 }
 
-async function requestRemoteCommand(
-  command: ClientOrchestrationCommand,
-): Promise<DispatchResult> {
+async function requestRemoteCommand(command: ClientOrchestrationCommand): Promise<DispatchResult> {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), COMMAND_TIMEOUT_MS);
   try {
@@ -67,7 +65,11 @@ async function requestRemoteCommand(
     });
     const payload = (await response.json().catch(() => null)) as unknown;
     if (!response.ok) {
-      throw responseError(response, payload, `Remote command failed with status ${response.status}`);
+      throw responseError(
+        response,
+        payload,
+        `Remote command failed with status ${response.status}`,
+      );
     }
     return decodeCommandResult(payload);
   } finally {
