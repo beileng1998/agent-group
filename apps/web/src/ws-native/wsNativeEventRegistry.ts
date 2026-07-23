@@ -19,6 +19,14 @@ import {
 import type { WsTransport } from "../wsTransport";
 
 let activeTransport: WsTransport | null = null;
+let latestShellSnapshot: OrchestrationShellStreamItem | null = null;
+let latestShellSequence = -1;
+let retainedShellEvents: OrchestrationShellStreamItem[] = [];
+const latestThreadSnapshots = new Map<string, OrchestrationThreadStreamItem>();
+const latestThreadSequenceById = new Map<string, number>();
+const retainedThreadEventsById = new Map<string, OrchestrationThreadStreamItem[]>();
+const MAX_RETAINED_THREAD_SNAPSHOTS = 8;
+const MAX_RETAINED_ORCHESTRATION_EVENTS = 256;
 
 export const welcomeListeners = new Set<(payload: WsWelcomePayload) => void>();
 export const serverConfigUpdatedListeners = new Set<
@@ -43,14 +51,92 @@ export const orchestrationThreadEventListeners = new Set<
   (payload: OrchestrationThreadStreamItem) => void
 >();
 
+function notifyOne<T>(listener: (payload: T) => void, payload: T): void {
+  try {
+    listener(payload);
+  } catch {
+    // Push listeners are isolated from each other and from transport dispatch.
+  }
+}
+
 function notify<T>(listeners: ReadonlySet<(payload: T) => void>, payload: T): void {
-  for (const listener of listeners) {
-    try {
-      listener(payload);
-    } catch {
-      // Push listeners are isolated from each other and from transport dispatch.
+  for (const listener of listeners) notifyOne(listener, payload);
+}
+
+function appendRetained<T>(items: T[], item: T): void {
+  items.push(item);
+  if (items.length > MAX_RETAINED_ORCHESTRATION_EVENTS) items.shift();
+}
+
+export function publishOrchestrationShellEvent(payload: OrchestrationShellStreamItem): void {
+  const sequence =
+    payload.kind === "snapshot" ? payload.snapshot.snapshotSequence : payload.sequence;
+  if (sequence < latestShellSequence) return;
+  if (payload.kind !== "snapshot" && sequence === latestShellSequence) return;
+  latestShellSequence = sequence;
+  if (payload.kind === "snapshot") {
+    latestShellSnapshot = payload;
+    retainedShellEvents = retainedShellEvents.filter(
+      (item) => item.kind !== "snapshot" && item.sequence > sequence,
+    );
+  } else {
+    appendRetained(retainedShellEvents, payload);
+  }
+  notify(orchestrationShellEventListeners, payload);
+}
+
+export function publishOrchestrationThreadEvent(payload: OrchestrationThreadStreamItem): void {
+  const threadId =
+    payload.kind === "snapshot" ? payload.snapshot.thread.id : String(payload.event.aggregateId);
+  const sequence =
+    payload.kind === "snapshot" ? payload.snapshot.snapshotSequence : payload.event.sequence;
+  const latestSequence = latestThreadSequenceById.get(threadId) ?? -1;
+  if (sequence < latestSequence) return;
+  if (payload.kind !== "snapshot" && sequence === latestSequence) return;
+  latestThreadSequenceById.set(threadId, sequence);
+  if (payload.kind === "snapshot") {
+    latestThreadSnapshots.delete(threadId);
+    latestThreadSnapshots.set(threadId, payload);
+    const retainedEvents = retainedThreadEventsById.get(threadId) ?? [];
+    retainedThreadEventsById.set(
+      threadId,
+      retainedEvents.filter((item) => item.kind !== "snapshot" && item.event.sequence > sequence),
+    );
+    while (latestThreadSnapshots.size > MAX_RETAINED_THREAD_SNAPSHOTS) {
+      const oldest = latestThreadSnapshots.keys().next().value as string | undefined;
+      if (!oldest) break;
+      latestThreadSnapshots.delete(oldest);
+      retainedThreadEventsById.delete(oldest);
+      latestThreadSequenceById.delete(oldest);
+    }
+  } else {
+    const retainedEvents = retainedThreadEventsById.get(threadId) ?? [];
+    appendRetained(retainedEvents, payload);
+    retainedThreadEventsById.set(threadId, retainedEvents);
+  }
+  notify(orchestrationThreadEventListeners, payload);
+}
+
+export function onOrchestrationShellEvent(
+  listener: (payload: OrchestrationShellStreamItem) => void,
+): () => void {
+  orchestrationShellEventListeners.add(listener);
+  if (latestShellSnapshot) notifyOne(listener, latestShellSnapshot);
+  for (const event of retainedShellEvents) notifyOne(listener, event);
+  return () => orchestrationShellEventListeners.delete(listener);
+}
+
+export function onOrchestrationThreadEvent(
+  listener: (payload: OrchestrationThreadStreamItem) => void,
+): () => void {
+  orchestrationThreadEventListeners.add(listener);
+  for (const [threadId, snapshot] of latestThreadSnapshots) {
+    notifyOne(listener, snapshot);
+    for (const event of retainedThreadEventsById.get(threadId) ?? []) {
+      notifyOne(listener, event);
     }
   }
+  return () => orchestrationThreadEventListeners.delete(listener);
 }
 
 function subscribeWithReplay<T>(input: {
@@ -151,10 +237,10 @@ export function registerWsPushSubscriptions(transport: WsTransport): void {
     notify(projectDevServerEventListeners, message.data),
   );
   transport.subscribe(ORCHESTRATION_WS_CHANNELS.shellEvent, (message) =>
-    notify(orchestrationShellEventListeners, message.data),
+    publishOrchestrationShellEvent(message.data),
   );
   transport.subscribe(ORCHESTRATION_WS_CHANNELS.threadEvent, (message) =>
-    notify(orchestrationThreadEventListeners, message.data),
+    publishOrchestrationThreadEvent(message.data),
   );
 }
 
@@ -172,4 +258,10 @@ export function resetWsEventRegistry(includeMaintenance: boolean): void {
   projectDevServerEventListeners.clear();
   orchestrationShellEventListeners.clear();
   orchestrationThreadEventListeners.clear();
+  latestShellSnapshot = null;
+  latestShellSequence = -1;
+  retainedShellEvents = [];
+  latestThreadSnapshots.clear();
+  latestThreadSequenceById.clear();
+  retainedThreadEventsById.clear();
 }

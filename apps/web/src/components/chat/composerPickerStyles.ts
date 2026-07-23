@@ -105,7 +105,7 @@ export const CHAT_ROUTE_INSET_SHELL_CLASS_NAME =
 
 /** Outer viewport shell for the split/single thread content wrapper that carries the card. */
 export const CHAT_MAIN_VIEWPORT_SHELL_CLASS_NAME =
-  "flex h-dvh min-h-0 min-w-0 flex-1 overflow-hidden";
+  "chat-adaptive-dock-host flex h-dvh min-h-0 min-w-0 flex-1 overflow-hidden";
 
 /** Shared max width for the chat column (transcript + composer). */
 export const CHAT_COLUMN_MAX_WIDTH_CLASS_NAME = COMPOSER_MAX_WIDTH_CLASS_NAME;

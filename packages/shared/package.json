@@ -53,6 +53,10 @@
       "types": "./src/desktopChrome.ts",
       "import": "./src/desktopChrome.ts"
     },
+    "./gitQuotedPath": {
+      "types": "./src/gitQuotedPath.ts",
+      "import": "./src/gitQuotedPath.ts"
+    },
     "./desktopIdentity": {
       "types": "./src/desktopIdentity.ts",
       "import": "./src/desktopIdentity.ts"

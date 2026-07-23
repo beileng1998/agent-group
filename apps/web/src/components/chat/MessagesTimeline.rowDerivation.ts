@@ -232,11 +232,10 @@ function findTailTerminalAssistantMessageId(
   return null;
 }
 
-// Post-pass: collapse each *settled* turn into a single "Worked for Xs"
-// disclosure on the turn's terminal assistant message. Unlike a per-message
-// collapse, this folds every non-terminal assistant narration (preambles) AND
-// the turn's tool work into one ordered group, so the transcript shows a single
-// toggle + the final answer per turn (Remodex-style). The live turn stays
+// Post-pass: collapse each *settled* turn's work into a single "Worked for Xs"
+// disclosure on the terminal assistant message. Assistant narration remains
+// visible: providers can emit the substantive answer before a trailing tool
+// call and finish with only a short confirmation. The live turn also stays
 // expanded/inline so streaming output is never hidden behind a toggle.
 function collapseSettledTurns(
   rows: MessagesTimelineRow[],
@@ -282,52 +281,54 @@ function collapseSettledTurns(
         : row.message.id === lastTerminalAssistantMessageId);
     if (turnIsActive) continue;
 
-    // Scan back to the response boundary collecting rows to fold. Provider
-    // mini-turns can have distinct turnIds inside one assistant answer, so the
-    // user message boundary is the stable UI grouping point.
-    const foldIndices: number[] = [];
+    // Scan back to the response boundary. Provider mini-turns can have distinct
+    // turnIds inside one assistant answer, so the user message boundary is the
+    // stable UI grouping point. Assistant rows participate in timing and donate
+    // their attached work, but remain visible in the transcript.
+    const responseRowIndices: number[] = [];
     for (let scan = pass - 1; scan >= 0; scan -= 1) {
       const prev = rows[scan]!;
       if (prev.kind === "work") {
-        foldIndices.push(scan);
+        responseRowIndices.push(scan);
         continue;
       }
       if (prev.kind === "message" && prev.message.role === "assistant") {
-        foldIndices.push(scan);
+        responseRowIndices.push(scan);
         continue;
       }
       if (prev.kind === "proposed-plan") {
-        // The plan card stays visible, but it should not strand earlier
-        // narration/work outside the final "Worked for..." disclosure.
+        // The plan card stays visible while earlier work continues into the
+        // terminal message's single "Worked for..." disclosure.
         continue;
       }
       break;
     }
-    foldIndices.reverse();
+    responseRowIndices.reverse();
 
     const collapsedItems: CollapsedTurnItem[] = [];
-    // The disclosure folds everything back to the user boundary, so "Worked
-    // for" must start where the folded segment starts. The terminal row's own
-    // durationStart advances past intermediate *completed* assistant messages
-    // (e.g. a failed attempt before a retry), which would report only the tail
-    // of the turn instead of the full run.
+    const standaloneWorkIndices: number[] = [];
+    const precedingAssistantRows: Array<Extract<MessagesTimelineRow, { kind: "message" }>> = [];
+    let mergedTurnDiffSummary = row.assistantTurnDiffSummary;
+    // "Worked for" covers the whole response even though its narration stays
+    // visible. The terminal row's own durationStart advances past intermediate
+    // completed assistant messages, which would otherwise report only the tail.
     let collapsedStart = row.durationStart;
-    for (const index of foldIndices) {
+    for (const index of responseRowIndices) {
       const folded = rows[index]!;
       if (folded.kind === "work") {
         collapsedStart = earliestTimestamp(collapsedStart, folded.createdAt);
         collectWorkItems(folded.groupedEntries, collapsedItems);
+        standaloneWorkIndices.push(index);
       } else if (folded.kind === "message" && folded.message.role === "assistant") {
         collapsedStart = earliestTimestamp(collapsedStart, folded.durationStart);
+        precedingAssistantRows.push(folded);
         if (folded.assistantTurnDiffSummary) {
-          row.assistantTurnDiffSummary = mergeTurnDiffSummaries(
+          mergedTurnDiffSummary = mergeTurnDiffSummaries(
             folded.assistantTurnDiffSummary,
-            row.assistantTurnDiffSummary ?? folded.assistantTurnDiffSummary,
+            mergedTurnDiffSummary ?? folded.assistantTurnDiffSummary,
           );
         }
         if (folded.leadingWorkEntries) collectWorkItems(folded.leadingWorkEntries, collapsedItems);
-        if (folded.collapsedTurnItems) collapsedItems.push(...folded.collapsedTurnItems);
-        collapsedItems.push({ kind: "narration", id: folded.message.id, message: folded.message });
         if (folded.inlineWorkEntries) collectWorkItems(folded.inlineWorkEntries, collapsedItems);
       }
     }
@@ -340,15 +341,24 @@ function collapseSettledTurns(
       const elapsed = formatElapsed(collapsedStart, row.message.completedAt);
       row.collapsedTurnItems = collapsedItems;
       row.collapsedWorkElapsed = elapsed ?? null;
+      row.assistantTurnDiffSummary = mergedTurnDiffSummary;
       delete row.leadingWorkEntries;
       delete row.leadingWorkGroupId;
       delete row.inlineWorkEntries;
       delete row.inlineWorkGroupId;
 
-      for (const index of [...foldIndices].sort((a, b) => b - a)) {
+      for (const precedingRow of precedingAssistantRows) {
+        delete precedingRow.leadingWorkEntries;
+        delete precedingRow.leadingWorkGroupId;
+        delete precedingRow.inlineWorkEntries;
+        delete precedingRow.inlineWorkGroupId;
+        delete precedingRow.assistantTurnDiffSummary;
+      }
+
+      for (const index of [...standaloneWorkIndices].sort((a, b) => b - a)) {
         rows.splice(index, 1);
       }
-      pass -= foldIndices.length;
+      pass -= standaloneWorkIndices.length;
     }
   }
 }

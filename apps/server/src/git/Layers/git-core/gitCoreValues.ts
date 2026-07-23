@@ -1,3 +1,4 @@
+import { decodeGitQuotedPath } from "@agent-group/shared/gitQuotedPath";
 import { Schema } from "effect";
 import * as nodePath from "node:path";
 
@@ -40,16 +41,17 @@ export function normalizeConfiguredMergeBranch(value: string): string | null {
 }
 
 function normalizeNumstatPath(rawPath: string): string {
-  const renameArrowIndex = rawPath.indexOf(" => ");
-  if (renameArrowIndex < 0) return rawPath;
-  const compactRenameMatch = /^(.*)\{[^{}]* => ([^{}]*)\}(.*)$/.exec(rawPath);
+  const decodedPath = decodeGitQuotedPath(rawPath);
+  const renameArrowIndex = decodedPath.indexOf(" => ");
+  if (renameArrowIndex < 0) return decodedPath;
+  const compactRenameMatch = /^(.*)\{[^{}]* => ([^{}]*)\}(.*)$/.exec(decodedPath);
   if (compactRenameMatch) {
     const [, prefix = "", targetSegment = "", suffix = ""] = compactRenameMatch;
     const normalized = `${prefix}${targetSegment}${suffix}`.trim();
-    return normalized.length > 0 ? normalized : rawPath;
+    return normalized.length > 0 ? normalized : decodedPath;
   }
-  const normalized = rawPath.slice(renameArrowIndex + " => ".length).trim();
-  return normalized.length > 0 ? normalized : rawPath;
+  const normalized = decodedPath.slice(renameArrowIndex + " => ".length).trim();
+  return normalized.length > 0 ? normalized : decodedPath;
 }
 
 export function parseNumstatEntries(stdout: string): Array<WorkingTreeFileStat> {
@@ -110,16 +112,16 @@ export function hasNodeErrorCode(cause: unknown, code: string): boolean {
 export function parsePorcelainPath(line: string): string | null {
   if (line.startsWith("? ") || line.startsWith("! ")) {
     const simple = line.slice(2).trim();
-    return simple.length > 0 ? simple : null;
+    return simple.length > 0 ? decodeGitQuotedPath(simple) : null;
   }
   if (!(line.startsWith("1 ") || line.startsWith("2 ") || line.startsWith("u "))) return null;
   const tabIndex = line.indexOf("\t");
   if (tabIndex >= 0) {
     const [filePath] = line.slice(tabIndex + 1).split("\t");
-    return filePath?.trim().length ? filePath.trim() : null;
+    return filePath?.trim().length ? decodeGitQuotedPath(filePath.trim()) : null;
   }
   const filePath = line.trim().split(/\s+/g).at(-1) ?? "";
-  return filePath.length > 0 ? filePath : null;
+  return filePath.length > 0 ? decodeGitQuotedPath(filePath) : null;
 }
 
 export function countTextLines(contents: Uint8Array): number {

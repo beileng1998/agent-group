@@ -240,7 +240,6 @@ export function SingleChatSurface(props: {
           onSelectPane={dock.dock.selectPane}
           onClosePane={dock.dock.closePane}
           onCollapse={() => dock.dock.setOpen(false)}
-          onOpenChange={dock.dock.setOpen}
           onAddPane={dock.dock.addPane}
           renderPane={renderDockPane}
         />

@@ -95,19 +95,31 @@ export const authEffectRouteLayer = HttpRouter.add(
             sessions,
           })
         : null;
+      const websocketToken =
+        session.authenticated && url.searchParams.get("includeWebSocketToken") === "1"
+          ? yield* serverAuth
+              .authenticateHttpRequest(authRequest)
+              .pipe(Effect.flatMap(serverAuth.issueWebSocketToken))
+          : null;
       return HttpServerResponse.jsonUnsafe(
-        renewal ? { ...session, expiresAt: DateTime.toUtc(renewal.expiresAt) } : session,
-        renewal
-          ? {
-              headers: {
-                "Set-Cookie": encodeSessionCookie({
-                  name: sessions.cookieName,
-                  value: renewal.token,
-                  expiresAt: renewal.expiresAt,
-                }),
-              },
-            }
-          : undefined,
+        {
+          ...(renewal ? { ...session, expiresAt: DateTime.toUtc(renewal.expiresAt) } : session),
+          ...(websocketToken ? { websocketToken } : {}),
+        },
+        {
+          headers: {
+            "Cache-Control": "no-store",
+            ...(renewal
+              ? {
+                  "Set-Cookie": encodeSessionCookie({
+                    name: sessions.cookieName,
+                    value: renewal.token,
+                    expiresAt: renewal.expiresAt,
+                  }),
+                }
+              : {}),
+          },
+        },
       );
     }
 

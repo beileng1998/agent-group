@@ -1,5 +1,8 @@
-import { WsRpcError } from "@agent-group/contracts";
-import { Effect, FileSystem, Path } from "effect";
+// FILE: workspaceSupport.ts
+// Purpose: Canonicalize and prepare project workspaces for transport adapters.
+// Layer: Server workspace support
+
+import { Data, Effect, FileSystem, Path } from "effect";
 
 import { ServerConfig } from "../config";
 import { realpathNearestExisting } from "../realpathNearestExisting";
@@ -9,6 +12,11 @@ import {
 } from "../studioWorkspaceScaffold";
 
 const CHAT_WORKSPACE_SUBDIRECTORIES = ["work", "outputs"] as const;
+
+export class WorkspaceSupportError extends Data.TaggedError("WorkspaceSupportError")<{
+  readonly message: string;
+  readonly cause?: unknown;
+}> {}
 
 export function makeWorkspaceSupport(dependencies: {
   readonly config: typeof ServerConfig.Service;
@@ -34,14 +42,14 @@ export function makeWorkspaceSupport(dependencies: {
       .pipe(Effect.catch(() => Effect.succeed(null)));
     if (!workspaceStat) {
       if (!options.createIfMissing) {
-        return yield* new WsRpcError({
+        return yield* new WorkspaceSupportError({
           message: `Project directory does not exist: ${normalizedWorkspaceRoot}`,
         });
       }
       yield* fileSystem.makeDirectory(normalizedWorkspaceRoot, { recursive: true }).pipe(
         Effect.mapError(
           (cause) =>
-            new WsRpcError({
+            new WorkspaceSupportError({
               message: `Failed to create project directory: ${normalizedWorkspaceRoot}`,
               cause,
             }),
@@ -51,13 +59,13 @@ export function makeWorkspaceSupport(dependencies: {
         .stat(normalizedWorkspaceRoot)
         .pipe(Effect.catch(() => Effect.succeed(null)));
       if (!workspaceStat) {
-        return yield* new WsRpcError({
+        return yield* new WorkspaceSupportError({
           message: `Failed to create project directory: ${normalizedWorkspaceRoot}`,
         });
       }
     }
     if (workspaceStat.type !== "Directory") {
-      return yield* new WsRpcError({
+      return yield* new WorkspaceSupportError({
         message: `Project path is not a directory: ${normalizedWorkspaceRoot}`,
       });
     }
@@ -76,7 +84,7 @@ export function makeWorkspaceSupport(dependencies: {
       yield* fileSystem.makeDirectory(childPath, { recursive: true }).pipe(
         Effect.mapError(
           (cause) =>
-            new WsRpcError({
+            new WorkspaceSupportError({
               message: `Failed to create workspace directory: ${childPath}`,
               cause,
             }),

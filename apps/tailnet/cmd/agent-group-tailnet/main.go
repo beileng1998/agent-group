@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -95,6 +96,10 @@ func main() {
 	defer cancel()
 	emit := &emitter{}
 	login := &loginState{}
+	adaptiveProxy, adaptiveProxyErr := installAdaptiveDERPProxy()
+	if adaptiveProxyErr != nil {
+		log.Printf("adaptive DERP proxy unavailable: %v", adaptiveProxyErr)
+	}
 	srv := &tsnet.Server{
 		Dir:      *stateDir,
 		Hostname: normalizeHostname(*hostname),
@@ -118,6 +123,7 @@ func main() {
 		emit.emit(event{Type: "error", State: "error", Message: err.Error()})
 		os.Exit(1)
 	}
+	derpHome := srv.Sys().MagicSock.Get()
 
 	status, err := waitUntilRunning(ctx, localClient.Status, emit, login)
 	if err != nil {
@@ -126,6 +132,30 @@ func main() {
 			os.Exit(1)
 		}
 		return
+	}
+	routingMessage := ""
+	if adaptiveProxy != nil {
+		probeCtx, probeCancel := context.WithTimeout(ctx, 4*time.Second)
+		routing, routingErr := optimizeDERPRouting(
+			probeCtx,
+			localClient,
+			adaptiveProxy,
+			probeDERPHTTPS,
+		)
+		probeCancel()
+		if routingErr != nil {
+			log.Printf("adaptive DERP probe kept proxy fallback: %v", routingErr)
+		} else {
+			routingMessage = routing.message()
+			if routing.shouldApplyHome() {
+				if err := applyDERPHome(derpHome, routing.preferredRegion); err != nil {
+					log.Printf("adaptive DERP selection kept native routing: %v", err)
+				} else {
+					routing.markHomeApplied()
+					routingMessage = routing.message()
+				}
+			}
+		}
 	}
 
 	listener, publicURL, transport, listenError := listen(srv, status)
@@ -143,8 +173,23 @@ func main() {
 		IPv4:      firstIPv4(status),
 		DNSName:   dnsName(status),
 		Health:    status.Health,
+		Message:   routingMessage,
 	}
 	emit.emit(ready)
+	go monitorTailnetLiveness(ctx, localClient)
+	if adaptiveProxy != nil {
+		go maintainAdaptiveDERPRouting(
+			ctx,
+			localClient,
+			adaptiveProxy,
+			derpHome,
+			func(result derpRoutingResult) {
+				updated := ready
+				updated.Message = result.message()
+				emit.emit(updated)
+			},
+		)
+	}
 
 	proxy := newReverseProxy(target, publicURL, transport == "https")
 	httpServer := &http.Server{
@@ -152,8 +197,17 @@ func main() {
 		ReadHeaderTimeout: 15 * time.Second,
 		IdleTimeout:       90 * time.Second,
 	}
+	if transport == "https" {
+		httpServer.TLSConfig = newTailnetTLSConfig(localClient.GetCertificate)
+	}
 	serveDone := make(chan error, 1)
-	go func() { serveDone <- httpServer.Serve(listener) }()
+	go func() {
+		if transport == "https" {
+			serveDone <- httpServer.ServeTLS(listener, "", "")
+			return
+		}
+		serveDone <- httpServer.Serve(listener)
+	}()
 
 	select {
 	case <-ctx.Done():
@@ -206,7 +260,7 @@ func waitUntilRunning(
 func listen(srv *tsnet.Server, status *ipnstate.Status) (net.Listener, string, string, string) {
 	domains := srv.CertDomains()
 	if len(domains) > 0 {
-		listener, err := srv.ListenTLS("tcp", ":443")
+		listener, err := srv.Listen("tcp", ":443")
 		if err == nil {
 			return listener, "https://" + strings.TrimSuffix(domains[0], "."), "https", ""
 		}
@@ -225,6 +279,16 @@ func listen(srv *tsnet.Server, status *ipnstate.Status) (net.Listener, string, s
 		return nil, "", "", "Tailnet is connected but no reachable address is available."
 	}
 	return listener, "http://" + host, "http", ""
+}
+
+func newTailnetTLSConfig(
+	getCertificate func(*tls.ClientHelloInfo) (*tls.Certificate, error),
+) *tls.Config {
+	return &tls.Config{
+		MinVersion:     tls.VersionTLS12,
+		NextProtos:     []string{"h2", "http/1.1"},
+		GetCertificate: getCertificate,
+	}
 }
 
 func newReverseProxy(target *url.URL, publicURL string, secure bool) http.Handler {

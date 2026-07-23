@@ -25,6 +25,7 @@ import {
   collectCompletedTerminalCandidates,
   collectInputNeededThreadCandidates,
   collectTerminalAttentionCandidates,
+  excludeTemporarySidechatNotificationCandidates,
   isNotificationRuntimeFreshTimestamp,
   shouldShowThreadNotificationToast,
 } from "./taskCompletion.logic";
@@ -194,25 +195,28 @@ export function TaskCompletionNotifications() {
       return;
     }
 
-    const completions = collectCompletedThreadCandidates(
-      previousThreadsRef.current,
-      threads,
-    ).filter((candidate) =>
-      isNotificationRuntimeFreshTimestamp(candidate.completedAt, runtimeStartedAtMsRef.current),
+    // Keep the previous snapshot as fallback for late terminal events from a sidechat
+    // that was just discarded. Current thread metadata wins when a sidechat was promoted.
+    const notificationPolicyThreads = [...previousThreadsRef.current, ...threads];
+    const completions = excludeTemporarySidechatNotificationCandidates(
+      collectCompletedThreadCandidates(previousThreadsRef.current, threads).filter((candidate) =>
+        isNotificationRuntimeFreshTimestamp(candidate.completedAt, runtimeStartedAtMsRef.current),
+      ),
+      notificationPolicyThreads,
     );
-    const terminalCompletions = collectCompletedTerminalCandidates(
-      previousTerminalStateRef.current,
-      terminalStateByThreadId,
+    const terminalCompletions = excludeTemporarySidechatNotificationCandidates(
+      collectCompletedTerminalCandidates(previousTerminalStateRef.current, terminalStateByThreadId),
+      notificationPolicyThreads,
     );
-    const inputNeededCandidates = collectInputNeededThreadCandidates(
-      previousThreadsRef.current,
-      threads,
-    ).filter((candidate) =>
-      isNotificationRuntimeFreshTimestamp(candidate.createdAt, runtimeStartedAtMsRef.current),
+    const inputNeededCandidates = excludeTemporarySidechatNotificationCandidates(
+      collectInputNeededThreadCandidates(previousThreadsRef.current, threads).filter((candidate) =>
+        isNotificationRuntimeFreshTimestamp(candidate.createdAt, runtimeStartedAtMsRef.current),
+      ),
+      notificationPolicyThreads,
     );
-    const terminalAttentionCandidates = collectTerminalAttentionCandidates(
-      previousTerminalStateRef.current,
-      terminalStateByThreadId,
+    const terminalAttentionCandidates = excludeTemporarySidechatNotificationCandidates(
+      collectTerminalAttentionCandidates(previousTerminalStateRef.current, terminalStateByThreadId),
+      notificationPolicyThreads,
     );
     previousThreadsRef.current = threads;
     previousTerminalStateRef.current = terminalStateByThreadId;

@@ -1,4 +1,4 @@
-const CACHE_NAME = "agent-group-static-v2";
+const CACHE_NAME = "agent-group-static-v3";
 const PRECACHE = [
   "/manifest.webmanifest",
   "/agent-group-logo.svg",
@@ -38,15 +38,12 @@ self.addEventListener("fetch", (event) => {
   if (!isVersionedAsset && !isPrecached) return;
 
   event.respondWith(
-    caches.match(request).then((cached) => {
-      const refreshed = fetch(request).then((response) => {
-        if (response.ok) {
-          const copy = response.clone();
-          void caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-        }
-        return response;
-      });
-      return cached ?? refreshed;
+    caches.open(CACHE_NAME).then(async (cache) => {
+      const cached = await cache.match(request);
+      if (cached) return cached;
+      const response = await fetch(request);
+      if (response.ok) await cache.put(request, response.clone());
+      return response;
     }),
   );
 });

@@ -80,9 +80,7 @@ export function resolveAssistantMessageDisplayText(
   const hasVisibleGeneratedImage = [
     ...(input.leadingWorkEntries ?? []),
     ...(input.inlineWorkEntries ?? []),
-    ...(input.collapsedTurnItems ?? []).flatMap((item) =>
-      item.kind === "work" ? [item.entry] : [],
-    ),
+    ...(input.collapsedTurnItems ?? []).map((item) => item.entry),
   ].some(isVisibleGeneratedImageEntry);
 
   return hasVisibleGeneratedImage ? null : "(empty response)";

@@ -183,7 +183,15 @@ export function createRootEventOrchestrationRuntime(input: {
     threadSnapshotSequenceById.clear();
     pendingThreadEventsById.clear();
     threadReplayRequestInFlight.clear();
-    await input.api.orchestration.subscribeShell().catch(() => loadShellSnapshotOnce());
+    // Essential render state has an HTTP/cache path and must win bandwidth over
+    // the fan-out of persistent WS subscriptions on a constrained DERP link.
+    const loadedOverHttp = await loadShellSnapshotOnce().then(
+      () => true,
+      () => false,
+    );
+    await input.api.orchestration.subscribeShell().catch(async () => {
+      if (!loadedOverHttp) await loadShellSnapshotOnce();
+    });
     await reconcileThreadSubscriptions(input.getInitialSubscribedThreadIds());
   };
 

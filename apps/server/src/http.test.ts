@@ -397,6 +397,38 @@ describe("createHttpRequestHandler", () => {
     });
   });
 
+  it("can include a websocket token in the session bootstrap response", async () => {
+    const config = await makeConfig();
+    const expiresAt = DateTime.toUtc(
+      DateTime.addDuration(Effect.runSync(DateTime.now), Duration.minutes(5)),
+    );
+    const handler = await makeHandler(config, {
+      serverAuth: makeFakeServerAuth({
+        getSessionState: () =>
+          Effect.succeed({
+            authenticated: true,
+            auth: makeAuthDescriptor(),
+            role: "client",
+            sessionMethod: "browser-session-cookie",
+            expiresAt,
+          }),
+        issueWebSocketToken: () => Effect.succeed({ token: "bootstrap-ws-token", expiresAt }),
+      }),
+      cookieName: "agent_group_session",
+    });
+
+    await withServer(handler, async (origin) => {
+      const response = await fetch(`${origin}/api/auth/session?includeWebSocketToken=1`);
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("cache-control")).toBe("no-store");
+      await expect(response.json()).resolves.toMatchObject({
+        authenticated: true,
+        websocketToken: { token: "bootstrap-ws-token" },
+      });
+    });
+  });
+
   it("sets a session cookie on auth bootstrap", async () => {
     const config = await makeConfig();
     const handler = await makeHandler(config, {

@@ -4,6 +4,7 @@ import {
   MAX_CACHED_AGENT_GROUP_SESSION_READINESS,
   invalidateAgentGroupSessionReadiness,
   isAgentGroupSessionPrepared,
+  markAgentGroupSessionPrepared,
   prepareAgentGroupSession,
   resetAgentGroupSessionReadinessCacheForTests,
 } from "./agentGroupSessionReadinessCache";
@@ -14,6 +15,16 @@ afterEach(() => {
 });
 
 describe("Agent Group Session readiness cache", () => {
+  it("accepts a durable snapshot as an already prepared session", async () => {
+    markAgentGroupSessionPrepared("session-from-snapshot");
+    const prepare = vi.fn(async () => undefined);
+
+    await prepareAgentGroupSession("session-from-snapshot", prepare);
+
+    expect(isAgentGroupSessionPrepared("session-from-snapshot")).toBe(true);
+    expect(prepare).not.toHaveBeenCalled();
+  });
+
   it("deduplicates in-flight preparation and reuses a successful result", async () => {
     let resolvePreparation: (() => void) | undefined;
     const prepare = vi.fn(

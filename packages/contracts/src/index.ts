@@ -22,6 +22,8 @@ export * from "./editor";
 export * from "./environment";
 export * from "./project";
 export * from "./remoteAccess";
+export * from "./remoteBootstrap";
+export * from "./remoteOrchestration";
 export * from "./studio";
 export * from "./filesystem";
 export * from "./rpc";

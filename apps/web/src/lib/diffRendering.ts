@@ -3,6 +3,7 @@
 // Layer: Web diff utilities
 // Depends on: @pierre/diffs patch parsing
 
+import { decodeGitQuotedPath } from "@agent-group/shared/gitQuotedPath";
 import { parsePatchFiles } from "@pierre/diffs";
 import type { FileDiffMetadata } from "@pierre/diffs/react";
 
@@ -262,7 +263,7 @@ export function getRenderablePatch(
 // Resolve the working-tree-relative path for a parsed file diff, stripping the
 // conventional `a/` / `b/` patch prefixes so callers can match git status paths.
 export function resolveFileDiffPath(fileDiff: FileDiffMetadata): string {
-  const raw = fileDiff.name ?? fileDiff.prevName ?? "";
+  const raw = decodeGitQuotedPath(fileDiff.name ?? fileDiff.prevName ?? "");
   if (raw.startsWith("a/") || raw.startsWith("b/")) {
     return raw.slice(2);
   }

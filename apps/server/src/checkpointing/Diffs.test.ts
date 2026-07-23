@@ -66,6 +66,24 @@ describe("parseTurnDiffFilesFromUnifiedDiff", () => {
     ]);
   });
 
+  it("decodes Git quoted UTF-8 file names", () => {
+    const encodedPath = "docs/\\344\\270\\255\\346\\226\\207.md";
+    const diff = [
+      `diff --git "a/${encodedPath}" "b/${encodedPath}"`,
+      "index 1111111..2222222 100644",
+      `--- "a/${encodedPath}"`,
+      `+++ "b/${encodedPath}"`,
+      "@@ -1 +1 @@",
+      "-old",
+      "+new",
+      "",
+    ].join("\n");
+
+    expect(parseTurnDiffFilesFromUnifiedDiff(diff)).toEqual([
+      { path: "docs/中文.md", additions: 1, deletions: 1 },
+    ]);
+  });
+
   it("merges duplicate entries for the same file path", () => {
     const diff = [
       "diff --git a/CLAUDE.md b/CLAUDE.md",

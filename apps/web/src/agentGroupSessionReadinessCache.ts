@@ -30,6 +30,11 @@ export function isAgentGroupSessionPrepared(sessionKey: string): boolean {
   return readinessBySessionKey.get(sessionKey)?.status === "ready";
 }
 
+export function markAgentGroupSessionPrepared(sessionKey: string): void {
+  readinessBySessionKey.set(sessionKey, { status: "ready", lastAccessedAt: Date.now() });
+  evictReadyEntriesToCapacity();
+}
+
 export function prepareAgentGroupSession(
   sessionKey: string,
   prepare: () => Promise<unknown>,

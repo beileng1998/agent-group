@@ -3,6 +3,7 @@
 // Layer: Web session work-log read model
 
 import { isToolLifecycleItemType } from "@agent-group/contracts";
+import { decodeGitQuotedPath } from "@agent-group/shared/gitQuotedPath";
 import { requestKindFromRequestType } from "./sessionPendingState";
 import type { WorkLogEntry } from "./sessionTypes";
 import { asRecord, asTrimmedString } from "./sessionValue";
@@ -32,7 +33,8 @@ export function extractWorkLogRequestKind(
 }
 
 function pushChangedFile(target: string[], seen: Set<string>, value: unknown) {
-  const normalized = asTrimmedString(value);
+  const candidate = asTrimmedString(value);
+  const normalized = candidate ? decodeGitQuotedPath(candidate) : null;
   if (!normalized || !isLikelyFilePath(normalized) || seen.has(normalized)) return;
   seen.add(normalized);
   target.push(normalized);
