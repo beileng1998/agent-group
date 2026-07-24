@@ -195,7 +195,7 @@ export function RightDock(props: RightDockProps) {
       const nextWidth = shouldCenter
         ? Math.min(hostSize.width, Math.max(props.minWidth, Math.round(hostSize.width / 2)))
         : Math.min(hostSize.width, Math.max(props.minWidth, currentWidth));
-      root.style.setProperty("--sidebar-width", `${nextWidth}px`);
+      root.style.setProperty("--right-dock-width", `${nextWidth}px`);
     } else if (props.state.open) {
       const currentHeight = root.getBoundingClientRect().height;
       const nextHeight = shouldCenter
@@ -226,7 +226,7 @@ export function RightDock(props: RightDockProps) {
           const requestedWidth = rootRect.width + startX - moveEvent.clientX;
           const nextWidth = Math.min(hostRect.width, Math.max(props.minWidth, requestedWidth));
           if (props.shouldAcceptWidth({ nextWidth, wrapper: root })) {
-            root.style.setProperty("--sidebar-width", `${nextWidth}px`);
+            root.style.setProperty("--right-dock-width", `${nextWidth}px`);
           }
           return;
         }
@@ -297,9 +297,9 @@ export function RightDock(props: RightDockProps) {
       )}
       style={
         {
-          "--sidebar-width": props.defaultWidth,
+          "--right-dock-width": props.defaultWidth,
           "--right-dock-height": "50%",
-          width: isRight ? (props.state.open ? "var(--sidebar-width)" : "0px") : "100%",
+          width: isRight ? (props.state.open ? "var(--right-dock-width)" : "0px") : "100%",
           height: isRight ? "100%" : props.state.open ? "var(--right-dock-height)" : "0px",
         } as CSSProperties
       }
@@ -312,7 +312,7 @@ export function RightDock(props: RightDockProps) {
             "absolute flex min-h-0 min-w-0 flex-col border-[var(--app-surface-divider)] text-foreground",
             CHAT_BACKGROUND_CLASS_NAME,
             isRight
-              ? "inset-y-0 right-0 w-(--sidebar-width) border-l"
+              ? "inset-y-0 right-0 w-(--right-dock-width) border-l"
               : "inset-x-0 bottom-0 h-(--right-dock-height) border-t",
           )}
         >

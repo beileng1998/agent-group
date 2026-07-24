@@ -278,16 +278,16 @@ export function useSingleChatDockController(input: {
 
   const shouldAcceptWidth = useCallback(
     ({ nextWidth, wrapper }: { nextWidth: number; wrapper: HTMLElement }) => {
-      const previousSidebarWidth = wrapper.style.getPropertyValue("--sidebar-width");
+      const previousDockWidth = wrapper.style.getPropertyValue("--right-dock-width");
       return canComposerHandlePanelWidth({
         nextWidth,
         paneScopeId: SINGLE_CHAT_PANE_SCOPE_ID,
-        applyWidth: (width) => wrapper.style.setProperty("--sidebar-width", `${width}px`),
+        applyWidth: (width) => wrapper.style.setProperty("--right-dock-width", `${width}px`),
         resetWidth: () => {
-          if (previousSidebarWidth.length > 0) {
-            wrapper.style.setProperty("--sidebar-width", previousSidebarWidth);
+          if (previousDockWidth.length > 0) {
+            wrapper.style.setProperty("--right-dock-width", previousDockWidth);
           } else {
-            wrapper.style.removeProperty("--sidebar-width");
+            wrapper.style.removeProperty("--right-dock-width");
           }
         },
       });
