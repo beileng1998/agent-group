@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import fs from "node:fs/promises";
 import path from "node:path";
 
 import type { CodexModelSelection, RuntimeMode } from "@agent-group/contracts";
@@ -158,7 +159,6 @@ export function buildCodexTerminalArgs(input: {
     permission.sandbox,
     "--ask-for-approval",
     permission.approvalPolicy,
-    "--no-alt-screen",
   ];
   const effort = input.modelSelection.options?.reasoningEffort;
   if (effort) {
@@ -201,10 +201,6 @@ export async function prepareCodexTerminalLaunch(input: {
     environmentRoot,
     AGENT_GROUP_CODEX_HOME_OVERLAY_DIR,
   );
-  const profilePath = path.join(
-    expectedCodexHome,
-    `${CODEX_TERMINAL_PROFILE_NAME}.config.toml`,
-  );
   await ensurePrivateDirectory(runtimeDir);
 
   const baseEnv = { ...(input.baseEnv ?? process.env) };
@@ -216,6 +212,12 @@ export async function prepareCodexTerminalLaunch(input: {
   if (!codexHome || path.resolve(codexHome) !== path.resolve(expectedCodexHome)) {
     throw new Error("Failed to prepare the Codex Terminal home.");
   }
+  const canonicalCodexHome = await fs.realpath(codexHome);
+  const profilePath = path.join(
+    canonicalCodexHome,
+    `${CODEX_TERMINAL_PROFILE_NAME}.config.toml`,
+  );
+  effectiveEnv.CODEX_HOME = canonicalCodexHome;
 
   const spoolDir = codexTerminalHookSpoolDir(runtimeDir);
   const shimPath = path.join(runtimeDir, "codex-hook.mjs");
@@ -245,7 +247,7 @@ export async function prepareCodexTerminalLaunch(input: {
       [CODEX_RUNTIME_INSTANCE_ID_ENV]: input.runtimeInstanceId,
     }),
     runtimeDir,
-    codexHome,
+    codexHome: canonicalCodexHome,
     profilePath,
     shimPath,
   };

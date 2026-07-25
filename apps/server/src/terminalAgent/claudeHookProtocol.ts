@@ -1,4 +1,8 @@
 import type { TerminalAgentBridgeRequest } from "./terminalAgentProtocol";
+import {
+  optionalBoundedHookString,
+  TERMINAL_HOOK_RUNTIME_ID_MAX_CHARS,
+} from "./terminalAgentHookProtocolBounds";
 
 export const CLAUDE_HOOK_EVENT_NAMES = [
   "SessionStart",
@@ -43,10 +47,8 @@ export interface ClaudeHookBridgeResponse {
   readonly statusLine?: string;
 }
 
-function nonEmptyString(value: unknown): string | undefined {
-  if (typeof value !== "string") return undefined;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : undefined;
+function providerString(value: unknown, field: string): string | undefined {
+  return optionalBoundedHookString(value, `Claude hook ${field}`);
 }
 
 function record(value: unknown): Record<string, unknown> | undefined {
@@ -59,14 +61,22 @@ export function parseClaudeHookBridgeRequest(
   value: unknown,
 ): ClaudeHookBridgeRequest {
   const request = record(value);
-  const runtimeInstanceId = nonEmptyString(request?.runtimeInstanceId);
+  const runtimeInstanceId = optionalBoundedHookString(
+    request?.runtimeInstanceId,
+    "Claude hook runtime instance id",
+    TERMINAL_HOOK_RUNTIME_ID_MAX_CHARS,
+  );
   if (!request || !runtimeInstanceId || !record(request.input)) {
     throw new Error("Invalid Claude hook bridge request.");
   }
   if (request.mode !== undefined && request.mode !== "status-line") {
     throw new Error("Unsupported Claude hook bridge mode.");
   }
-  const eventId = nonEmptyString(request.eventId);
+  const eventId = optionalBoundedHookString(
+    request.eventId,
+    "Claude hook event id",
+    TERMINAL_HOOK_RUNTIME_ID_MAX_CHARS,
+  );
   return {
     runtimeInstanceId,
     input: request.input,
@@ -84,21 +94,26 @@ export function parseClaudeHookInput(
   const input = record(value);
   if (!input) throw new Error("Invalid Claude hook input.");
   const eventName =
-    mode === "status-line" ? "StatusLine" : nonEmptyString(input.hook_event_name);
+    mode === "status-line"
+      ? "StatusLine"
+      : optionalBoundedHookString(input.hook_event_name, "Claude hook event", 64);
   if (!CLAUDE_HOOK_EVENT_NAMES.includes(eventName as ClaudeHookEventName)) {
     throw new Error("Unsupported Claude hook event.");
   }
   const effort = record(input.effort);
-  const sessionId = nonEmptyString(input.session_id);
-  const source = nonEmptyString(input.source);
-  const model = nonEmptyString(input.model);
-  const permissionMode = nonEmptyString(input.permission_mode);
-  const agentId = nonEmptyString(input.agent_id);
-  const agentType = nonEmptyString(input.agent_type);
-  const error = nonEmptyString(input.error);
-  const errorDetails = nonEmptyString(input.error_details);
-  const reason = nonEmptyString(input.reason);
-  const effortLevel = nonEmptyString(effort?.level);
+  const sessionId = providerString(input.session_id, "session id");
+  const source = providerString(input.source, "source");
+  const model = providerString(input.model, "model");
+  const permissionMode = providerString(
+    input.permission_mode,
+    "permission mode",
+  );
+  const agentId = providerString(input.agent_id, "agent id");
+  const agentType = providerString(input.agent_type, "agent type");
+  const error = providerString(input.error, "error");
+  const errorDetails = providerString(input.error_details, "error details");
+  const reason = providerString(input.reason, "reason");
+  const effortLevel = providerString(effort?.level, "effort");
   return {
     hook_event_name: eventName as ClaudeHookEventName,
     ...(sessionId ? { session_id: sessionId } : {}),
@@ -131,9 +146,15 @@ export function parseClaudeStatusLine(input: ClaudeHookInput): {
   readonly permissionMode?: string;
 } {
   const model = record(input.raw.model);
-  const modelId = nonEmptyString(model?.id);
-  const effortLevel = nonEmptyString(record(input.raw.effort)?.level);
-  const permissionMode = nonEmptyString(input.raw.permission_mode);
+  const modelId = providerString(model?.id, "status model");
+  const effortLevel = providerString(
+    record(input.raw.effort)?.level,
+    "status effort",
+  );
+  const permissionMode = providerString(
+    input.raw.permission_mode,
+    "status permission mode",
+  );
   return {
     ...(modelId ? { model: modelId } : {}),
     ...(effortLevel ? { effort: effortLevel } : {}),

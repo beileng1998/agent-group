@@ -1,0 +1,115 @@
+import fs from "node:fs/promises";
+
+import type {
+  ProviderSession,
+  TerminalAgentProvider,
+  ThreadId,
+} from "@agent-group/contracts";
+
+import type { TerminalAgentProviderResumeCursor } from "./terminalAgentProtocol";
+import {
+  terminalProviderResumeCursor,
+  terminalProviderSessionId,
+} from "./terminalAgentRuntimeState";
+
+export interface TerminalAgentLaunchContinuity {
+  readonly providerSessionId: string | null;
+  readonly providerResumeCursor: TerminalAgentProviderResumeCursor | null;
+  readonly resume: boolean;
+}
+
+function persistedCursor(
+  sessions: ReadonlyArray<ProviderSession>,
+  threadId: ThreadId,
+  provider: TerminalAgentProvider,
+): TerminalAgentProviderResumeCursor | null {
+  const session = sessions.find(
+    (candidate) =>
+      candidate.threadId === threadId && candidate.provider === provider,
+  );
+  return terminalProviderResumeCursor(provider, session?.resumeCursor);
+}
+
+export function resolveTerminalLaunchContinuity(input: {
+  readonly sessions: ReadonlyArray<ProviderSession>;
+  readonly threadId: ThreadId;
+  readonly provider: TerminalAgentProvider;
+  readonly operation: "start" | "restart";
+  readonly providerSessionId: string | null;
+  readonly resume: boolean;
+}): TerminalAgentLaunchContinuity {
+  const cursor = persistedCursor(
+    input.sessions,
+    input.threadId,
+    input.provider,
+  );
+  if (
+    input.provider === "pi" &&
+    (typeof cursor === "string" || (cursor && "path" in cursor))
+  ) {
+    if (
+      input.operation === "restart" &&
+      input.providerSessionId !== null
+    ) {
+      return {
+        providerSessionId: input.providerSessionId,
+        providerResumeCursor: null,
+        resume: true,
+      };
+    }
+    return {
+      providerSessionId:
+        typeof cursor === "string" ? null : cursor.sessionId,
+      providerResumeCursor: cursor,
+      resume: true,
+    };
+  }
+  const cursorSessionId = terminalProviderSessionId(input.provider, cursor);
+  const providerSessionId =
+    input.operation === "start"
+      ? (cursorSessionId ?? input.providerSessionId)
+      : (input.providerSessionId ?? cursorSessionId);
+  return {
+    providerSessionId,
+    providerResumeCursor: cursor,
+    resume: input.resume || cursor !== null,
+  };
+}
+
+export async function resolveAvailableTerminalLaunchContinuity(
+  input: Parameters<typeof resolveTerminalLaunchContinuity>[0],
+): Promise<TerminalAgentLaunchContinuity> {
+  const continuity = resolveTerminalLaunchContinuity(input);
+  if (
+    input.operation !== "start" ||
+    input.provider !== "pi" ||
+    !(
+      typeof continuity.providerResumeCursor === "string" ||
+      (continuity.providerResumeCursor &&
+        "path" in continuity.providerResumeCursor)
+    )
+  ) {
+    return continuity;
+  }
+  const cursorPath =
+    typeof continuity.providerResumeCursor === "string"
+      ? continuity.providerResumeCursor
+      : continuity.providerResumeCursor.path;
+  try {
+    await fs.lstat(cursorPath);
+    return continuity;
+  } catch (cause) {
+    if (
+      !(cause instanceof Error) ||
+      !("code" in cause) ||
+      cause.code !== "ENOENT"
+    ) {
+      return continuity;
+    }
+  }
+  return {
+    providerSessionId: input.providerSessionId,
+    providerResumeCursor: null,
+    resume: false,
+  };
+}

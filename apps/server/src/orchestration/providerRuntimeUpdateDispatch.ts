@@ -9,6 +9,7 @@ import type { OrchestrationEngineShape } from "./Services/OrchestrationEngine.ts
 import { stringifyJsonLike } from "./providerRuntimeActivityValues.ts";
 import type { ProviderRuntimeBufferState } from "./providerRuntimeBufferState.ts";
 import { providerCommandId } from "./providerRuntimeIngestionValues.ts";
+import { terminalRuntimeCommandFence } from "./providerRuntimeTerminalFence.ts";
 
 function activityUpdateDedupeKey(
   event: ProviderRuntimeEvent,
@@ -78,6 +79,7 @@ export function makeProviderRuntimeUpdateDispatch(input: {
       threadId,
       activity,
       createdAt: activity.createdAt,
+      ...terminalRuntimeCommandFence(event),
     });
     if (key && fingerprint) {
       yield* Cache.set(input.state.latestActivityUpdateFingerprintByKey, key, fingerprint);

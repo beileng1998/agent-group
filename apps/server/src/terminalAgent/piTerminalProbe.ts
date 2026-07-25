@@ -4,6 +4,7 @@ import { ChildProcessSpawner } from "effect/unstable/process";
 
 import { runPiCommand } from "../provider/Layers/provider-health/providerCommandRunner";
 import type { TerminalAgentCapabilitySnapshot } from "./terminalAgentProtocol";
+import { missingCliOption } from "./terminalAgentProbeSupport";
 
 interface ProbeCommandResult {
   readonly stdout: string;
@@ -13,6 +14,7 @@ interface ProbeCommandResult {
 
 const MINIMUM_VERSION = [0, 80, 10] as const;
 const REQUIRED_CLI_OPTIONS = [
+  "--session",
   "--session-id",
   "--session-dir",
   "--extension",
@@ -85,9 +87,7 @@ export function inspectPiTerminalProbe(input: {
   }
 
   const helpOutput = output(input.help);
-  const missingOption = REQUIRED_CLI_OPTIONS.find(
-    (option) => !helpOutput.includes(option),
-  );
+  const missingOption = missingCliOption(helpOutput, REQUIRED_CLI_OPTIONS);
   if (input.help.code !== 0 || missingOption) {
     throw new Error(
       missingOption

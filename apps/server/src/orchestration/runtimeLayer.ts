@@ -2,7 +2,8 @@ import { Layer } from "effect";
 
 import { OrchestrationCommandReceiptRepositoryLive } from "../persistence/Layers/OrchestrationCommandReceipts";
 import { OrchestrationEventStoreLive } from "../persistence/Layers/OrchestrationEventStore";
-import { OrchestrationEngineLive } from "./Layers/OrchestrationEngine";
+import { ExecutionAdapterAuthorityLive } from "./Layers/ExecutionAdapterAuthorityLive";
+import { OrchestrationEngineCoreLive } from "./Layers/OrchestrationEngine";
 import { OrchestrationProjectionPipelineLive } from "./Layers/ProjectionPipeline";
 import { OrchestrationProjectionSnapshotQueryLive } from "./Layers/ProjectionSnapshotQuery";
 import { HighlightsQueryLive } from "./Layers/HighlightsQuery";
@@ -23,7 +24,7 @@ export const OrchestrationInfrastructureLayerLive = Layer.mergeAll(
   OrchestrationProjectionPipelineLayerLive,
 );
 
-export const OrchestrationLayerLive = Layer.mergeAll(
-  OrchestrationInfrastructureLayerLive,
-  OrchestrationEngineLive.pipe(Layer.provide(OrchestrationInfrastructureLayerLive)),
+export const OrchestrationLayerLive = OrchestrationEngineCoreLive.pipe(
+  Layer.provideMerge(OrchestrationInfrastructureLayerLive),
+  Layer.provideMerge(ExecutionAdapterAuthorityLive),
 );

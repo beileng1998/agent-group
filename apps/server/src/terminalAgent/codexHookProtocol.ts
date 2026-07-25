@@ -3,6 +3,13 @@ import type {
   TerminalAgentEvent,
   TerminalAgentHookResponse,
 } from "./terminalAgentProtocol";
+import {
+  nullableBoundedHookString,
+  optionalBoundedHookString,
+  requiredBoundedHookString,
+  TERMINAL_HOOK_PATH_MAX_CHARS,
+  TERMINAL_HOOK_RUNTIME_ID_MAX_CHARS,
+} from "./terminalAgentHookProtocolBounds";
 
 export const CODEX_HOOK_EVENT_NAMES = [
   "SessionStart",
@@ -76,21 +83,32 @@ function record(value: unknown): Record<string, unknown> | undefined {
     : undefined;
 }
 
-function nonEmptyString(value: unknown, field: string): string {
-  if (typeof value !== "string" || !value.trim()) {
-    throw new Error(`Invalid Codex hook ${field}.`);
-  }
-  return value;
+function providerString(value: unknown, field: string): string {
+  return requiredBoundedHookString(value, `Codex hook ${field}`);
 }
 
-function optionalString(value: unknown, field: string): string | undefined {
+function optionalProviderString(
+  value: unknown,
+  field: string,
+): string | undefined {
   if (value === undefined) return undefined;
-  return nonEmptyString(value, field);
+  return providerString(value, field);
 }
 
-function nullableString(value: unknown, field: string): string | null {
-  if (value === null) return null;
-  return nonEmptyString(value, field);
+function pathString(value: unknown, field: string): string {
+  return requiredBoundedHookString(
+    value,
+    `Codex hook ${field}`,
+    TERMINAL_HOOK_PATH_MAX_CHARS,
+  );
+}
+
+function nullablePathString(value: unknown, field: string): string | null {
+  return nullableBoundedHookString(
+    value,
+    `Codex hook ${field}`,
+    TERMINAL_HOOK_PATH_MAX_CHARS,
+  );
 }
 
 function permissionMode(value: unknown): CodexPermissionMode {
@@ -102,10 +120,13 @@ function permissionMode(value: unknown): CodexPermissionMode {
 
 function baseInput(input: Record<string, unknown>): CodexHookInputBase {
   return {
-    session_id: nonEmptyString(input.session_id, "session id"),
-    cwd: nonEmptyString(input.cwd, "cwd"),
-    transcript_path: nullableString(input.transcript_path, "transcript path"),
-    model: nonEmptyString(input.model, "model"),
+    session_id: providerString(input.session_id, "session id"),
+    cwd: pathString(input.cwd, "cwd"),
+    transcript_path: nullablePathString(
+      input.transcript_path,
+      "transcript path",
+    ),
+    model: providerString(input.model, "model"),
     permission_mode: permissionMode(input.permission_mode),
     raw: input,
   };
@@ -114,7 +135,11 @@ function baseInput(input: Record<string, unknown>): CodexHookInputBase {
 export function parseCodexHookInput(value: unknown): CodexHookInput {
   const input = record(value);
   if (!input) throw new Error("Invalid Codex hook input.");
-  const eventName = nonEmptyString(input.hook_event_name, "event");
+  const eventName = requiredBoundedHookString(
+    input.hook_event_name,
+    "Codex hook event",
+    64,
+  );
   if (!CODEX_HOOK_EVENT_NAMES.includes(eventName as CodexHookEventName)) {
     throw new Error("Unsupported Codex hook event.");
   }
@@ -135,12 +160,12 @@ export function parseCodexHookInput(value: unknown): CodexHookInput {
       if (typeof input.prompt !== "string") {
         throw new Error("Invalid Codex hook prompt.");
       }
-      const agentId = optionalString(input.agent_id, "agent id");
-      const agentType = optionalString(input.agent_type, "agent type");
+      const agentId = optionalProviderString(input.agent_id, "agent id");
+      const agentType = optionalProviderString(input.agent_type, "agent type");
       return {
         ...base,
         hook_event_name: "UserPromptSubmit",
-        turn_id: nonEmptyString(input.turn_id, "turn id"),
+        turn_id: providerString(input.turn_id, "turn id"),
         prompt: input.prompt,
         ...(agentId ? { agent_id: agentId } : {}),
         ...(agentType ? { agent_type: agentType } : {}),
@@ -150,9 +175,9 @@ export function parseCodexHookInput(value: unknown): CodexHookInput {
       return {
         ...base,
         hook_event_name: "SubagentStart",
-        turn_id: nonEmptyString(input.turn_id, "turn id"),
-        agent_id: nonEmptyString(input.agent_id, "agent id"),
-        agent_type: nonEmptyString(input.agent_type, "agent type"),
+        turn_id: providerString(input.turn_id, "turn id"),
+        agent_id: providerString(input.agent_id, "agent id"),
+        agent_type: providerString(input.agent_type, "agent type"),
       };
     case "Stop":
       if (typeof input.stop_hook_active !== "boolean") {
@@ -161,12 +186,17 @@ export function parseCodexHookInput(value: unknown): CodexHookInput {
       return {
         ...base,
         hook_event_name: "Stop",
-        turn_id: nonEmptyString(input.turn_id, "turn id"),
+        turn_id: providerString(input.turn_id, "turn id"),
         stop_hook_active: input.stop_hook_active,
-        last_assistant_message: nullableString(
-          input.last_assistant_message,
-          "assistant message",
-        ),
+        last_assistant_message:
+          input.last_assistant_message === null
+            ? null
+            : typeof input.last_assistant_message === "string"
+              ? input.last_assistant_message
+              : nullableBoundedHookString(
+                  input.last_assistant_message,
+                  "Codex hook assistant message",
+                ),
       };
   }
 }
@@ -179,11 +209,16 @@ export function parseCodexHookBridgeRequest(
   if (request.mode !== undefined) {
     throw new Error("Codex hooks do not support a bridge mode.");
   }
-  const eventId = optionalString(request.eventId, "event id");
+  const eventId = optionalBoundedHookString(
+    request.eventId,
+    "Codex hook event id",
+    TERMINAL_HOOK_RUNTIME_ID_MAX_CHARS,
+  );
   return {
-    runtimeInstanceId: nonEmptyString(
+    runtimeInstanceId: requiredBoundedHookString(
       request.runtimeInstanceId,
-      "runtime instance id",
+      "Codex hook runtime instance id",
+      TERMINAL_HOOK_RUNTIME_ID_MAX_CHARS,
     ),
     input: parseCodexHookInput(request.input),
     ...(eventId ? { eventId } : {}),
@@ -201,6 +236,7 @@ export function codexHookInputToTerminalEvent(
         ...event,
         type: "session_start",
         providerSessionId: input.session_id,
+        providerResumeCursor: { threadId: input.session_id },
         reason: input.source,
         model: input.model,
         permissionMode: input.permission_mode,

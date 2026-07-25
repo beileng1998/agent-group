@@ -1,19 +1,16 @@
 // VENDORED from stablyai/orca @ 8a236183 (src/main/daemon/headless-emulator.ts) — MIT © 2026 Lovecast Inc. See NOTICE.md.
 // Local changes: trimmed to the snapshot core — dropped the OSC cwd/title
 // scanner, OSC link ranges, view-attribute responder, ConPTY DA1 override,
-// kitty keyboard reseed, orca unicode provider, query-reply forwarding, and
-// prompt-line inspection. Rendering/parsing stays 100% inside @xterm public
-// addons; the only private reads are the guarded writeSync and DECSC register
-// probes, each with a public fallback (see terminal-serialize-absolute-cursor).
+// kitty keyboard reseed, orca unicode provider, and
+// prompt-line inspection. Dropped the Node window polyfill because current
+// @xterm/headless runs without browser globals. Rendering/parsing stays 100%
+// inside @xterm public addons. No xterm private API is read here.
 
-import './xterm-env-polyfill'
-import { Terminal } from '@xterm/headless'
+import { createRequire } from 'node:module'
+import type * as XtermHeadless from '@xterm/headless'
 import { SerializeAddon } from '@xterm/addon-serialize'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
-import {
-  readSavedCursorRegister,
-  serializeWithAbsoluteCursor
-} from './terminal-serialize-absolute-cursor'
+import { serializeWithAbsoluteCursor } from './terminal-serialize-absolute-cursor'
 import { advancePartialEscapeTail } from './terminal-partial-escape-tail'
 import { buildRehydrateSequences } from './terminal-mode-rehydrate-sequences'
 import { TerminalMouseModeMirror } from './terminal-mouse-mode-mirror'
@@ -21,25 +18,33 @@ import { splitTerminalSnapshotAnsi } from './terminal-snapshot-ansi-buffers'
 import type { TerminalSnapshot } from './terminal-snapshot'
 import type { TerminalModes } from './terminal-modes'
 
+// Local change: @xterm/headless publishes CommonJS without Node-detectable
+// named exports. createRequire keeps both Bun source execution and the built
+// Node ESM entrypoint on the package's supported loading path.
+const require = createRequire(import.meta.url)
+const { Terminal } = require('@xterm/headless') as typeof XtermHeadless
+
 export type HeadlessEmulatorOptions = {
   cols: number
   rows: number
   scrollback?: number
+  onQueryReply?: (reply: string) => void
 }
 
-type TerminalWithSynchronousWrite = Terminal & {
-  _core?: {
-    writeSync?: (data: string) => void
-  }
+export type HeadlessEmulatorWriteOptions = {
+  /** Only live PTY output may answer terminal capability queries. */
+  forwardQueryReplies?: boolean
 }
 
 const DEFAULT_SCROLLBACK = 5000
 
 export class HeadlessEmulator {
-  private terminal: Terminal
+  private terminal: XtermHeadless.Terminal
   private serializer: SerializeAddon
   private mouseModes = new TerminalMouseModeMirror()
   private disposed = false
+  private onQueryReply: ((reply: string) => void) | null
+  private queryReplyForwardingDepth = 0
   // Why: a mid-escape chunk tail lives in xterm's parser, not the buffer, so
   // serialize() drops it and it renders literal after restore (Bug E).
   private partialEscapeTail = ''
@@ -50,7 +55,8 @@ export class HeadlessEmulator {
       rows: opts.rows,
       scrollback: opts.scrollback ?? DEFAULT_SCROLLBACK,
       allowProposedApi: true,
-      logLevel: 'off'
+      logLevel: 'off',
+      vtExtensions: { kittyKeyboard: true }
     })
 
     this.serializer = new SerializeAddon()
@@ -59,14 +65,35 @@ export class HeadlessEmulator {
     // Why Unicode 11: must match the renderer's char-width measurement, else
     // emoji rows mismeasure and the mirror accumulates cell-shifted tears.
     this.terminal.loadAddon(new Unicode11Addon())
+    this.terminal.unicode.activeVersion = '11'
+
+    this.onQueryReply = opts.onQueryReply ?? null
+    if (this.onQueryReply) {
+      this.terminal.onData((reply) => {
+        if (this.queryReplyForwardingDepth > 0) {
+          this.onQueryReply?.(reply)
+        }
+      })
+    }
   }
 
-  write(data: string): Promise<void> {
+  write(data: string, opts: HeadlessEmulatorWriteOptions = {}): Promise<void> {
     if (this.disposed) {
       return Promise.resolve()
     }
+    const forwardQueryReplies = opts.forwardQueryReplies === true
+    if (forwardQueryReplies) {
+      // The empty sentinel opens the forwarding window in xterm's FIFO
+      // immediately before this exact live chunk is parsed.
+      this.terminal.write('', () => {
+        this.queryReplyForwardingDepth += 1
+      })
+    }
     return new Promise<void>((resolve) => {
       this.terminal.write(data, () => {
+        if (forwardQueryReplies) {
+          this.queryReplyForwardingDepth -= 1
+        }
         // Why: commit the mirrors only after xterm has parsed the same bytes
         // (snapshots combine both).
         this.mouseModes.scan(data)
@@ -74,25 +101,6 @@ export class HeadlessEmulator {
         resolve()
       })
     })
-  }
-
-  /** Synchronous write for restore replay (async would snapshot a half-applied
-   *  stream); false when writeSync is unavailable. Guarded private read with a
-   *  public async fallback — see write(). */
-  writeSync(data: string): boolean {
-    if (this.disposed) {
-      return false
-    }
-    const writeSync = (this.terminal as TerminalWithSynchronousWrite)._core?.writeSync
-    if (typeof writeSync !== 'function') {
-      return false
-    }
-    // Why: restore snapshots are requested right after PTY bursts; queued
-    // writes could snapshot half-cleared TUI rows.
-    writeSync.call((this.terminal as TerminalWithSynchronousWrite)._core, data)
-    this.mouseModes.scan(data)
-    this.partialEscapeTail = advancePartialEscapeTail(this.partialEscapeTail, data)
-    return true
   }
 
   resize(cols: number, rows: number): void {
@@ -117,8 +125,7 @@ export class HeadlessEmulator {
       this.terminal,
       // Local change: exactOptionalPropertyTypes forbids an explicit
       // undefined scrollback, so only pass the option when set.
-      opts.scrollbackRows !== undefined ? { scrollback: opts.scrollbackRows } : {},
-      readSavedCursorRegister(this.terminal)
+      opts.scrollbackRows !== undefined ? { scrollback: opts.scrollbackRows } : {}
     )
     const { snapshotAnsi, scrollbackAnsi } = splitTerminalSnapshotAnsi(serializedAnsi, modes)
     return {
@@ -163,12 +170,13 @@ export class HeadlessEmulator {
 
   dispose(): void {
     this.disposed = true
+    this.onQueryReply = null
     this.terminal.dispose()
   }
 
   private getModes(): TerminalModes {
     const buffer = this.terminal.buffer.active
-    const mouseTrackingMode = this.mouseModes.mouseTrackingMode
+    const mouseTrackingMode = this.terminal.modes.mouseTrackingMode
     return {
       bracketedPaste: this.terminal.modes.bracketedPasteMode,
       mouseTracking: mouseTrackingMode !== 'none',

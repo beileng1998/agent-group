@@ -52,15 +52,6 @@ const terminalState = {
     apiProvider: "openai",
     hookSchema: "cli-verified",
   },
-  context: {
-    turnId: "turn-1",
-    checksum: "sha256:abc",
-    delivery: "inline",
-    filePath: null,
-    content: "raw context",
-    sources: [{ label: "Session context", path: "/repo/context.md" }],
-    createdAt: "2026-07-25T00:00:00.000Z",
-  },
   exit: null,
   error: null,
 };
@@ -96,9 +87,19 @@ describe("TerminalAgentRuntimeState", () => {
         pid: null,
         providerSessionId: null,
         capabilities: null,
-        context: null,
       }),
     ).toBe(true);
+  });
+
+  it("does not expose raw context or local paths in public runtime state", () => {
+    const state = decodeSync(TerminalAgentRuntimeState, {
+      ...terminalState,
+      context: {
+        content: "hidden",
+        filePath: "/private/context.md",
+      },
+    });
+    expect("context" in state).toBe(false);
   });
 
   it("rejects negative revisions and invalid pids", () => {

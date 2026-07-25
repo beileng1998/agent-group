@@ -246,6 +246,7 @@ export const OrchestrationMessageSource = Schema.Literals([
   "native",
   "handoff-import",
   "fork-import",
+  "terminal",
 ]);
 export type OrchestrationMessageSource = typeof OrchestrationMessageSource.Type;
 

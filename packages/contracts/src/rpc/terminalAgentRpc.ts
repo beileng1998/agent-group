@@ -8,10 +8,8 @@ import {
   TerminalAgentRestartInput,
   TerminalAgentRuntimeState,
   TerminalAgentStartInput,
-  TerminalAgentStopInput,
   TerminalAgentSubscribeInput,
   TerminalAgentSwitchToChatInput,
-  TerminalAgentSwitchToTerminalInput,
   TerminalAgentWriteInput,
 } from "../terminalAgent";
 import { WS_METHODS } from "../ws";
@@ -41,23 +39,8 @@ export const WsTerminalAgentResizeRpc = Rpc.make(WS_METHODS.terminalAgentResize,
   error: WsRpcError,
 });
 
-export const WsTerminalAgentSwitchToTerminalRpc = Rpc.make(
-  WS_METHODS.terminalAgentSwitchToTerminal,
-  {
-    payload: TerminalAgentSwitchToTerminalInput,
-    success: TerminalAgentRuntimeState,
-    error: WsRpcError,
-  },
-);
-
 export const WsTerminalAgentSwitchToChatRpc = Rpc.make(WS_METHODS.terminalAgentSwitchToChat, {
   payload: TerminalAgentSwitchToChatInput,
-  success: TerminalAgentRuntimeState,
-  error: WsRpcError,
-});
-
-export const WsTerminalAgentStopRpc = Rpc.make(WS_METHODS.terminalAgentStop, {
-  payload: TerminalAgentStopInput,
   success: TerminalAgentRuntimeState,
   error: WsRpcError,
 });
@@ -68,10 +51,7 @@ export const WsTerminalAgentRestartRpc = Rpc.make(WS_METHODS.terminalAgentRestar
   error: WsRpcError,
 });
 
-/**
- * For an active runtime the first stream item is always `attached`; the server
- * must not emit live output before that serialized xterm snapshot.
- */
+/** Terminal-mode subscriptions are snapshot-first; state-only streams are not. */
 export const WsTerminalAgentSubscribeRpc = Rpc.make(WS_METHODS.terminalAgentSubscribe, {
   payload: TerminalAgentSubscribeInput,
   success: TerminalAgentEvent,

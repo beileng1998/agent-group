@@ -1,5 +1,4 @@
 // FILE: ProviderCommandReactor.ts
-
 import {
   CommandId,
   DEFAULT_SERVER_SETTINGS,
@@ -10,7 +9,7 @@ import {
   ThreadId,
   TurnId,
 } from "@agent-group/contracts";
-import { Cache, Cause, Duration, Effect, Layer, Option, Stream } from "effect";
+import { Cause, Effect, Layer, Option, Stream } from "effect";
 import { makeDrainableWorker } from "@agent-group/shared/DrainableWorker";
 
 import { CheckpointStore } from "../../checkpointing/Services/CheckpointStore.ts";
@@ -21,6 +20,7 @@ import { TextGeneration } from "../../git/Services/TextGeneration.ts";
 import { resolveTextGenerationInputForSelection } from "../../git/textGenerationSelection.ts";
 import { ProviderService } from "../../provider/Services/ProviderService.ts";
 import { ServerSettingsService } from "../../serverSettings.ts";
+import { TerminalAgentService } from "../../terminalAgent/Services/TerminalAgentService.ts";
 import { OrchestrationEngineService } from "../Services/OrchestrationEngine.ts";
 import { ProjectionSnapshotQuery } from "../Services/ProjectionSnapshotQuery.ts";
 import {
@@ -45,6 +45,11 @@ import { makeProviderConversationRollback } from "./providerConversationRollback
 import { makeProviderMessageEdit } from "./providerMessageEdit.ts";
 import { makeProviderInteractionHandlers } from "./providerInteractionHandlers.ts";
 import { makeProviderTurnAdmission } from "./providerTurnAdmission.ts";
+import {
+  makeProviderTurnQueueDrain,
+  releaseCanceledProviderTurnClaims,
+  withCanceledProviderTurnClaimCleanup,
+} from "./providerTurnQueueLifecycle.ts";
 import { ProviderSessionSelectionState } from "./providerSessionSelectionState.ts";
 import {
   isProviderIntentEvent,
@@ -55,14 +60,13 @@ import { makeProviderAgentGroupBridge } from "./providerAgentGroupBridge.ts";
 import { makeProviderThreadRouting } from "./providerThreadRouting.ts";
 import { makeProviderProjectionWriter } from "./providerProjectionWriter.ts";
 import { makeProviderResumeRecovery } from "./providerResumeRecovery.ts";
+import { makeProviderReactorAuthority } from "./providerReactorAuthority.ts";
+import { withStructuredRuntimeLease } from "./executionAdapterStructuredLease.ts";
 
 export { normalizeSkillMentionTextForProvider } from "./providerTurnPrompt.ts";
 
 const serverCommandId = (tag: string): CommandId =>
   CommandId.makeUnsafe(`server:${tag}:${crypto.randomUUID()}`);
-
-const HANDLED_TURN_START_KEY_MAX = 10_000;
-const HANDLED_TURN_START_KEY_TTL = Duration.minutes(30);
 const make = Effect.gen(function* () {
   const orchestrationEngine = yield* OrchestrationEngineService;
   const projectionSnapshotQuery = yield* ProjectionSnapshotQuery;
@@ -73,18 +77,8 @@ const make = Effect.gen(function* () {
   const textGeneration = yield* TextGeneration;
   const serverSettings = yield* ServerSettingsService;
   const serverConfig = yield* ServerConfig;
-  const handledTurnStartKeys = yield* Cache.make<string, true>({
-    capacity: HANDLED_TURN_START_KEY_MAX,
-    timeToLive: HANDLED_TURN_START_KEY_TTL,
-    lookup: () => Effect.succeed(true),
-  });
-
-  const hasHandledTurnStartRecently = (key: string) =>
-    Cache.getOption(handledTurnStartKeys, key).pipe(
-      Effect.flatMap((cached) =>
-        Cache.set(handledTurnStartKeys, key, true).pipe(Effect.as(Option.isSome(cached))),
-      ),
-    );
+  const terminalAgentService = yield* TerminalAgentService;
+  const authority = yield* makeProviderReactorAuthority;
 
   const selectionState = new ProviderSessionSelectionState();
   const seedThreadModelSelections = projectionSnapshotQuery.getCommandReadModel().pipe(
@@ -243,6 +237,12 @@ const make = Effect.gen(function* () {
     resolveSubagentProviderThreadId,
     appendProviderFailureActivity,
     setThreadSession,
+    stopCurrentAdapter: terminalAgentService.stopCurrentAdapter,
+    releaseCanceledClaims: () =>
+      releaseCanceledProviderTurnClaims({
+        turnQueue,
+        releaseStructured: authority.releaseStructured,
+      }),
   });
 
   const clearStaleProviderResumeState = makeProviderResumeRecovery(providerService);
@@ -369,56 +369,20 @@ const make = Effect.gen(function* () {
     }
   });
 
-  const drainQueuedTurnsForThread = Effect.fnUntraced(function* (threadId: ThreadId) {
-    if (!turnQueue.tryBeginDrain(threadId)) return;
-    try {
-      const nextQueuedTurn = turnQueue.dequeue(threadId);
-      if (!nextQueuedTurn) {
-        return;
-      }
-      turnQueue.markDispatchPending(threadId);
-      yield* orchestrationEngine
-        .dispatch({
-          type: "thread.turn.dispatch-queued",
-          commandId: serverCommandId("dispatch-queued-turn"),
-          threadId,
-          messageId: nextQueuedTurn.messageId,
-          ...(nextQueuedTurn.modelSelection !== undefined
-            ? { modelSelection: nextQueuedTurn.modelSelection }
-            : {}),
-          ...(nextQueuedTurn.providerOptions !== undefined
-            ? { providerOptions: nextQueuedTurn.providerOptions }
-            : {}),
-          ...(nextQueuedTurn.reviewTarget !== undefined
-            ? { reviewTarget: nextQueuedTurn.reviewTarget }
-            : {}),
-          ...(nextQueuedTurn.assistantDeliveryMode !== undefined
-            ? { assistantDeliveryMode: nextQueuedTurn.assistantDeliveryMode }
-            : {}),
-          dispatchMode: nextQueuedTurn.dispatchMode,
-          runtimeMode: nextQueuedTurn.runtimeMode,
-          interactionMode: nextQueuedTurn.interactionMode,
-          ...(nextQueuedTurn.sourceProposedPlan !== undefined
-            ? { sourceProposedPlan: nextQueuedTurn.sourceProposedPlan }
-            : {}),
-          createdAt: nextQueuedTurn.createdAt,
-        })
-        .pipe(
-          // A failed promotion must not leave the in-flight marker behind, or
-          // every future drain for this thread would be blocked forever.
-          Effect.onError(() => Effect.sync(() => turnQueue.clearDispatchPending(threadId))),
-        );
-    } finally {
-      turnQueue.finishDrain(threadId);
-    }
+  const drainQueuedTurnsForThread = makeProviderTurnQueueDrain({
+    turnQueue,
+    orchestrationEngine,
+    releaseStructured: authority.releaseStructured,
+    serverCommandId,
   });
 
   const { hasLiveProviderTurn, processTurnQueued, processTurnStartRequested } =
     makeProviderTurnAdmission({
       providerService,
       turnQueue,
+      claimStructuredStart: authority.claimStructuredStart,
       resolveThread,
-      hasHandledTurnStartRecently,
+      hasHandledTurnStartRecently: authority.hasHandledTurnStartRecently,
       appendProviderFailureActivity,
       setThreadSession,
       setThreadSessionError,
@@ -429,18 +393,25 @@ const make = Effect.gen(function* () {
       drainQueuedTurnsForThread,
     });
 
-  const processQueueDrainEvent = Effect.fnUntraced(function* (event: ProviderQueueDrainEvent) {
-    bootstrapState.observeContextTerminalEvent(event);
-    const agentGroupTurnId = bootstrapState.resolveAgentGroupTerminalTurnId(event);
-    if (agentGroupTurnId === undefined) return;
-    yield* finalizeAgentGroupContextTurn(event, agentGroupTurnId);
-    yield* drainQueuedTurnsForThread(event.threadId);
-  });
+  const processQueueDrainEvent = (event: ProviderQueueDrainEvent) =>
+    withStructuredRuntimeLease({
+      authority,
+      threadId: event.threadId,
+      operation: `provider-queue-drain:${event.type}`,
+      effect: Effect.gen(function* () {
+        bootstrapState.observeContextTerminalEvent(event);
+        const agentGroupTurnId = bootstrapState.resolveAgentGroupTerminalTurnId(event);
+        if (agentGroupTurnId === undefined) return;
+        yield* finalizeAgentGroupContextTurn(event, agentGroupTurnId);
+        yield* drainQueuedTurnsForThread(event.threadId);
+      }),
+    });
 
   const processDomainEvent = makeProviderIntentRouter({
     selectionState,
     resolveThread,
     ensureSessionForThread,
+    acquireStructured: authority.acquireStructured,
     hasLiveProviderTurn,
     setThreadSessionError,
     processTurnQueued,
@@ -454,16 +425,19 @@ const make = Effect.gen(function* () {
   });
 
   const processDomainEventSafely = (event: ProviderIntentEvent) =>
-    processDomainEvent(event).pipe(
-      Effect.catchCause((cause) => {
-        if (Cause.hasInterruptsOnly(cause)) {
-          return Effect.failCause(cause);
-        }
-        return Effect.logWarning("provider command reactor failed to process event", {
-          eventType: event.type,
-          cause: Cause.pretty(cause),
-        });
-      }),
+    withCanceledProviderTurnClaimCleanup(
+      processDomainEvent(event).pipe(
+        Effect.catchCause((cause) => {
+          if (Cause.hasInterruptsOnly(cause)) {
+            return Effect.failCause(cause);
+          }
+          return Effect.logWarning("provider command reactor failed to process event", {
+            eventType: event.type,
+            cause: Cause.pretty(cause),
+          });
+        }),
+      ),
+      { turnQueue, releaseStructured: authority.releaseStructured },
     );
 
   const processQueueDrainEventSafely = (event: ProviderQueueDrainEvent) =>
@@ -482,10 +456,26 @@ const make = Effect.gen(function* () {
 
   const worker = yield* makeDrainableWorker(processDomainEventSafely);
 
-  const start: ProviderCommandReactorShape["start"] = seedThreadModelSelections.pipe(
+  const start: ProviderCommandReactorShape["start"] = Effect.addFinalizer(() => {
+    turnQueue.cancelAllQueuedTurns();
+    return releaseCanceledProviderTurnClaims({
+      turnQueue,
+      releaseStructured: authority.releaseStructured,
+    });
+  }).pipe(
+    Effect.andThen(seedThreadModelSelections),
     Effect.andThen(
       Effect.all([
         Stream.runForEach(orchestrationEngine.streamDomainEvents, (event) => {
+          if (event.type === "thread.deleted") {
+            turnQueue.clearThread(event.payload.threadId);
+            bootstrapState.clearContext(event.payload.threadId);
+            selectionState.clear(event.payload.threadId);
+            return releaseCanceledProviderTurnClaims({
+              turnQueue,
+              releaseStructured: authority.releaseStructured,
+            });
+          }
           if (!isProviderIntentEvent(event)) return Effect.void;
           return worker.enqueue(event);
         }).pipe(Effect.forkScoped),

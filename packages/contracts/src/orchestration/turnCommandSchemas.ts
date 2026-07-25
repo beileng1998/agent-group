@@ -10,6 +10,7 @@ import {
   TrimmedNonEmptyString,
 } from "../baseSchemas";
 import { MessageMentionReference, ProviderSkillReference } from "../providerDiscovery";
+import { TerminalAgentRuntimeFence } from "../terminalAgent";
 import { ChatAttachmentList, UploadChatAttachmentList } from "./attachments";
 import {
   AssistantDeliveryMode,
@@ -176,4 +177,5 @@ export const ThreadActivityAppendCommand = Schema.Struct({
   threadId: ThreadId,
   activity: OrchestrationThreadActivity,
   createdAt: IsoDateTime,
+  terminalRuntimeFence: Schema.optional(TerminalAgentRuntimeFence),
 });

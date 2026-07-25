@@ -6,9 +6,13 @@ import {
   type ThreadId,
   type TurnId,
 } from "@agent-group/contracts";
-import { Cause, Effect } from "effect";
+import { Cause, Effect, Result } from "effect";
 
 import type { ProviderServiceShape } from "../../provider/Services/ProviderService.ts";
+import type {
+  ExecutionAdapterAuthorityError,
+  StructuredAdmissionClaim,
+} from "../Services/ExecutionAdapterAuthority.ts";
 import type { FirstTurnBranchInput, FirstTurnTitleInput } from "./providerFirstTurnMetadata.ts";
 import type { ProviderTurnDispatchInput } from "./providerTurnPreparation.ts";
 import type { ProviderTurnQueue } from "./providerTurnQueue.ts";
@@ -40,6 +44,10 @@ export function makeProviderTurnAdmission<
 >(dependencies: {
   readonly providerService: ProviderServiceShape;
   readonly turnQueue: ProviderTurnQueue;
+  readonly claimStructuredStart: (
+    threadId: ThreadId,
+    claimId: string,
+  ) => Effect.Effect<StructuredAdmissionClaim, ExecutionAdapterAuthorityError>;
   readonly resolveThread: (
     threadId: ThreadId,
   ) => Effect.Effect<OrchestrationThread | undefined, ResolveError>;
@@ -81,149 +89,197 @@ export function makeProviderTurnAdmission<
     return session?.status === "running" && session.activeTurnId !== undefined;
   });
 
+  const claimTurnStart = (event: TurnStartRequestedEvent | TurnQueuedEvent) => {
+    const claimId =
+      event.commandId !== null ? `command:${event.commandId}` : `event:${event.eventId}`;
+    return dependencies.claimStructuredStart(event.payload.threadId, claimId);
+  };
+
   const processTurnStartRequested = Effect.fnUntraced(function* (event: TurnStartRequestedEvent) {
     dependencies.turnQueue.clearDispatchPending(event.payload.threadId);
     const key = event.commandId !== null ? `command:${event.commandId}` : `event:${event.eventId}`;
     if (yield* dependencies.hasHandledTurnStartRecently(key)) return;
-    const thread = yield* dependencies.resolveThread(event.payload.threadId);
-    if (!thread) return;
-    const message = thread.messages.find((entry) => entry.id === event.payload.messageId);
-    if (!message || message.role !== "user") {
+
+    const claimResult = yield* Effect.result(claimTurnStart(event));
+    if (Result.isFailure(claimResult)) {
       yield* dependencies.appendProviderFailureActivity({
         threadId: event.payload.threadId,
         kind: "provider.turn.start.failed",
         summary: "Provider turn start failed",
-        detail: `User message '${event.payload.messageId}' was not found for turn start request.`,
+        detail:
+          claimResult.failure instanceof Error
+            ? claimResult.failure.message
+            : String(claimResult.failure),
         turnId: null,
         createdAt: event.payload.createdAt,
       });
       return;
     }
 
-    const providerName = thread.session?.providerName ?? thread.modelSelection.provider;
-    const desiredProvider =
-      event.payload.modelSelection?.provider ?? thread.modelSelection.provider;
-    const hasLiveTurn = yield* hasLiveProviderTurn(event.payload.threadId);
-    const canSteerLiveCodex =
-      event.payload.dispatchMode === "steer" &&
-      providerName === "codex" &&
-      desiredProvider === providerName &&
-      hasLiveTurn;
-    if (!canSteerLiveCodex && hasLiveTurn) {
-      dependencies.turnQueue.enqueue(event.payload);
-      if (event.payload.dispatchMode === "steer") {
-        yield* dependencies.interruptProviderTurn({
+    let claimTransferredToQueue = false;
+    yield* Effect.gen(function* () {
+      const thread = yield* dependencies.resolveThread(event.payload.threadId);
+      if (!thread) return;
+      const message = thread.messages.find((entry) => entry.id === event.payload.messageId);
+      if (!message || message.role !== "user") {
+        yield* dependencies.appendProviderFailureActivity({
           threadId: event.payload.threadId,
+          kind: "provider.turn.start.failed",
+          summary: "Provider turn start failed",
+          detail: `User message '${event.payload.messageId}' was not found for turn start request.`,
+          turnId: null,
+          createdAt: event.payload.createdAt,
+        });
+        return;
+      }
+
+      const providerName = thread.session?.providerName ?? thread.modelSelection.provider;
+      const desiredProvider =
+        event.payload.modelSelection?.provider ?? thread.modelSelection.provider;
+      const hasLiveTurn = yield* hasLiveProviderTurn(event.payload.threadId);
+      const canSteerLiveCodex =
+        event.payload.dispatchMode === "steer" &&
+        providerName === "codex" &&
+        desiredProvider === providerName &&
+        hasLiveTurn;
+      if (!canSteerLiveCodex && hasLiveTurn) {
+        dependencies.turnQueue.enqueue(event.payload, claimResult.success.claimId);
+        claimTransferredToQueue = true;
+        if (event.payload.dispatchMode === "steer") {
+          yield* dependencies.interruptProviderTurn({
+            threadId: event.payload.threadId,
+            createdAt: event.payload.createdAt,
+          });
+        }
+        return;
+      }
+
+      if (!canSteerLiveCodex) {
+        yield* dependencies.setThreadSession({
+          threadId: event.payload.threadId,
+          session: {
+            threadId: event.payload.threadId,
+            status: "starting",
+            providerName: desiredProvider,
+            runtimeMode:
+              thread.session?.runtimeMode ?? event.payload.runtimeMode ?? DEFAULT_RUNTIME_MODE,
+            activeTurnId: null,
+            lastError: null,
+            updatedAt: event.payload.createdAt,
+          },
           createdAt: event.payload.createdAt,
         });
       }
-      return;
-    }
 
-    if (!canSteerLiveCodex) {
-      yield* dependencies.setThreadSession({
-        threadId: event.payload.threadId,
-        session: {
+      yield* dependencies
+        .maybeGenerateAndRenameWorktreeBranchForFirstTurn({
           threadId: event.payload.threadId,
-          status: "starting",
-          providerName: desiredProvider,
-          runtimeMode:
-            thread.session?.runtimeMode ?? event.payload.runtimeMode ?? DEFAULT_RUNTIME_MODE,
-          activeTurnId: null,
-          lastError: null,
-          updatedAt: event.payload.createdAt,
-        },
-        createdAt: event.payload.createdAt,
-      });
-    }
-
-    yield* dependencies
-      .maybeGenerateAndRenameWorktreeBranchForFirstTurn({
-        threadId: event.payload.threadId,
-        branch: thread.branch,
-        worktreePath: thread.worktreePath,
-        messageId: message.id,
-        messageText: message.text,
-        ...(message.attachments !== undefined ? { attachments: message.attachments } : {}),
-        ...(event.payload.modelSelection !== undefined
-          ? { modelSelection: event.payload.modelSelection }
-          : {}),
-        ...(event.payload.providerOptions !== undefined
-          ? { providerOptions: event.payload.providerOptions }
-          : {}),
-      })
-      .pipe(Effect.forkScoped);
-    yield* dependencies
-      .maybeGenerateAndRenameThreadTitleForFirstTurn({
-        threadId: event.payload.threadId,
-        messageId: message.id,
-        messageText: message.text,
-        ...(message.attachments !== undefined ? { attachments: message.attachments } : {}),
-        ...(event.payload.modelSelection !== undefined
-          ? { modelSelection: event.payload.modelSelection }
-          : {}),
-        ...(event.payload.providerOptions !== undefined
-          ? { providerOptions: event.payload.providerOptions }
-          : {}),
-      })
-      .pipe(Effect.forkScoped);
-    const editResendKey = dependencies.turnQueue.editResendKey(
-      event.payload.threadId,
-      event.payload.messageId,
-    );
-    yield* dependencies
-      .dispatchTurnForThread({
-        threadId: event.payload.threadId,
-        messageId: message.id,
-        messageText: message.text,
-        ...(message.attachments !== undefined ? { attachments: message.attachments } : {}),
-        ...(message.skills !== undefined ? { skills: message.skills } : {}),
-        ...(message.mentions !== undefined ? { mentions: message.mentions } : {}),
-        ...(event.payload.modelSelection !== undefined
-          ? { modelSelection: event.payload.modelSelection }
-          : {}),
-        ...(event.payload.providerOptions !== undefined
-          ? { providerOptions: event.payload.providerOptions }
-          : {}),
-        ...(event.payload.runtimeMode !== undefined
-          ? { runtimeMode: event.payload.runtimeMode }
-          : {}),
-        ...(event.payload.reviewTarget !== undefined
-          ? { reviewTarget: event.payload.reviewTarget }
-          : {}),
-        interactionMode: event.payload.interactionMode,
-        dispatchMode: canSteerLiveCodex ? "steer" : "queue",
-        createdAt: event.payload.createdAt,
-      })
-      .pipe(
-        Effect.catchCause((cause) =>
-          Effect.gen(function* () {
-            const detail = Cause.pretty(cause);
-            yield* dependencies.appendProviderFailureActivity({
-              threadId: event.payload.threadId,
-              kind: "provider.turn.start.failed",
-              summary: "Provider turn start failed",
-              detail,
-              turnId: null,
-              createdAt: event.payload.createdAt,
-            });
-            yield* dependencies.setThreadSessionError({
-              threadId: event.payload.threadId,
-              runtimeMode: event.payload.runtimeMode,
-              detail,
-              createdAt: event.payload.createdAt,
-            });
-            yield* dependencies.drainQueuedTurnsForThread(event.payload.threadId);
-          }),
-        ),
-        Effect.ensuring(
-          Effect.sync(() => dependencies.turnQueue.completeEditResend(editResendKey)),
-        ),
+          branch: thread.branch,
+          worktreePath: thread.worktreePath,
+          messageId: message.id,
+          messageText: message.text,
+          ...(message.attachments !== undefined ? { attachments: message.attachments } : {}),
+          ...(event.payload.modelSelection !== undefined
+            ? { modelSelection: event.payload.modelSelection }
+            : {}),
+          ...(event.payload.providerOptions !== undefined
+            ? { providerOptions: event.payload.providerOptions }
+            : {}),
+        })
+        .pipe(Effect.forkScoped);
+      yield* dependencies
+        .maybeGenerateAndRenameThreadTitleForFirstTurn({
+          threadId: event.payload.threadId,
+          messageId: message.id,
+          messageText: message.text,
+          ...(message.attachments !== undefined ? { attachments: message.attachments } : {}),
+          ...(event.payload.modelSelection !== undefined
+            ? { modelSelection: event.payload.modelSelection }
+            : {}),
+          ...(event.payload.providerOptions !== undefined
+            ? { providerOptions: event.payload.providerOptions }
+            : {}),
+        })
+        .pipe(Effect.forkScoped);
+      const editResendKey = dependencies.turnQueue.editResendKey(
+        event.payload.threadId,
+        event.payload.messageId,
       );
+      yield* dependencies
+        .dispatchTurnForThread({
+          threadId: event.payload.threadId,
+          messageId: message.id,
+          messageText: message.text,
+          ...(message.attachments !== undefined ? { attachments: message.attachments } : {}),
+          ...(message.skills !== undefined ? { skills: message.skills } : {}),
+          ...(message.mentions !== undefined ? { mentions: message.mentions } : {}),
+          ...(event.payload.modelSelection !== undefined
+            ? { modelSelection: event.payload.modelSelection }
+            : {}),
+          ...(event.payload.providerOptions !== undefined
+            ? { providerOptions: event.payload.providerOptions }
+            : {}),
+          ...(event.payload.runtimeMode !== undefined
+            ? { runtimeMode: event.payload.runtimeMode }
+            : {}),
+          ...(event.payload.reviewTarget !== undefined
+            ? { reviewTarget: event.payload.reviewTarget }
+            : {}),
+          interactionMode: event.payload.interactionMode,
+          dispatchMode: canSteerLiveCodex ? "steer" : "queue",
+          createdAt: event.payload.createdAt,
+        })
+        .pipe(
+          Effect.catchCause((cause) =>
+            Effect.gen(function* () {
+              const detail = Cause.pretty(cause);
+              yield* dependencies.appendProviderFailureActivity({
+                threadId: event.payload.threadId,
+                kind: "provider.turn.start.failed",
+                summary: "Provider turn start failed",
+                detail,
+                turnId: null,
+                createdAt: event.payload.createdAt,
+              });
+              yield* dependencies.setThreadSessionError({
+                threadId: event.payload.threadId,
+                runtimeMode: event.payload.runtimeMode,
+                detail,
+                createdAt: event.payload.createdAt,
+              });
+              yield* dependencies.drainQueuedTurnsForThread(event.payload.threadId);
+            }),
+          ),
+          Effect.ensuring(
+            Effect.sync(() => dependencies.turnQueue.completeEditResend(editResendKey)),
+          ),
+        );
+    }).pipe(
+      Effect.ensuring(
+        Effect.suspend(() =>
+          claimTransferredToQueue ? Effect.void : claimResult.success.release,
+        ),
+      ),
+    );
   });
 
   const processTurnQueued = Effect.fnUntraced(function* (event: TurnQueuedEvent) {
-    dependencies.turnQueue.enqueue(event.payload);
+    const claimResult = yield* Effect.result(claimTurnStart(event));
+    if (Result.isFailure(claimResult)) {
+      yield* dependencies.appendProviderFailureActivity({
+        threadId: event.payload.threadId,
+        kind: "provider.turn.start.failed",
+        summary: "Provider queued turn failed",
+        detail:
+          claimResult.failure instanceof Error
+            ? claimResult.failure.message
+            : String(claimResult.failure),
+        turnId: null,
+        createdAt: event.payload.createdAt,
+      });
+      return;
+    }
+    dependencies.turnQueue.enqueue(event.payload, claimResult.success.claimId);
     if (!(yield* hasLiveProviderTurn(event.payload.threadId))) {
       yield* dependencies.drainQueuedTurnsForThread(event.payload.threadId);
     }

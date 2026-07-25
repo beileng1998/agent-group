@@ -12,7 +12,13 @@
 //  - wsRpc.ts, to canonicalize project workspace roots after they are
 //    confirmed to exist (or freshly created).
 
-import { Effect, FileSystem, Path } from "effect";
+import { Effect, FileSystem, Option, Path } from "effect";
+
+// Bun can leave realpath pending indefinitely for some macOS protected
+// directories. Keep the availability fallback scoped to that runtime so slow
+// network mounts retain exact canonicalization under Node and other platforms.
+const DEFAULT_REALPATH_TIMEOUT_MS =
+  process.platform === "darwin" && process.versions.bun !== undefined ? 1_000 : null;
 
 /**
  * Canonicalize `inputPath` via realpath, resolving symlinks anywhere along an
@@ -29,6 +35,7 @@ import { Effect, FileSystem, Path } from "effect";
  */
 export const realpathNearestExisting = Effect.fn(function* (
   inputPath: string,
+  options?: { readonly realPathTimeoutMs?: number | null },
 ): Effect.fn.Return<string, never, FileSystem.FileSystem | Path.Path> {
   const path = yield* Path.Path;
   const fileSystem = yield* FileSystem.FileSystem;
@@ -40,9 +47,19 @@ export const realpathNearestExisting = Effect.fn(function* (
   while (true) {
     const exists = yield* fileSystem.exists(candidate).pipe(Effect.orElseSucceed(() => false));
     if (exists) {
-      const real = yield* fileSystem
-        .realPath(candidate)
-        .pipe(Effect.orElseSucceed(() => candidate));
+      const configuredTimeout =
+        options?.realPathTimeoutMs === undefined
+          ? DEFAULT_REALPATH_TIMEOUT_MS
+          : options.realPathTimeoutMs;
+      const canonical = fileSystem.realPath(candidate);
+      const real = yield* (
+        configuredTimeout === null
+          ? canonical
+          : canonical.pipe(
+              Effect.timeoutOption(configuredTimeout),
+              Effect.map(Option.getOrElse(() => candidate)),
+            )
+      ).pipe(Effect.orElseSucceed(() => candidate));
       return missingSegments.length > 0 ? path.join(real, ...missingSegments) : real;
     }
 

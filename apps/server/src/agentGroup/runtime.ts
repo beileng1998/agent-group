@@ -14,7 +14,9 @@ import {
 
 import { commitSessionContext, ensureContextRepository, prepareSessionContext } from "./contextGit";
 import {
+  buildAgentGroupContextEnvelope,
   buildAgentGroupPrompt,
+  type AgentGroupContextEnvelopeInput,
   type AgentGroupPromptAttachment,
   type AgentGroupPromptMentionedSession,
 } from "./prompt";
@@ -61,6 +63,7 @@ export interface AgentGroupMentionedSession {
 
 export interface PreparedAgentGroupTurn {
   readonly prompt: string;
+  readonly contextEnvelope: string;
   readonly contextPath: string;
   readonly awarenessHead: string | null;
 }
@@ -302,23 +305,27 @@ export async function prepareAgentGroupTurn(
     const awarenessCommand =
       awareness && awareness.base !== awareness.head ? awareness.command : undefined;
     const firstTurn = !session.firstTurnCompleted;
+    const contextEnvelopeInput: AgentGroupContextEnvelopeInput = {
+      contextPath: contextRelativePath(session.sessionId),
+      ...(firstTurn && session.parentSessionId
+        ? { parentContextPath: contextRelativePath(session.parentSessionId) }
+        : {}),
+      ...(awarenessCommand ? { contextAwarenessCommand: awarenessCommand } : {}),
+      ...(mentionedSessions.length > 0 ? { mentionedSessions } : {}),
+      ...(state.browserToolsEnabled ? { browserSessionId: session.sessionId } : {}),
+      firstTurn,
+      globalRules: globalSettings.globalRules,
+      groupRules: state.globalRules,
+      promptInstructions: globalSettings.promptInstructions,
+    };
     return {
       prompt: buildAgentGroupPrompt({
         userText: input.userText,
         ...(input.attachments?.length ? { attachments: input.attachments } : {}),
-        contextPath: contextRelativePath(session.sessionId),
-        ...(firstTurn && session.parentSessionId
-          ? { parentContextPath: contextRelativePath(session.parentSessionId) }
-          : {}),
-        ...(awarenessCommand ? { contextAwarenessCommand: awarenessCommand } : {}),
-        ...(mentionedSessions.length > 0 ? { mentionedSessions } : {}),
-        ...(state.browserToolsEnabled ? { browserSessionId: session.sessionId } : {}),
-        firstTurn,
-        globalRules: globalSettings.globalRules,
-        groupRules: state.globalRules,
-        promptInstructions: globalSettings.promptInstructions,
+        ...contextEnvelopeInput,
       }),
-      contextPath: contextRelativePath(session.sessionId),
+      contextEnvelope: buildAgentGroupContextEnvelope(contextEnvelopeInput),
+      contextPath: contextEnvelopeInput.contextPath,
       awarenessHead: awareness?.head ?? null,
     };
   });

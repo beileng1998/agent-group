@@ -7,7 +7,9 @@ import path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import { buildClaudeHookShimSource } from "./claudeHookShim";
 import { prepareClaudeTerminalLaunch } from "./claudeTerminalDriver";
+import { buildCodexHookShimSource } from "./codexHookShim";
 import { prepareCodexTerminalLaunch } from "./codexTerminalDriver";
 
 interface ShimResult {
@@ -38,6 +40,26 @@ async function runShim(
   child.stdin.end(JSON.stringify(input));
   const [code] = (await once(child, "close")) as [number];
   return { stdout, stderr, code };
+}
+
+async function runShimWithClosedOutput(
+  shimPath: string,
+  env: Record<string, string>,
+  input: unknown,
+): Promise<Omit<ShimResult, "stdout">> {
+  const child = spawn(process.execPath, [shimPath], {
+    env: { ...process.env, ...env },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  let stderr = "";
+  child.stderr.setEncoding("utf8");
+  child.stderr.on("data", (chunk) => {
+    stderr += chunk;
+  });
+  child.stdout.destroy();
+  child.stdin.end(JSON.stringify(input));
+  const [code] = (await once(child, "close")) as [number];
+  return { stderr, code };
 }
 
 function listen(server: http.Server, endpoint: string): Promise<void> {
@@ -123,6 +145,22 @@ describe("managed terminal hook shims", () => {
       runtimeMode: "approval-required",
       codexHomePath: sourceHome,
     });
+    const offlineSessionStart = await runShim(
+      launch.shimPath,
+      launch.env,
+      {
+        ...codexInput,
+        hook_event_name: "SessionStart",
+        source: "startup",
+      },
+    );
+    expect(offlineSessionStart).toMatchObject({
+      stdout: "",
+      code: 2,
+    });
+    expect(offlineSessionStart.stderr).toContain(
+      "Agent Group context unavailable",
+    );
     const prompt = {
       ...codexInput,
       hook_event_name: "UserPromptSubmit",
@@ -161,8 +199,15 @@ describe("managed terminal hook shims", () => {
       .toMatchObject({ decision: "block" });
     expect(seen.at(-1)?.eventId).toBe(recovery.eventId);
     bridgeMode = "reject-ack";
-    expect(JSON.parse((await runShim(launch.shimPath, launch.env, prompt)).stdout))
-      .toMatchObject({ decision: "block" });
+    const rejectedAck = await runShim(launch.shimPath, launch.env, prompt);
+    expect(rejectedAck.code).toBe(2);
+    expect(JSON.parse(rejectedAck.stdout)).toMatchObject({
+      hookSpecificOutput: { additionalContext: "Managed context." },
+    });
+    expect(rejectedAck.stderr).toContain("context unavailable");
+    expect(
+      JSON.parse(await fs.readFile(recoveryPath, "utf8")),
+    ).toMatchObject({ eventId: recovery.eventId, prompt: "Ship it." });
     bridgeMode = "ready";
     expect(JSON.parse((await runShim(launch.shimPath, launch.env, prompt)).stdout))
       .toEqual({
@@ -241,4 +286,127 @@ describe("managed terminal hook shims", () => {
       (await fs.readdir(spoolDir)).filter((name) => name.endsWith(".json")),
     ).toEqual([]);
   });
+
+  it("does not commit when the provider output pipe rejects context", async () => {
+    const stateDir = await temporary("agent-group-closed-hook-output-");
+    const sourceHome = await temporary("agent-group-closed-codex-home-");
+    await fs.writeFile(path.join(sourceHome, "config.toml"), "");
+    const endpoint = path.join(stateDir, "bridge.sock");
+    const launch = await prepareCodexTerminalLaunch({
+      stateDir,
+      sessionKey: "thread-closed-output",
+      runtimeInstanceId: "runtime-closed-output",
+      hookEndpoint: endpoint,
+      hookToken: "secret-token",
+      executable: "codex",
+      modelSelection: { provider: "codex", model: "gpt-5.6" },
+      runtimeMode: "approval-required",
+      codexHomePath: sourceHome,
+    });
+    const seen: Array<Record<string, unknown>> = [];
+    const server = bridgeServer({
+      seen,
+      token: "secret-token",
+      response: () => ({ body: { additionalContext: "Managed context." } }),
+    });
+    servers.push(server);
+    await listen(server, endpoint);
+
+    const result = await runShimWithClosedOutput(
+      launch.shimPath,
+      launch.env,
+      {
+        ...codexInput,
+        hook_event_name: "UserPromptSubmit",
+        prompt: "Do not half commit.",
+      },
+    );
+
+    expect(result.code).not.toBe(0);
+    expect(result.stderr).toContain("context unavailable");
+    expect(seen.some((payload) => payload.mode === "prompt-accepted")).toBe(false);
+    await expect(
+      fs.stat(path.join(launch.runtimeDir, "recovery-prompt.json")),
+    ).resolves.toBeDefined();
+  });
+
+  it("does not prepare a prompt without durable recovery storage", async () => {
+    const stateDir = await temporary("agent-group-missing-hook-recovery-");
+    const endpoint = path.join(stateDir, "bridge.sock");
+    const shimPath = path.join(stateDir, "hook.mjs");
+    await fs.writeFile(shimPath, buildCodexHookShimSource(500), { mode: 0o700 });
+    const seen: Array<Record<string, unknown>> = [];
+    const server = bridgeServer({
+      seen,
+      token: "secret-token",
+      response: () => ({ body: { additionalContext: "Must not run." } }),
+    });
+    servers.push(server);
+    await listen(server, endpoint);
+
+    const result = await runShim(
+      shimPath,
+      {
+        AGENT_GROUP_HOOK_ENDPOINT: endpoint,
+        AGENT_GROUP_HOOK_TOKEN: "secret-token",
+        AGENT_GROUP_RUNTIME_INSTANCE_ID: "runtime-no-recovery",
+      },
+      {
+        ...codexInput,
+        hook_event_name: "UserPromptSubmit",
+        prompt: "Require recovery.",
+      },
+    );
+
+    expect(result.code).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({ decision: "block" });
+    expect(seen).toEqual([]);
+  });
+
+  it.each([
+    ["Codex", buildCodexHookShimSource, {
+      ...codexInput,
+      hook_event_name: "UserPromptSubmit",
+      prompt: "Wait forever.",
+    }],
+    ["Claude", buildClaudeHookShimSource, {
+      hook_event_name: "UserPromptSubmit",
+      prompt: "Wait forever.",
+    }],
+  ] as const)(
+    "aborts a hung %s bridge before the provider hook deadline",
+    async (_provider, buildSource, prompt) => {
+      const stateDir = await temporary("agent-group-hung-hook-");
+      const endpoint = path.join(stateDir, "bridge.sock");
+      const shimPath = path.join(stateDir, "hook.mjs");
+      await fs.writeFile(shimPath, buildSource(120), { mode: 0o700 });
+      let resolveClosed!: () => void;
+      const socketClosed = new Promise<void>((resolve) => {
+        resolveClosed = resolve;
+      });
+      const server = http.createServer((request) => {
+        request.resume();
+        request.socket.once("close", resolveClosed);
+      });
+      servers.push(server);
+      await listen(server, endpoint);
+
+      const startedAt = Date.now();
+      const result = await runShim(
+        shimPath,
+        {
+          AGENT_GROUP_HOOK_ENDPOINT: endpoint,
+          AGENT_GROUP_HOOK_TOKEN: "secret-token",
+          AGENT_GROUP_RUNTIME_INSTANCE_ID: "runtime-hung",
+          AGENT_GROUP_HOOK_SPOOL_DIR: path.join(stateDir, "spool"),
+        },
+        prompt,
+      );
+      await socketClosed;
+
+      expect(Date.now() - startedAt).toBeLessThan(2_000);
+      expect(result.code).toBe(0);
+      expect(JSON.parse(result.stdout)).toMatchObject({ decision: "block" });
+    },
+  );
 });

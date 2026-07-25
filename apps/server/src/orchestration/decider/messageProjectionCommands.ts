@@ -16,6 +16,7 @@ type MessageProjectionCommand = Extract<
     type:
       | "thread.message.assistant.delta"
       | "thread.message.assistant.complete"
+      | "thread.terminal-message.observe"
       | "thread.proposed-plan.upsert"
       | "thread.turn.diff.complete"
       | "thread.revert.complete"
@@ -33,6 +34,34 @@ export const decideMessageProjectionCommand = Effect.fn("decideMessageProjection
     readonly readModel: OrchestrationReadModel;
   }): Effect.fn.Return<DeciderResult, OrchestrationCommandInvariantError> {
     switch (command.type) {
+      case "thread.terminal-message.observe": {
+        yield* requireThread({
+          readModel,
+          command,
+          threadId: command.threadId,
+        });
+        return {
+          ...withEventBase({
+            aggregateKind: "thread",
+            aggregateId: command.threadId,
+            occurredAt: command.createdAt,
+            commandId: command.commandId,
+          }),
+          type: "thread.message-sent",
+          payload: {
+            threadId: command.threadId,
+            messageId: command.messageId,
+            role: command.role,
+            text: command.text,
+            turnId: command.turnId,
+            streaming: false,
+            source: "terminal",
+            createdAt: command.createdAt,
+            updatedAt: command.createdAt,
+          },
+        };
+      }
+
       case "thread.message.assistant.delta": {
         const thread = yield* requireThread({
           readModel,

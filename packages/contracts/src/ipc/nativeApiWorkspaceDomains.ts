@@ -52,10 +52,8 @@ import type {
   TerminalAgentRestartInput,
   TerminalAgentRuntimeState,
   TerminalAgentStartInput,
-  TerminalAgentStopInput,
   TerminalAgentSubscribeInput,
   TerminalAgentSwitchToChatInput,
-  TerminalAgentSwitchToTerminalInput,
   TerminalAgentWriteInput,
 } from "../terminalAgent";
 import type {
@@ -99,13 +97,9 @@ export interface NativeApiWorkspaceDomains {
     get: (input: TerminalAgentGetInput) => Promise<TerminalAgentRuntimeState>;
     write: (input: TerminalAgentWriteInput) => Promise<void>;
     resize: (input: TerminalAgentResizeInput) => Promise<void>;
-    switchToTerminal: (
-      input: TerminalAgentSwitchToTerminalInput,
-    ) => Promise<TerminalAgentRuntimeState>;
     switchToChat: (
       input: TerminalAgentSwitchToChatInput,
     ) => Promise<TerminalAgentRuntimeState>;
-    stop: (input: TerminalAgentStopInput) => Promise<TerminalAgentRuntimeState>;
     restart: (input: TerminalAgentRestartInput) => Promise<TerminalAgentRuntimeState>;
     subscribe: (
       input: TerminalAgentSubscribeInput,

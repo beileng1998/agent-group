@@ -15,6 +15,12 @@ export type ProcessChildrenMap = Map<number, Array<CapturedProcess>>;
 export type ProcessCommandMap = Map<number, string>;
 export type ProcessIdentityMap = Map<number, { command: string; startTime: string }>;
 
+export interface CapturedProcessIdentity {
+  readonly pid: number;
+  readonly command: string;
+  readonly startTime: string;
+}
+
 export interface CapturedProcess {
   pid: number;
   command: string;
@@ -291,19 +297,20 @@ export function createProcessTreeKiller(
       if (deps.platform === "win32") {
         return { verified: tree.platformTreeExitProven === true, survivors: [] };
       }
-      if (tree.descendants.length === 0) {
+      const captured = [...(tree.root ? [tree.root] : []), ...tree.descendants];
+      if (captured.length === 0) {
         return { verified: true, survivors: [] };
       }
       const currentIdentities = deps.readCurrentIdentities(
-        tree.descendants.map((descendant) => descendant.pid),
+        captured.map((process) => process.pid),
       );
       if (currentIdentities === null) {
-        return { verified: false, survivors: [...tree.descendants] };
+        return { verified: false, survivors: captured };
       }
       return {
         verified: true,
-        survivors: tree.descendants.filter((descendant) =>
-          matchesCapturedProcessIdentity(descendant, currentIdentities),
+        survivors: captured.filter((process) =>
+          matchesCapturedProcessIdentity(process, currentIdentities),
         ),
       };
     },

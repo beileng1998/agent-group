@@ -80,10 +80,8 @@ import {
   TerminalAgentResizeInput,
   TerminalAgentRestartInput,
   TerminalAgentStartInput,
-  TerminalAgentStopInput,
   TerminalAgentSubscribeInput,
   TerminalAgentSwitchToChatInput,
-  TerminalAgentSwitchToTerminalInput,
   TerminalAgentWriteInput,
 } from "./terminalAgent";
 import { KeybindingRule } from "./keybindings";
@@ -268,12 +266,7 @@ const WebSocketRequestBody = Schema.Union([
   tagStrictRequestBody(WS_METHODS.terminalAgentGet, TerminalAgentGetInput),
   tagStrictRequestBody(WS_METHODS.terminalAgentWrite, TerminalAgentWriteInput),
   tagStrictRequestBody(WS_METHODS.terminalAgentResize, TerminalAgentResizeInput),
-  tagStrictRequestBody(
-    WS_METHODS.terminalAgentSwitchToTerminal,
-    TerminalAgentSwitchToTerminalInput,
-  ),
   tagStrictRequestBody(WS_METHODS.terminalAgentSwitchToChat, TerminalAgentSwitchToChatInput),
-  tagStrictRequestBody(WS_METHODS.terminalAgentStop, TerminalAgentStopInput),
   tagStrictRequestBody(WS_METHODS.terminalAgentRestart, TerminalAgentRestartInput),
   tagStrictRequestBody(WS_METHODS.terminalAgentSubscribe, TerminalAgentSubscribeInput),
 

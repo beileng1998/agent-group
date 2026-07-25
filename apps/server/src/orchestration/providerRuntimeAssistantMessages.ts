@@ -14,6 +14,7 @@ import {
   providerCommandId,
   providerTurnKey,
 } from "./providerRuntimeIngestionValues.ts";
+import { terminalRuntimeCommandFence } from "./providerRuntimeTerminalFence.ts";
 
 const MAX_BUFFERED_ASSISTANT_CHARS = 24_000;
 
@@ -156,6 +157,7 @@ export function makeProviderRuntimeAssistantMessages(input: {
         delta: text,
         ...(params.turnId ? { turnId: params.turnId } : {}),
         createdAt: params.createdAt,
+        ...terminalRuntimeCommandFence(params.event),
       });
       return true;
     });
@@ -201,6 +203,7 @@ export function makeProviderRuntimeAssistantMessages(input: {
           delta: text,
           ...(params.turnId ? { turnId: params.turnId } : {}),
           createdAt: params.createdAt,
+          ...terminalRuntimeCommandFence(params.event),
         });
       }
       yield* input.orchestrationEngine.dispatch({
@@ -210,6 +213,7 @@ export function makeProviderRuntimeAssistantMessages(input: {
         messageId: params.messageId,
         ...(params.turnId ? { turnId: params.turnId } : {}),
         createdAt: params.createdAt,
+        ...terminalRuntimeCommandFence(params.event),
       });
       yield* clearAssistantMessageState(params.messageId);
     });

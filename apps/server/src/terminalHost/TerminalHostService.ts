@@ -1,28 +1,41 @@
 // FILE: TerminalHostService.ts
 // Purpose: Effect service boundary for TerminalHost — managed-agent PTY
 // sessions with create-or-attach identity, generation epochs, and snapshot
-// restore. Not wired into serverLayers until the orchestration admission
-// boundary lands (see docs/plans/embedded-agent-terminal-redo.md).
+// restore. Wired through the execution-adapter coordinator so structured and
+// terminal runtimes cannot own the same Thread concurrently.
 // Layer: Server terminal host service
 
 import { Effect, Layer, Schema, ServiceMap } from "effect";
 
-import { PtyAdapter } from "../terminal/Services/PTY";
+import { PtyAdapter, PtySpawnError } from "../terminal/Services/PTY";
 import { TerminalHost } from "./TerminalHost";
 import type {
   TerminalHostAttachResult,
   TerminalHostExit,
   TerminalHostGeneration,
   TerminalHostOutput,
+  TerminalHostClientSubscription,
   TerminalHostSpawnInput,
 } from "./TerminalHost";
-import { TerminalHostSessionNotFoundError, TerminalHostStaleGenerationError } from "./TerminalHost";
+import {
+  TerminalHostSessionNotFoundError,
+  TerminalHostSnapshotTooLargeError,
+  TerminalHostStaleGenerationError,
+  TerminalHostTeardownError,
+} from "./TerminalHost";
 import type { TerminalSnapshot } from "./terminal-snapshot";
 
 export class TerminalHostError extends Schema.TaggedErrorClass<TerminalHostError>()(
   "TerminalHostError",
   {
-    reason: Schema.Literals(["not-found", "stale-generation", "spawn-failed", "unknown"]),
+    reason: Schema.Literals([
+      "not-found",
+      "stale-generation",
+      "spawn-failed",
+      "snapshot-too-large",
+      "teardown-failed",
+      "unknown",
+    ]),
     message: Schema.String,
     cause: Schema.optional(Schema.Defect),
   },
@@ -34,6 +47,22 @@ const toTerminalHostError = (error: unknown): TerminalHostError => {
   }
   if (error instanceof TerminalHostStaleGenerationError) {
     return new TerminalHostError({ reason: "stale-generation", message: error.message });
+  }
+  if (error instanceof TerminalHostSnapshotTooLargeError) {
+    return new TerminalHostError({
+      reason: "snapshot-too-large",
+      message: error.message,
+    });
+  }
+  if (error instanceof TerminalHostTeardownError) {
+    return new TerminalHostError({ reason: "teardown-failed", message: error.message });
+  }
+  if (error instanceof PtySpawnError) {
+    return new TerminalHostError({
+      reason: "spawn-failed",
+      message: error.message,
+      cause: error,
+    });
   }
   const message = error instanceof Error ? error.message : String(error);
   return new TerminalHostError({ reason: "unknown", message, cause: error });
@@ -51,13 +80,13 @@ export interface TerminalHostServiceShape {
   readonly write: (input: {
     readonly sessionId: string;
     readonly data: string;
-    readonly generation?: TerminalHostGeneration;
+    readonly generation: TerminalHostGeneration;
   }) => Effect.Effect<void, TerminalHostError>;
   readonly resize: (input: {
     readonly sessionId: string;
     readonly cols: number;
     readonly rows: number;
-    readonly generation?: TerminalHostGeneration;
+    readonly generation: TerminalHostGeneration;
   }) => Effect.Effect<void, TerminalHostError>;
   readonly getSnapshot: (
     sessionId: string,
@@ -67,6 +96,14 @@ export interface TerminalHostServiceShape {
     sessionId: string,
     listener: (output: TerminalHostOutput) => void,
   ) => Effect.Effect<() => void, TerminalHostError>;
+  /** Atomically subscribe before snapshot capture for gap-free renderer attach. */
+  readonly attachClient: (
+    sessionId: string,
+    listeners: {
+      readonly onOutput: (output: TerminalHostOutput) => void;
+      readonly onExit: (exit: TerminalHostExit) => void;
+    },
+  ) => Effect.Effect<TerminalHostClientSubscription, TerminalHostError>;
   readonly onExit: (
     sessionId: string,
     listener: (exit: TerminalHostExit) => void,
@@ -119,6 +156,11 @@ export const TerminalHostServiceLive: Layer.Layer<TerminalHostService, never, Pt
           Effect.tryPromise({ try: () => host.getSnapshot(sessionId), catch: toTerminalHostError }),
         onOutput: (sessionId, listener) =>
           Effect.try({ try: () => host.onOutput(sessionId, listener), catch: toTerminalHostError }),
+        attachClient: (sessionId, listeners) =>
+          Effect.tryPromise({
+            try: (signal) => host.attachClient(sessionId, listeners, signal),
+            catch: toTerminalHostError,
+          }),
         onExit: (sessionId, listener) =>
           Effect.try({ try: () => host.onExit(sessionId, listener), catch: toTerminalHostError }),
         kill: (sessionId) =>

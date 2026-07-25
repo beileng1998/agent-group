@@ -1,110 +1,87 @@
-// FILE: TerminalHost.ts
-// Purpose: Host-owned managed-agent PTY sessions — create-or-attach identity,
-// generation epochs, monotonic output sequencing, snapshot restore, and
-// process-group teardown. Rendering/screen state lives entirely in
-// headless-emulator (xterm public addons); this class owns only the PTY
-// lifecycle and the attach contract.
-// Layer: Server terminal host (managed agent runtime substrate)
-
 import { randomUUID } from "node:crypto";
 
 import type { PtyProcess, PtySpawnInput } from "../terminal/Services/PTY";
+import { defaultProcessTreeKiller, type ProcessTreeKiller } from "../terminal/processTreeKiller";
 import {
-  defaultProcessTreeKiller,
-  type ProcessTreeKiller,
-} from "../terminal/processTreeKiller";
+  defaultTerminalProcessGroupController,
+  disabledTerminalProcessGroupController,
+  type TerminalProcessGroupController,
+} from "../terminal/terminalProcessGroup";
 import { HeadlessEmulator } from "./headless-emulator";
 import type { TerminalSnapshot } from "./terminal-snapshot";
+import {
+  TerminalHostSessionNotFoundError,
+  TerminalHostStaleGenerationError,
+  TerminalHostTeardownError,
+  type TerminalHostAttachResult,
+  type TerminalHostClientSubscription,
+  type TerminalHostDependencies,
+  type TerminalHostExit,
+  type TerminalHostGeneration,
+  type TerminalHostOutput,
+  type TerminalHostSession,
+  type TerminalHostSpawnInput,
+} from "./TerminalHostTypes";
+import {
+  refreshTerminalSessionTree,
+  teardownTerminalSession,
+  teardownTerminalSessions,
+} from "./terminalHostTeardown";
+import {
+  enqueueTerminalEmulatorTask,
+  enqueueTerminalSnapshot,
+} from "./terminalHostEmulatorQueue";
+import { waitForTerminalSessionExit } from "./terminalHostExitWait";
+import { assertTerminalHostGeneration } from "./terminalHostGeneration";
+import { TerminalHostSnapshotTooLargeError } from "./terminalHostSnapshotBudget";
+import { makeTerminalHostSessionState } from "./terminalHostSessionState";
+import { TerminalHostStartupBuffer } from "./terminalHostStartupBuffer";
+import { markKilledTombstone } from "./terminalHostTombstones";
 
-export type TerminalHostGeneration = string;
-
-export interface TerminalHostSpawnInput {
-  readonly sessionId: string;
-  readonly command: string;
-  readonly args?: readonly string[];
-  readonly cwd: string;
-  readonly env?: Record<string, string>;
-  readonly cols: number;
-  readonly rows: number;
-}
-
-export interface TerminalHostAttachResult {
-  readonly isNew: boolean;
-  readonly generation: TerminalHostGeneration;
-  readonly pid: number;
-  /** Null on a fresh spawn; on reattach carries outputSequence for seq dedupe. */
-  readonly snapshot: TerminalSnapshot | null;
-}
-
-export interface TerminalHostOutput {
-  readonly seq: number;
-  readonly data: string;
-  readonly generation: TerminalHostGeneration;
-}
-
-export interface TerminalHostExit {
-  readonly exitCode: number;
-  readonly signal?: number;
-  readonly generation: TerminalHostGeneration;
-}
-
-export class TerminalHostSessionNotFoundError extends Error {
-  readonly sessionId: string;
-  constructor(sessionId: string) {
-    super(`Terminal host session not found: ${sessionId}`);
-    this.name = "TerminalHostSessionNotFoundError";
-    this.sessionId = sessionId;
-  }
-}
-
-export class TerminalHostStaleGenerationError extends Error {
-  readonly sessionId: string;
-  constructor(sessionId: string) {
-    super(`Stale generation for terminal host session: ${sessionId}`);
-    this.name = "TerminalHostStaleGenerationError";
-    this.sessionId = sessionId;
-  }
-}
-
-interface HostSession {
-  readonly sessionId: string;
-  readonly generation: TerminalHostGeneration;
-  readonly pty: PtyProcess;
-  readonly emulator: HeadlessEmulator;
-  readonly outputListeners: Set<(output: TerminalHostOutput) => void>;
-  readonly exitListeners: Set<(exit: TerminalHostExit) => void>;
-  seq: number;
-  isAlive: boolean;
-  exitCode: number | null;
-  /** Serializes emulator ingestion so snapshots never capture a half-parsed stream. */
-  emulatorQueue: Promise<void>;
-}
-
-export interface TerminalHostDependencies {
-  /** Spawn effect bridge — the service layer wires PtyAdapter through this (orca's spawnSubprocess seam). */
-  readonly spawnPty: (input: PtySpawnInput) => Promise<PtyProcess>;
-  readonly processTreeKiller?: ProcessTreeKiller;
-  /** Grace period between SIGTERM and the SIGKILL descendant sweep. */
-  readonly killGraceMs?: number;
-}
-
+export {
+  TerminalHostSessionNotFoundError,
+  TerminalHostStaleGenerationError,
+  TerminalHostTeardownError,
+  TerminalHostSnapshotTooLargeError,
+};
+export type {
+  TerminalHostAttachResult,
+  TerminalHostClientSubscription,
+  TerminalHostDependencies,
+  TerminalHostExit,
+  TerminalHostGeneration,
+  TerminalHostOutput,
+  TerminalHostSpawnInput,
+};
 const DEFAULT_KILL_GRACE_MS = 1_000;
 
-const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
-
 export class TerminalHost {
-  private readonly sessions = new Map<string, HostSession>();
-  private readonly killing = new Set<string>();
+  private readonly sessions = new Map<string, TerminalHostSession>();
+  private readonly pendingCreates = new Map<string, Promise<TerminalHostAttachResult>>();
+  private readonly pendingKills = new Map<string, Promise<void>>();
   private readonly killedTombstones = new Set<string>();
   private readonly spawnPty: (input: PtySpawnInput) => Promise<PtyProcess>;
   private readonly processTreeKiller: ProcessTreeKiller;
+  private readonly processGroupController: TerminalProcessGroupController;
+  private readonly requireProcessGroupOwnership: boolean;
   private readonly killGraceMs: number;
+  private readonly maxSnapshotBytes: number | undefined;
+  private readonly platform: NodeJS.Platform;
   private disposed = false;
 
   constructor(deps: TerminalHostDependencies) {
     this.spawnPty = deps.spawnPty;
     this.processTreeKiller = deps.processTreeKiller ?? defaultProcessTreeKiller;
+    this.processGroupController =
+      deps.processGroupController ??
+      (deps.processTreeKiller
+        ? disabledTerminalProcessGroupController
+        : defaultTerminalProcessGroupController);
+    this.requireProcessGroupOwnership =
+      deps.requireProcessGroupOwnership ?? deps.processTreeKiller === undefined;
     this.killGraceMs = deps.killGraceMs ?? DEFAULT_KILL_GRACE_MS;
+    this.maxSnapshotBytes = deps.maxSnapshotBytes;
+    this.platform = deps.platform ?? process.platform;
   }
 
   async createOrAttach(input: TerminalHostSpawnInput): Promise<TerminalHostAttachResult> {
@@ -112,54 +89,188 @@ export class TerminalHost {
       throw new Error("Terminal host is disposed");
     }
     const existing = this.sessions.get(input.sessionId);
-    if (existing?.isAlive && !this.killing.has(input.sessionId)) {
+    if (existing?.isAlive && !this.pendingKills.has(input.sessionId)) {
       return this.attachResult(existing, false);
     }
-    // Why: attaching a session whose teardown is in flight could hand the
-    // caller a doomed generation (orca: teardown fence before create).
-    if (this.killing.has(input.sessionId)) {
+    if (this.pendingKills.has(input.sessionId)) {
       throw new TerminalHostSessionNotFoundError(input.sessionId);
     }
-    this.killedTombstones.delete(input.sessionId);
+    if (existing) {
+      await this.runTeardown(input.sessionId);
+    }
+    const pending = this.pendingCreates.get(input.sessionId);
+    if (pending) {
+      await pending;
+      return this.attach(input.sessionId);
+    }
 
+    const create = this.createSession(input);
+    this.pendingCreates.set(input.sessionId, create);
+    try {
+      return await create;
+    } finally {
+      if (this.pendingCreates.get(input.sessionId) === create) {
+        this.pendingCreates.delete(input.sessionId);
+      }
+    }
+  }
+
+  private async createSession(input: TerminalHostSpawnInput): Promise<TerminalHostAttachResult> {
+    this.killedTombstones.delete(input.sessionId);
     const generation = randomUUID();
-    const ptyProcess = await this.spawnPty({
-      shell: input.command,
-      args: [...(input.args ?? [])],
-      cwd: input.cwd,
+    let session: TerminalHostSession | undefined;
+    const emulator = new HeadlessEmulator({
       cols: input.cols,
       rows: input.rows,
-      env: input.env ?? process.env,
+      onQueryReply: (reply) => {
+        if (!session?.isAlive || this.sessions.get(input.sessionId) !== session) return;
+        try {
+          session.pty.write(reply);
+        } catch (cause) {
+          session.emulatorError ??= cause;
+          void this.runTeardown(input.sessionId).catch(() => {});
+        }
+      },
     });
-    const session: HostSession = {
+    let ptyProcess: PtyProcess;
+    try {
+      ptyProcess = await this.spawnPty({
+        shell: input.command,
+        args: [...(input.args ?? [])],
+        cwd: input.cwd,
+        cols: input.cols,
+        rows: input.rows,
+        env: input.env ?? process.env,
+      });
+    } catch (cause) {
+      emulator.dispose();
+      throw cause;
+    }
+    session = makeTerminalHostSessionState({
       sessionId: input.sessionId,
       generation,
       pty: ptyProcess,
-      emulator: new HeadlessEmulator({ cols: input.cols, rows: input.rows }),
-      outputListeners: new Set(),
-      exitListeners: new Set(),
-      seq: 0,
-      isAlive: true,
-      exitCode: null,
-      emulatorQueue: Promise.resolve(),
-    };
-    ptyProcess.onData((data) => this.handleData(session, data));
-    ptyProcess.onExit(({ exitCode, signal }) =>
-      this.handleExit(session, exitCode, signal ?? undefined),
-    );
+      emulator,
+      processGroupIdentity: null,
+    });
     this.sessions.set(input.sessionId, session);
-    return { isNew: true, generation, pid: ptyProcess.pid, snapshot: null };
+    const startupBuffer = new TerminalHostStartupBuffer(
+      ptyProcess,
+      (data) => this.handleData(session!, data),
+      ({ exitCode, signal }) =>
+        this.handleExit(session!, exitCode, signal ?? undefined),
+    );
+    try {
+      session.disposePtyData = ptyProcess.onData(startupBuffer.onData);
+      session.disposePtyExit = ptyProcess.onExit(startupBuffer.onExit);
+    } catch (cause) {
+      startupBuffer.discard();
+      try {
+        await this.kill(input.sessionId);
+      } catch {
+        // Preserve the listener-registration failure.
+      }
+      throw cause;
+    }
+    try {
+      session.processGroupIdentity =
+        this.platform === "win32"
+          ? null
+          : this.processGroupController.capture(ptyProcess.pid);
+      if (
+        this.requireProcessGroupOwnership &&
+        this.platform !== "win32" &&
+        session.processGroupIdentity === null
+      ) {
+        throw new Error(`Terminal process ${ptyProcess.pid} has no verified process group.`);
+      }
+      refreshTerminalSessionTree({
+        owner: session,
+        processTreeKiller: this.processTreeKiller,
+      });
+      session.lastTreeCaptureAt = 0;
+      startupBuffer.promote();
+    } catch (cause) {
+      // Never expose an unowned PTY as attachable. Retain its host record when
+      // stable tree cleanup cannot be proven so stop/dispose can retry.
+      startupBuffer.discard();
+      session.isAlive = false;
+      try {
+        await this.runTeardown(input.sessionId);
+      } catch (teardownCause) {
+        throw new TerminalHostTeardownError(
+          input.sessionId,
+          `process-group capture failed: ${
+            cause instanceof Error ? cause.message : String(cause)
+          }; ${teardownCause instanceof Error ? teardownCause.message : String(teardownCause)}`,
+        );
+      }
+      throw cause;
+    }
+    if (!session.isAlive) {
+      session.disposePtyData();
+      session.disposePtyExit();
+      throw new TerminalHostSessionNotFoundError(input.sessionId);
+    }
+    if (this.disposed) {
+      await this.kill(input.sessionId);
+      throw new Error("Terminal host is disposed");
+    }
+    return {
+      isNew: true,
+      generation,
+      pid: ptyProcess.pid,
+      processGroupIdentity: session.processGroupIdentity,
+      snapshot: null,
+    };
   }
 
-  /** Attach to an existing live session; never spawns. */
   async attach(sessionId: string): Promise<TerminalHostAttachResult> {
     const session = this.getAliveSession(sessionId);
     return this.attachResult(session, false);
   }
 
-  write(sessionId: string, data: string, generation?: TerminalHostGeneration): void {
+  async attachClient(
+    sessionId: string,
+    listeners: {
+      readonly onOutput: (output: TerminalHostOutput) => void;
+      readonly onExit: (exit: TerminalHostExit) => void;
+    },
+    signal?: AbortSignal,
+  ): Promise<TerminalHostClientSubscription> {
     const session = this.getAliveSession(sessionId);
-    this.assertGeneration(session, generation);
+    session.outputListeners.add(listeners.onOutput);
+    session.exitListeners.add(listeners.onExit);
+    const unsubscribe = () => {
+      session.outputListeners.delete(listeners.onOutput);
+      session.exitListeners.delete(listeners.onExit);
+    };
+    const abort = () => unsubscribe();
+    if (signal?.aborted) {
+      abort();
+      throw new Error("Terminal client attach was interrupted.");
+    }
+    signal?.addEventListener("abort", abort, { once: true });
+    try {
+      const subscription = {
+        attached: await this.attachResult(session, false),
+        unsubscribe,
+      };
+      if (signal?.aborted) {
+        throw new Error("Terminal client attach was interrupted.");
+      }
+      return subscription;
+    } catch (cause) {
+      unsubscribe();
+      throw cause;
+    } finally {
+      signal?.removeEventListener("abort", abort);
+    }
+  }
+
+  write(sessionId: string, data: string, generation: TerminalHostGeneration): void {
+    const session = this.getAliveSession(sessionId);
+    assertTerminalHostGeneration(session, generation);
     session.pty.write(data);
   }
 
@@ -167,15 +278,17 @@ export class TerminalHost {
     sessionId: string,
     cols: number,
     rows: number,
-    generation?: TerminalHostGeneration,
+    generation: TerminalHostGeneration,
   ): void {
     const session = this.getAliveSession(sessionId);
-    this.assertGeneration(session, generation);
+    assertTerminalHostGeneration(session, generation);
     session.pty.resize(cols, rows);
-    session.emulator.resize(cols, rows);
+    enqueueTerminalEmulatorTask({
+      session,
+      task: () => session.emulator.resize(cols, rows),
+    });
   }
 
-  /** Snapshot of the current screen after the emulator has fully drained. */
   async getSnapshot(
     sessionId: string,
     opts: { scrollbackRows?: number } = {},
@@ -184,8 +297,7 @@ export class TerminalHost {
     if (!session || !session.isAlive) {
       return null;
     }
-    await session.emulatorQueue;
-    return session.emulator.getSnapshot({ ...opts, outputSequence: session.seq });
+    return this.enqueueSnapshot(session, opts);
   }
 
   onOutput(sessionId: string, listener: (output: TerminalHostOutput) => void): () => void {
@@ -215,43 +327,43 @@ export class TerminalHost {
     const session = this.sessions.get(sessionId);
     return session?.isAlive ? session.generation : null;
   }
-
   async kill(sessionId: string): Promise<void> {
+    if (this.sessions.has(sessionId)) {
+      markKilledTombstone(this.killedTombstones, sessionId);
+    }
+    return this.runTeardown(sessionId);
+  }
+
+  private async runTeardown(sessionId: string): Promise<void> {
+    const pending = this.pendingKills.get(sessionId);
+    if (pending) {
+      return pending;
+    }
+    const kill = Promise.resolve().then(() => this.killSession(sessionId));
+    this.pendingKills.set(sessionId, kill);
+    try {
+      await kill;
+    } finally {
+      if (this.pendingKills.get(sessionId) === kill) {
+        this.pendingKills.delete(sessionId);
+      }
+    }
+  }
+
+  private async killSession(sessionId: string): Promise<void> {
     const session = this.sessions.get(sessionId);
     if (!session) {
       return;
     }
-    if (this.killing.has(sessionId)) {
-      return;
-    }
-    this.killing.add(sessionId);
-    this.killedTombstones.add(sessionId);
-    try {
-      if (session.isAlive) {
-        const tree = this.processTreeKiller.capture(session.pty.pid);
-        session.pty.kill("SIGTERM");
-        const exited = await Promise.race([
-          this.waitForExit(session).then(() => true),
-          wait(this.killGraceMs).then(() => false),
-        ]);
-        // Why sweep unconditionally: a prompt root exit can still orphan
-        // background children (sh -c 'sleep & wait'); SIGKILL only lands on
-        // survivors since dead pids fail harmlessly through onError.
-        this.processTreeKiller.signal({
-          rootPid: session.pty.pid,
-          signal: "SIGKILL",
-          tree,
-          onError: () => {},
-        });
-        if (!exited && session.isAlive) {
-          session.pty.kill("SIGKILL");
-          await Promise.race([this.waitForExit(session), wait(this.killGraceMs)]);
-        }
-      }
-    } finally {
-      this.killing.delete(sessionId);
-      this.removeSession(sessionId);
-    }
+    await teardownTerminalSession({
+      owner: session,
+      processTreeKiller: this.processTreeKiller,
+      killGraceMs: this.killGraceMs,
+      platform: this.platform,
+      processGroupController: this.processGroupController,
+      waitForExit: (timeoutMs) => waitForTerminalSessionExit(session, timeoutMs),
+    });
+    this.removeSession(session);
   }
 
   async dispose(): Promise<void> {
@@ -259,11 +371,27 @@ export class TerminalHost {
       return;
     }
     this.disposed = true;
-    await Promise.all([...this.sessions.keys()].map((sessionId) => this.kill(sessionId)));
+    await Promise.allSettled([...this.pendingCreates.values()]);
+    await teardownTerminalSessions({
+      sessionIds: [...this.sessions.keys()],
+      teardown: (sessionId) => this.kill(sessionId),
+    });
   }
 
-  private handleData(session: HostSession, data: string): void {
-    if (!session.isAlive) {
+  private handleData(session: TerminalHostSession, data: string): void {
+    if (!session.isAlive || session.emulatorError !== null) {
+      return;
+    }
+    const byteLength = Buffer.byteLength(data);
+    const queued = enqueueTerminalEmulatorTask({
+      session,
+      task: () => session.emulator.write(data, { forwardQueryReplies: true }),
+      queuedBytes: byteLength,
+    });
+    if (!queued) {
+      void this.runTeardown(session.sessionId).catch(() => {
+        // Keep the owner record so create/dispose can retry unverified cleanup.
+      });
       return;
     }
     session.seq += 1;
@@ -273,15 +401,26 @@ export class TerminalHost {
       generation: session.generation,
     };
     for (const listener of session.outputListeners) {
-      listener(output);
+      try {
+        listener(output);
+      } catch {
+        // One detached/failed transport must not stop PTY draining or prevent
+        // other attached views from receiving output.
+      }
     }
-    session.emulatorQueue = session.emulatorQueue.then(() => session.emulator.write(data));
   }
 
-  private handleExit(session: HostSession, exitCode: number, signal: number | undefined): void {
-    if (!session.isAlive) {
-      return;
-    }
+  private handleExit(
+    session: TerminalHostSession,
+    exitCode: number,
+    signal: number | undefined,
+  ): void {
+    if (!session.isAlive) return;
+    refreshTerminalSessionTree({
+      owner: session,
+      processTreeKiller: this.processTreeKiller,
+      force: true,
+    });
     session.isAlive = false;
     session.exitCode = exitCode;
     const exit: TerminalHostExit = {
@@ -290,63 +429,66 @@ export class TerminalHost {
       generation: session.generation,
     };
     for (const listener of session.exitListeners) {
-      listener(exit);
+      try {
+        listener(exit);
+      } catch {
+        // Exit cleanup is host-owned and must not depend on consumers.
+      }
     }
-    // Why reap immediately: an exited terminal must not pin scrollback for the
-    // host's life; late callers resolve through tombstones/not-found instead
-    // (orca reapSession). The visible "exited" UI owns any final rendering.
-    if (!this.killing.has(session.sessionId)) {
-      this.removeSession(session.sessionId);
+    if (!this.pendingKills.has(session.sessionId)) {
+      void this.runTeardown(session.sessionId).catch(() => {
+        // Keep the owner record so create/dispose can retry unverified cleanup.
+      });
     }
   }
 
-  private removeSession(sessionId: string): void {
-    const session = this.sessions.get(sessionId);
-    if (!session) {
+  private removeSession(session: TerminalHostSession): void {
+    if (this.sessions.get(session.sessionId) !== session) {
       return;
     }
-    this.sessions.delete(sessionId);
-    session.emulator.dispose();
+    this.sessions.delete(session.sessionId);
+    session.disposePtyData();
+    session.disposePtyExit();
     session.outputListeners.clear();
     session.exitListeners.clear();
-  }
-
-  private waitForExit(session: HostSession): Promise<void> {
-    if (!session.isAlive) {
-      return Promise.resolve();
-    }
-    return new Promise<void>((resolve) => {
-      const unsubscribe = this.onExit(session.sessionId, () => {
-        unsubscribe();
-        resolve();
-      });
-    });
+    void session.emulatorQueue.then(
+      () => session.emulator.dispose(),
+      () => session.emulator.dispose(),
+    );
   }
 
   private async attachResult(
-    session: HostSession,
+    session: TerminalHostSession,
     isNew: boolean,
   ): Promise<TerminalHostAttachResult> {
-    await session.emulatorQueue;
+    const snapshot = await this.enqueueSnapshot(session);
     return {
       isNew,
       generation: session.generation,
       pid: session.pty.pid,
-      snapshot: session.emulator.getSnapshot({ outputSequence: session.seq }),
+      processGroupIdentity: session.processGroupIdentity,
+      snapshot,
     };
   }
 
-  private getAliveSession(sessionId: string): HostSession {
+  private async enqueueSnapshot(
+    session: TerminalHostSession,
+    opts: { scrollbackRows?: number } = {},
+  ): Promise<TerminalSnapshot> {
+    return enqueueTerminalSnapshot({
+      session,
+      ...opts,
+      ...(this.maxSnapshotBytes !== undefined
+        ? { maxBytes: this.maxSnapshotBytes }
+        : {}),
+    });
+  }
+
+  private getAliveSession(sessionId: string): TerminalHostSession {
     const session = this.sessions.get(sessionId);
     if (!session || !session.isAlive) {
       throw new TerminalHostSessionNotFoundError(sessionId);
     }
     return session;
-  }
-
-  private assertGeneration(session: HostSession, generation?: TerminalHostGeneration): void {
-    if (generation !== undefined && generation !== session.generation) {
-      throw new TerminalHostStaleGenerationError(session.sessionId);
-    }
   }
 }

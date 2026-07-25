@@ -1,6 +1,8 @@
-const CODEX_SHIM_REQUEST_TIMEOUT_MS = 5_000;
+const CODEX_SHIM_REQUEST_DEADLINE_MS = 8_000;
 
-export function buildCodexHookShimSource(): string {
+export function buildCodexHookShimSource(
+  requestDeadlineMs = CODEX_SHIM_REQUEST_DEADLINE_MS,
+): string {
   return `#!/usr/bin/env node
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
@@ -17,22 +19,45 @@ const recoveryPromptPath = spoolDir
   ? path.join(path.dirname(spoolDir), "recovery-prompt.json")
   : undefined;
 
-function failClosed(eventName, malformed = false) {
+function failClosed(eventName, malformed = false, outputStarted = false) {
   const message = "Agent Group context unavailable. Retry.";
   if (eventName === "UserPromptSubmit") {
-    process.stdout.write(JSON.stringify({ decision: "block", reason: message }));
+    if (outputStarted) {
+      process.stderr.write(message + "\\n");
+      process.exitCode = 2;
+    } else {
+      process.stdout.write(JSON.stringify({ decision: "block", reason: message }));
+    }
     return;
   }
-  if (malformed) {
+  if (eventName === "SessionStart" || malformed) {
     process.stderr.write(message + "\\n");
     process.exitCode = 2;
   }
 }
 
-function emitResponse(eventName, response) {
+async function writeOutput(value) {
+  await new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (error) => {
+      if (settled) return;
+      settled = true;
+      if (error) {
+        reject(error);
+      } else {
+        process.stdout.off("error", finish);
+        resolve();
+      }
+    };
+    process.stdout.once("error", finish);
+    process.stdout.write(value, finish);
+  });
+}
+
+async function emitResponse(eventName, response) {
   if (response.block) {
     if (eventName !== "UserPromptSubmit") throw new Error("Invalid block response.");
-    process.stdout.write(JSON.stringify({
+    await writeOutput(JSON.stringify({
       decision: "block",
       reason: response.block.message
     }));
@@ -40,7 +65,7 @@ function emitResponse(eventName, response) {
   }
   if (!response.additionalContext) return;
   if (eventName === "Stop") throw new Error("Invalid Stop response.");
-  process.stdout.write(JSON.stringify({
+  await writeOutput(JSON.stringify({
     hookSpecificOutput: {
       hookEventName: eventName,
       additionalContext: response.additionalContext
@@ -85,7 +110,9 @@ async function resolveEventId(eventName, input) {
 }
 
 async function persistRecoveryPrompt(input, eventId) {
-  if (!recoveryPromptPath || typeof input.prompt !== "string") return;
+  if (!recoveryPromptPath || typeof input.prompt !== "string") {
+    throw new Error("Recovery storage unavailable.");
+  }
   await writePrivateJson(recoveryPromptPath, {
     prompt: input.prompt,
     eventId,
@@ -118,9 +145,23 @@ async function persistStop(payload) {
   return filePath;
 }
 
-function sendBridge(payload) {
+function sendBridge(payload, deadlineAt) {
   return new Promise((resolve, reject) => {
+    const remaining = deadlineAt - Date.now();
+    if (remaining <= 0) {
+      reject(new Error("Bridge deadline exceeded."));
+      return;
+    }
     const encoded = JSON.stringify(payload);
+    let settled = false;
+    let timer;
+    const finish = (error, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (error) reject(error);
+      else resolve(value);
+    };
     const request = http.request({
       socketPath: endpoint,
       path: "/hook",
@@ -139,28 +180,28 @@ function sendBridge(payload) {
           incoming.destroy(new Error("Bridge response too large."));
         }
       });
-      incoming.on("error", reject);
+      incoming.on("error", (error) => finish(error));
       incoming.on("end", () => {
         if (incoming.statusCode !== 200) {
-          reject(new Error("Bridge rejected hook."));
+          finish(new Error("Bridge rejected hook."));
           return;
         }
         try {
-          resolve(JSON.parse(output || "{}"));
+          finish(undefined, JSON.parse(output || "{}"));
         } catch (error) {
-          reject(error);
+          finish(error);
         }
       });
     });
-    request.setTimeout(${CODEX_SHIM_REQUEST_TIMEOUT_MS}, () => {
+    timer = setTimeout(() => {
       request.destroy(new Error("Bridge timeout."));
-    });
-    request.on("error", reject);
+    }, remaining);
+    request.on("error", (error) => finish(error));
     request.end(encoded);
   });
 }
 
-async function replayStopSpool(currentPath) {
+async function replayStopSpool(currentPath, deadlineAt) {
   if (!spoolDir) return false;
   const entries = (await fs.readdir(spoolDir).catch(() => []))
     .filter((name) => name.endsWith(".json"))
@@ -174,7 +215,7 @@ async function replayStopSpool(currentPath) {
         await fs.rm(filePath, { force: true });
         continue;
       }
-      await sendBridge(payload);
+      await sendBridge(payload, deadlineAt);
       await fs.rm(filePath, { force: true });
       deliveredCurrent ||= filePath === currentPath;
     } catch (error) {
@@ -201,43 +242,53 @@ try {
   process.exit();
 }
 const eventName = input.hook_event_name;
+const requestDeadlineAt = Date.now() + ${requestDeadlineMs};
 const eventId = await resolveEventId(eventName, input);
 const payload = { runtimeInstanceId, eventId, input };
 let stopPath;
 try {
   stopPath = await persistStop(payload);
-  if (eventName === "UserPromptSubmit") {
-    await persistRecoveryPrompt(input, eventId);
-  }
 } catch {
-  // Recovery storage is best-effort. Prompt delivery still fails closed.
+  // Stop recovery storage is best-effort.
+}
+if (eventName === "UserPromptSubmit") {
+  try {
+    await persistRecoveryPrompt(input, eventId);
+  } catch {
+    failClosed(eventName);
+    process.exit();
+  }
 }
 if (!endpoint || !token || !runtimeInstanceId) {
   failClosed(eventName, !eventName);
   process.exit();
 }
 
+let promptOutputStarted = false;
 try {
-  const deliveredFromSpool = await replayStopSpool(stopPath);
+  const deliveredFromSpool = await replayStopSpool(stopPath, requestDeadlineAt);
   if (deliveredFromSpool) process.exit();
-  const response = await sendBridge(payload);
+  const response = await sendBridge(payload, requestDeadlineAt);
   if (eventName === "UserPromptSubmit") {
     if (response.block) {
       await persistRecoveryPrompt(input, randomUUID());
     } else {
       if (!hasContext(response)) throw new Error("Context unavailable.");
+      promptOutputStarted = true;
+      await emitResponse(eventName, response);
       await sendBridge({
         runtimeInstanceId,
         eventId,
         mode: "prompt-accepted",
         input: { prompt: input.prompt }
-      });
-      await clearRecoveryPrompt().catch(() => undefined);
+      }, requestDeadlineAt);
+      await clearRecoveryPrompt();
+      process.exit();
     }
   }
-  emitResponse(eventName, response);
+  await emitResponse(eventName, response);
 } catch {
-  failClosed(eventName);
+  failClosed(eventName, false, promptOutputStarted);
 }
 `;
 }

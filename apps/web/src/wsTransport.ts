@@ -18,6 +18,7 @@ import {
   type ServerLifecycleStreamEvent,
   type ServerProviderStatusesUpdatedPayload,
   type ServerSettingsUpdatedPayload,
+  type TerminalAgentSubscribeInput,
   type TerminalEvent,
   type WsPush,
   type WsPushChannel,
@@ -31,6 +32,7 @@ import {
   WsTransportSession,
 } from "./wsTransportSession";
 import type { WsTransportState } from "./wsTransportEvents";
+import { WsTerminalAgentSubscriptions } from "./wsTerminalAgentSubscriptions";
 
 type PushListener<C extends WsPushChannel> = (message: WsPushMessage<C>) => void;
 
@@ -96,12 +98,19 @@ export class WsTransport {
   private readonly streamCleanups = new Map<string, () => void>();
   private shellSubscribed = false;
   private readonly threadSubscriptions = new Map<string, unknown>();
+  private readonly terminalAgentSubscriptions: WsTerminalAgentSubscriptions;
 
   constructor(url?: string) {
     this.connection = new WsTransportSession(url ?? null, {
       onStateChange: (state) => this.setState(state),
       onBeforeReconnect: () => this.prepareStreamsForReconnect(),
       onReconnected: (session) => this.restoreStreams(session),
+    });
+    this.terminalAgentSubscriptions = new WsTerminalAgentSubscriptions({
+      getSession: () => this.connection.getSession(),
+      startStream: (session, key, stream, listener) =>
+        this.startStream(session, key, stream, listener),
+      stopStream: (key) => this.stopStream(key),
     });
   }
 
@@ -224,12 +233,22 @@ export class WsTransport {
     return this.state;
   }
 
+  subscribeTerminalAgent(
+    input: TerminalAgentSubscribeInput,
+    listener: Parameters<WsTerminalAgentSubscriptions["subscribe"]>[1],
+  ): () => void {
+    return this.disposed
+      ? () => {}
+      : this.terminalAgentSubscriptions.subscribe(input, listener);
+  }
+
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
     this.setState("disposed");
     for (const cleanup of this.streamCleanups.values()) cleanup();
     this.streamCleanups.clear();
+    this.terminalAgentSubscriptions.clear();
     this.connection.dispose();
   }
 
@@ -270,6 +289,7 @@ export class WsTransport {
     for (const [threadId, input] of this.threadSubscriptions) {
       this.startThreadStream(session, threadId, input);
     }
+    this.terminalAgentSubscriptions.restore(session);
   }
 
   private emit<C extends WsPushChannel>(channel: C, data: WsPushMessage<C>["data"]): void {

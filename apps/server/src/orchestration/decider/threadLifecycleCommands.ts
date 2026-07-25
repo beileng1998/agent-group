@@ -22,6 +22,7 @@ type ThreadLifecycleCommand = Extract<
       | "thread.archive"
       | "thread.unarchive"
       | "thread.meta.update"
+      | "thread.terminal-model.observe"
       | "thread.runtime-mode.set"
       | "thread.interaction-mode.set";
   }
@@ -160,6 +161,29 @@ export const decideThreadLifecycleCommand = Effect.fn("decideThreadLifecycleComm
             : {}),
           ...(command.notes !== undefined ? { notes: command.notes } : {}),
           updatedAt: occurredAt,
+        },
+      };
+    }
+
+    case "thread.terminal-model.observe": {
+      yield* requireThread({
+        readModel,
+        command,
+        threadId: command.threadId,
+      });
+      return {
+        ...withEventBase({
+          aggregateKind: "thread",
+          aggregateId: command.threadId,
+          occurredAt: command.createdAt,
+          commandId: command.commandId,
+          metadata: { adapterKey: "terminal" },
+        }),
+        type: "thread.meta-updated",
+        payload: {
+          threadId: command.threadId,
+          modelSelection: command.modelSelection,
+          updatedAt: command.createdAt,
         },
       };
     }

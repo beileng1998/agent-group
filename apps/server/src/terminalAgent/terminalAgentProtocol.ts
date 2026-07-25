@@ -57,6 +57,12 @@ export interface TerminalAgentRuntimeModel {
   readonly permissionMode?: string;
 }
 
+export type TerminalAgentProviderResumeCursor =
+  | string
+  | { readonly path: string; readonly sessionId: string }
+  | { readonly threadId: string }
+  | { readonly resume: string };
+
 interface TerminalAgentEventBase {
   readonly eventId?: string;
 }
@@ -66,6 +72,7 @@ export type TerminalAgentEvent =
       TerminalAgentRuntimeModel & {
         readonly type: "session_start";
         readonly providerSessionId: string;
+        readonly providerResumeCursor: TerminalAgentProviderResumeCursor;
         readonly reason: string;
       })
   | (TerminalAgentEventBase &

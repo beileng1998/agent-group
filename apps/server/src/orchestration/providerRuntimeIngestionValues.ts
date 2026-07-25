@@ -30,7 +30,11 @@ export type RuntimeIngestionInput =
 export const providerTurnKey = (threadId: ThreadId, turnId: TurnId) => `${threadId}:${turnId}`;
 
 export const providerCommandId = (event: ProviderRuntimeEvent, tag: string): CommandId =>
-  CommandId.makeUnsafe(`provider:${event.eventId}:${tag}:${crypto.randomUUID()}`);
+  CommandId.makeUnsafe(
+    event.terminalRuntimeFence
+      ? `provider:${event.eventId}:${tag}:terminal`
+      : `provider:${event.eventId}:${tag}:${crypto.randomUUID()}`,
+  );
 
 export function threadDetailFromShell(shell: OrchestrationThreadShell): OrchestrationThread {
   return {

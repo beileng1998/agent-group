@@ -24,6 +24,7 @@ import { probePiTerminal } from "./piTerminalProbe";
 import {
   managedTerminalProviderDescriptor,
   type TerminalAgentDriverLaunch,
+  type TerminalAgentProviderResumeCursor,
 } from "./terminalAgentProtocol";
 
 type ManagedModelSelection = Extract<
@@ -98,9 +99,11 @@ export function probeTerminalAgent(input: {
 export async function prepareTerminalAgentLaunch(input: {
   readonly stateDir: string;
   readonly threadId: string;
+  readonly workspaceRoot: string;
   readonly runtimeInstanceId: string;
   readonly provider: TerminalAgentProvider;
   readonly providerSessionId: string | null;
+  readonly providerResumeCursor: TerminalAgentProviderResumeCursor | null;
   readonly resume: boolean;
   readonly hookEndpoint: string;
   readonly hookToken: string;
@@ -147,18 +150,34 @@ export async function prepareTerminalAgentLaunch(input: {
         ...(input.resume ? { resume: true } : {}),
       });
     case "pi":
-      if (!input.providerSessionId) {
-        throw new Error("Pi Terminal requires a session id.");
+      const resumeSessionPath =
+        typeof input.providerResumeCursor === "string"
+          ? input.providerResumeCursor.trim() || undefined
+          : input.providerResumeCursor &&
+              "path" in input.providerResumeCursor
+            ? input.providerResumeCursor.path
+            : undefined;
+      if (!resumeSessionPath && !input.providerSessionId) {
+        throw new Error("Pi Terminal requires a session id or resume file.");
       }
       return preparePiTerminalLaunch({
         stateDir: input.stateDir,
+        workspaceRoot: input.workspaceRoot,
         runtimeInstanceId: input.runtimeInstanceId,
-        providerSessionId: input.providerSessionId,
+        ...(input.providerSessionId
+          ? { providerSessionId: input.providerSessionId }
+          : {}),
+        ...(resumeSessionPath
+          ? { resumeSessionPath }
+          : {}),
         hookEndpoint: input.hookEndpoint,
         hookToken: input.hookToken,
         executable,
         modelSelection: input.modelSelection,
         runtimeMode: input.runtimeMode,
+        ...(input.settings.providers.pi.agentDir.trim()
+          ? { agentDir: input.settings.providers.pi.agentDir.trim() }
+          : {}),
       });
   }
 }

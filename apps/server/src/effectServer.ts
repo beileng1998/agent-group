@@ -28,10 +28,14 @@ import { RemoteAccess } from "./remoteAccess/Services/RemoteAccess";
 import { reconcileRestartStuckTurns } from "./orchestration/startupTurnReconciliation";
 import { ProviderSessionReaper } from "./provider/Services/ProviderSessionReaper";
 import { ServerLifecycleEvents } from "./serverLifecycleEvents";
-import { ServerRuntimeStartup } from "./serverRuntimeStartup";
+import {
+  ServerRuntimeStartup,
+  ServerRuntimeStartupError,
+} from "./serverRuntimeStartup";
 import { ServerSettingsService } from "./serverSettings";
 import { makeServerReadiness } from "./server/readiness";
 import { websocketRpcRouteLayer } from "./wsRpc";
+import { TerminalAgentService } from "./terminalAgent/Services/TerminalAgentService";
 
 export interface ServerShape {
   readonly start: Effect.Effect<
@@ -55,6 +59,7 @@ export interface ServerShape {
     | ServerSettingsService
     | ThreadDeletionReactor
     | RemoteAccess
+    | TerminalAgentService
   >;
   readonly stopSignal: Effect.Effect<void, never>;
 }
@@ -83,7 +88,15 @@ export const createEffectServer = Effect.fn(function* () {
   const serverSettings = yield* ServerSettingsService;
   const threadDeletionReactor = yield* ThreadDeletionReactor;
   const remoteAccess = yield* RemoteAccess;
+  const terminalAgent = yield* TerminalAgentService;
   const readiness = yield* makeServerReadiness;
+  yield* Effect.addFinalizer(() =>
+    runtimeStartup.failCommandReady(
+      new ServerRuntimeStartupError({
+        message: "Server stopped before command admission became ready.",
+      }),
+    ),
+  );
 
   yield* keybindings.syncDefaultKeybindingsOnStartup.pipe(
     Effect.catch((error) =>
@@ -140,16 +153,17 @@ export const createEffectServer = Effect.fn(function* () {
   const subscriptionsScope = yield* Scope.make("sequential");
   yield* Effect.addFinalizer(() => Scope.close(subscriptionsScope, Exit.void));
   yield* Scope.provide(orchestrationReactor.start, subscriptionsScope);
-  yield* Scope.provide(automationScheduler.start(), subscriptionsScope);
-  yield* Scope.provide(automationRunReactor.start(), subscriptionsScope);
   yield* Scope.provide(threadDeletionReactor.start(), subscriptionsScope);
   yield* Scope.provide(providerSessionReaper.start(), subscriptionsScope);
   yield* readiness.markOrchestrationSubscriptionsReady;
-  yield* readiness.markTerminalSubscriptionsReady;
   // Heal turns orphaned by the previous process exit (their in-memory runtimes
   // died, so they can never complete on their own) before clients can observe
   // the stale "Working" state.
+  yield* terminalAgent.recover;
+  yield* readiness.markTerminalSubscriptionsReady;
   yield* reconcileRestartStuckTurns;
+  yield* Scope.provide(automationRunReactor.start(), subscriptionsScope);
+  yield* Scope.provide(automationScheduler.start(), subscriptionsScope);
   yield* runtimeStartup.markCommandReady;
 
   yield* lifecycleEvents.publish({

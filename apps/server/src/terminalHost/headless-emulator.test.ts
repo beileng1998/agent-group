@@ -20,6 +20,23 @@ async function withEmulator<T>(
 }
 
 describe("HeadlessEmulator", () => {
+  it("forwards xterm query replies only for flagged live writes", async () => {
+    const replies: string[] = [];
+    const emulator = new HeadlessEmulator({
+      cols: 80,
+      rows: 24,
+      onQueryReply: (reply) => replies.push(reply),
+    });
+    try {
+      await emulator.write("\x1b[6n");
+      expect(replies).toEqual([]);
+      await emulator.write("\x1b[6n", { forwardQueryReplies: true });
+      expect(replies).toEqual(["\x1b[1;1R"]);
+    } finally {
+      emulator.dispose();
+    }
+  });
+
   it("serializes written content into a snapshot", async () => {
     await withEmulator(async (emulator) => {
       await emulator.write("hello terminal");
@@ -31,6 +48,16 @@ describe("HeadlessEmulator", () => {
       expect(snapshot.modes.alternateScreen).toBe(false);
       expect(snapshot.scrollbackAnsi).toBe("");
     });
+  });
+
+  it("uses Unicode 11 character widths", async () => {
+    const emulator = new HeadlessEmulator({ cols: 2, rows: 2 });
+    try {
+      await emulator.write("🧑X");
+      expect(emulator.getVisibleLines()).toEqual(["🧑", "X"]);
+    } finally {
+      emulator.dispose();
+    }
   });
 
   it("splits the normal buffer out and rehydrates the alt-screen transition", async () => {

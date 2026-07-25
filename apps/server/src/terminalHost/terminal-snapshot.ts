@@ -1,7 +1,8 @@
 // VENDORED from stablyai/orca @ 8a236183 (src/main/daemon/terminal-snapshot.ts) — MIT © 2026 Lovecast Inc. See NOTICE.md.
 // Local changes: dropped oscLinks/cwd/lastTitle (their producers were trimmed);
 // outputSequence is required here — the host always stamps the monotonic output
-// sequence at capture time so attach clients can drop seq <= outputSequence.
+// sequence at capture time so attach clients can dedupe older bytes and detect
+// a forward gap that requires a fresh snapshot.
 
 import type { TerminalModes } from './terminal-modes'
 
@@ -16,6 +17,6 @@ export type TerminalSnapshot = {
   cols: number
   rows: number
   scrollbackLines: number
-  /** Monotonic output sequence at capture time; clients ignore live output with seq <= this. */
+  /** Monotonic sequence at capture; clients dedupe older bytes and resync on gaps. */
   outputSequence: number
 }

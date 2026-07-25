@@ -12,7 +12,9 @@ const runtimePtyAdapterLoaders = {
   node: () => import("./Layers/NodePTY"),
 } satisfies Record<string, () => Promise<RuntimePtyAdapterLoader>>;
 
-const makeRuntimePtyAdapterLayer = () =>
+// Exported so the managed-agent terminal host shares the same runtime
+// detection (bun vs node) as shell terminals.
+export const makeRuntimePtyAdapterLayer = () =>
   Effect.gen(function* () {
     const runtime = process.versions.bun !== undefined ? "bun" : "node";
     const loader = runtimePtyAdapterLoaders[runtime];

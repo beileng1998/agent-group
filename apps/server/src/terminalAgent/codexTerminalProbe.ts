@@ -9,6 +9,7 @@ import {
 import { parseAuthStatusFromOutput } from "../provider/Layers/provider-health/providerAuthParsing";
 import { runCodexCommand } from "../provider/Layers/provider-health/providerCommandRunner";
 import type { TerminalAgentCapabilitySnapshot } from "./terminalAgentProtocol";
+import { missingCliOption } from "./terminalAgentProbeSupport";
 
 export const CODEX_TERMINAL_BASELINE_VERSION = "0.144.6";
 
@@ -21,22 +22,14 @@ interface ProbeCommandResult {
 const REQUIRED_ROOT_OPTIONS = [
   "--config",
   "--profile",
+  "--enable",
   "--model",
   "--sandbox",
   "--ask-for-approval",
-  "--no-alt-screen",
 ] as const;
 
 function output(result: ProbeCommandResult): string {
   return `${result.stdout}\n${result.stderr}`.trim();
-}
-
-function requiredOption(
-  result: ProbeCommandResult,
-  options: ReadonlyArray<string>,
-): string | undefined {
-  const text = output(result);
-  return options.find((option) => !text.includes(option));
 }
 
 function authMethod(result: ProbeCommandResult): string | null {
@@ -70,7 +63,10 @@ export function inspectCodexTerminalProbe(input: {
     );
   }
 
-  const missingRootOption = requiredOption(input.help, REQUIRED_ROOT_OPTIONS);
+  const missingRootOption = missingCliOption(
+    output(input.help),
+    REQUIRED_ROOT_OPTIONS,
+  );
   if (input.help.code !== 0 || missingRootOption) {
     throw new Error(
       missingRootOption
@@ -78,8 +74,8 @@ export function inspectCodexTerminalProbe(input: {
         : "Codex CLI capability discovery failed.",
     );
   }
-  const missingResumeOption = requiredOption(
-    input.resumeHelp,
+  const missingResumeOption = missingCliOption(
+    output(input.resumeHelp),
     REQUIRED_ROOT_OPTIONS,
   );
   if (

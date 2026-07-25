@@ -10,10 +10,10 @@ import { inspectPiTerminalProbe } from "./piTerminalProbe";
 const codexOptions = [
   "--config <key=value>",
   "--profile <profile>",
+  "--enable <feature>",
   "--model <model>",
   "--sandbox <mode>",
   "--ask-for-approval <policy>",
-  "--no-alt-screen",
 ].join("\n");
 
 const validCodex = {
@@ -31,12 +31,15 @@ const validCodex = {
 const claudeHelp = [
   "--settings <file-or-json>",
   "--session-id <uuid>",
+  "--resume <uuid>",
   "--model <model>",
   "--effort <level>",
   "--permission-mode <mode> (manual, plan)",
+  "--dangerously-skip-permissions",
 ].join("\n");
 
 const piHelp = [
+  "--session <path>",
   "--session-id <id>",
   "--session-dir <dir>",
   "--extension, -e <path>",
@@ -83,6 +86,15 @@ describe("managed terminal capability probes", () => {
         },
       }),
     ).toThrow("--profile");
+    expect(() =>
+      inspectCodexTerminalProbe({
+        ...validCodex,
+        help: {
+          ...validCodex.help,
+          stdout: validCodex.help.stdout.replace("--enable", "--activate"),
+        },
+      }),
+    ).toThrow("--enable");
   });
 
   it("accepts authenticated Claude with manual permission mode", () => {
@@ -116,6 +128,17 @@ describe("managed terminal capability probes", () => {
         auth: { code: 0, stdout: '{"loggedIn":true}', stderr: "" },
       }),
     ).toThrow("manual");
+    expect(() =>
+      inspectClaudeTerminalProbe({
+        version: { code: 0, stdout: "2.1.220 (Claude Code)", stderr: "" },
+        help: {
+          code: 0,
+          stdout: claudeHelp.replace("--resume", "--continue"),
+          stderr: "",
+        },
+        auth: { code: 0, stdout: '{"loggedIn":true}', stderr: "" },
+      }),
+    ).toThrow("--resume");
   });
 
   it("accepts only an available exact Pi model", () => {
@@ -139,5 +162,15 @@ describe("managed terminal capability probes", () => {
         models: { code: 0, stdout: "No models matching query", stderr: "" },
       }),
     ).toThrow("cannot authenticate");
+    expect(() =>
+      inspectPiTerminalProbe({
+        ...valid,
+        help: {
+          code: 0,
+          stdout: piHelp.replace("--session <path>", "--continue <path>"),
+          stderr: "",
+        },
+      }),
+    ).toThrow("--session");
   });
 });

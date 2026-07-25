@@ -140,6 +140,7 @@ describe("Pi managed terminal extension", () => {
 
     const launch = await preparePiTerminalLaunch({
       stateDir,
+      workspaceRoot: stateDir,
       runtimeInstanceId: "runtime-one",
       providerSessionId: "8fe78524-58e0-47ea-8d26-05ff47dcc816",
       hookEndpoint: endpoint,
@@ -193,6 +194,7 @@ describe("Pi managed terminal extension", () => {
         context,
       ),
     ).toEqual({ action: "continue" });
+    expect(seen.some((payload) => payload.mode === "prompt-accepted")).toBe(false);
     expect(
       await invoke(
         handlers,
@@ -208,6 +210,16 @@ describe("Pi managed terminal extension", () => {
         details: { turnId: "turn-one" },
       },
     });
+    expect(seen.some((payload) => payload.mode === "prompt-accepted")).toBe(false);
+    expect(
+      await invoke(
+        handlers,
+        "before_provider_request",
+        { payload: { messages: ["user", "Managed context."] } },
+        context,
+      ),
+    ).toBeUndefined();
+    expect(seen.some((payload) => payload.mode === "prompt-accepted")).toBe(true);
     await invoke(
       handlers,
       "message_end",
@@ -245,8 +257,85 @@ describe("Pi managed terminal extension", () => {
         { text: "Ack must succeed.", source: "interactive" },
         context,
       ),
-    ).toEqual({ action: "handled" });
+    ).toEqual({ action: "continue" });
+    await invoke(
+      handlers,
+      "before_agent_start",
+      { prompt: "Ack must succeed." },
+      context,
+    );
+    expect(
+      await invoke(
+        handlers,
+        "before_provider_request",
+        { payload: { messages: ["Managed context."] } },
+        context,
+      ),
+    ).toEqual({});
+    expect(aborted).toBe(1);
+    expect(shutdown).toBe(1);
+    const recoveryPath = path.join(launch.runtimeDir, "recovery-prompt.json");
+    const failedRecovery = JSON.parse(
+      await fs.readFile(recoveryPath, "utf8"),
+    ) as { readonly eventId: string };
+    expect((await fs.stat(recoveryPath)).mode & 0o777).toBe(0o600);
     rejectAck = false;
+    expect(
+      await invoke(
+        handlers,
+        "input",
+        { text: "Ack must succeed.", source: "interactive" },
+        context,
+      ),
+    ).toEqual({ action: "continue" });
+    await invoke(
+      handlers,
+      "before_agent_start",
+      { prompt: "Ack must succeed." },
+      context,
+    );
+    await invoke(
+      handlers,
+      "before_provider_request",
+      { payload: { messages: ["Managed context."] } },
+      context,
+    );
+    const retryPrompt = seen
+      .filter((payload) => {
+        const input = payload.input as Record<string, unknown>;
+        return input.prompt === "Ack must succeed.";
+      })
+      .at(-1);
+    expect(retryPrompt?.eventId).toBe(failedRecovery.eventId);
+    await expect(fs.stat(recoveryPath)).rejects.toMatchObject({ code: "ENOENT" });
+    const acceptedBeforeMissingPayload = seen.filter(
+      (payload) => payload.mode === "prompt-accepted",
+    ).length;
+    expect(
+      await invoke(
+        handlers,
+        "input",
+        {
+          text: "Payload must contain context.",
+          source: "interactive",
+          streamingBehavior: "steer",
+        },
+        context,
+      ),
+    ).toEqual({ action: "continue" });
+    expect(
+      await invoke(
+        handlers,
+        "before_provider_request",
+        { payload: { messages: ["context-was-dropped"] } },
+        context,
+      ),
+    ).toEqual({});
+    expect(
+      seen.filter((payload) => payload.mode === "prompt-accepted").length,
+    ).toBe(acceptedBeforeMissingPayload);
+    expect(aborted).toBe(2);
+    expect(shutdown).toBe(2);
 
     expect(
       await invoke(
@@ -258,8 +347,8 @@ describe("Pi managed terminal extension", () => {
     ).toEqual({
       systemPrompt: "Stop. Managed context is unavailable.",
     });
-    expect(aborted).toBe(1);
-    expect(shutdown).toBe(1);
+    expect(aborted).toBe(3);
+    expect(shutdown).toBe(3);
     expect(notifications).toContain("Managed context required.");
 
     expect(
@@ -288,7 +377,15 @@ describe("Pi managed terminal extension", () => {
       ),
     ).toBeUndefined();
 
-    expect(sentMessages).toEqual([]);
+    expect(sentMessages).toMatchObject([
+      {
+        message: {
+          customType: "agent-group-context",
+          content: "Managed context.",
+        },
+        options: { deliverAs: "steer" },
+      },
+    ]);
     const events = seen
       .filter((payload) => {
         const input = payload.input as Record<string, unknown>;
@@ -302,17 +399,14 @@ describe("Pi managed terminal extension", () => {
       "prompt_submit",
       "prompt_submit",
       "prompt_submit",
+      "prompt_submit",
+      "prompt_submit",
       "unmanaged_input",
     ]);
     expect(events[2]).toMatchObject({
       turn_id: "turn-one",
       assistant_text: "Done.",
     });
-    const recoveryPath = path.join(launch.runtimeDir, "recovery-prompt.json");
-    expect((await fs.stat(recoveryPath)).mode & 0o777).toBe(0o600);
-    expect(await fs.readFile(recoveryPath, "utf8")).toContain(
-      "Ack must succeed.",
-    );
   });
 
   it("blocks input when the bridge is offline", async () => {
@@ -322,6 +416,7 @@ describe("Pi managed terminal extension", () => {
     tempDirs.push(stateDir);
     const launch = await preparePiTerminalLaunch({
       stateDir,
+      workspaceRoot: stateDir,
       runtimeInstanceId: "runtime-offline",
       providerSessionId: "8fe78524-58e0-47ea-8d26-05ff47dcc816",
       hookEndpoint: path.join(stateDir, "missing.sock"),

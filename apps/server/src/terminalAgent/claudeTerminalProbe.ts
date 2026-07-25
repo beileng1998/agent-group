@@ -5,6 +5,7 @@ import { buildClaudeProcessEnv } from "../provider/claudeProcessEnv";
 import { runClaudeCommand } from "../provider/Layers/provider-health/providerCommandRunner";
 import { CLAUDE_DISABLE_AUTOUPDATER_ENV } from "./claudeTerminalDriver";
 import type { TerminalAgentCapabilitySnapshot } from "./terminalAgentProtocol";
+import { missingCliOption } from "./terminalAgentProbeSupport";
 
 interface ProbeCommandResult {
   readonly stdout: string;
@@ -15,9 +16,11 @@ interface ProbeCommandResult {
 const REQUIRED_CLI_OPTIONS = [
   "--settings",
   "--session-id",
+  "--resume",
   "--model",
   "--effort",
   "--permission-mode",
+  "--dangerously-skip-permissions",
 ] as const;
 
 function output(result: ProbeCommandResult): string {
@@ -54,9 +57,7 @@ export function inspectClaudeTerminalProbe(input: {
   }
 
   const helpOutput = output(input.help);
-  const missingOption = REQUIRED_CLI_OPTIONS.find(
-    (option) => !helpOutput.includes(option),
-  );
+  const missingOption = missingCliOption(helpOutput, REQUIRED_CLI_OPTIONS);
   if (input.help.code !== 0 || missingOption || !/\bmanual\b/u.test(helpOutput)) {
     throw new Error(
       missingOption

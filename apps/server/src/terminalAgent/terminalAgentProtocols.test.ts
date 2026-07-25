@@ -23,15 +23,18 @@ const codexCommon = {
 
 describe("managed terminal protocols", () => {
   it("parses the Codex 0.144.6 lifecycle and canonical prompt event", () => {
-    expect(
-      parseCodexHookInput({
+    const sessionStart = parseCodexHookInput({
         ...codexCommon,
         hook_event_name: "SessionStart",
         source: "resume",
-      }),
-    ).toMatchObject({
+      });
+    expect(sessionStart).toMatchObject({
       hook_event_name: "SessionStart",
       source: "resume",
+    });
+    expect(codexHookInputToTerminalEvent(sessionStart)).toMatchObject({
+      type: "session_start",
+      providerResumeCursor: { threadId: codexCommon.session_id },
     });
     const request = parseCodexHookBridgeRequest({
       runtimeInstanceId: "runtime-1",
@@ -131,6 +134,7 @@ describe("managed terminal protocols", () => {
         event_name: "session_start",
         event_id: "event-1",
         session_id: "session-1",
+        session_file: "/sessions/session-1.jsonl",
         reason: "startup",
         model: "anthropic/claude-sonnet-4-5",
         permission_mode: "approval-required",

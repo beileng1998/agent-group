@@ -23,6 +23,7 @@ import { Data, Effect, Option } from "effect";
 
 import { resolveThreadWorkspaceCwd } from "../checkpointing/Utils";
 import type { OrchestrationEngineShape } from "./Services/OrchestrationEngine";
+import type { ExecutionAdapterAuthorityShape } from "./Services/ExecutionAdapterAuthority";
 import type { ProjectionSnapshotQueryShape } from "./Services/ProjectionSnapshotQuery";
 import type { ProviderAdapterRegistryShape } from "../provider/Services/ProviderAdapterRegistry";
 import type { ProviderServiceShape } from "../provider/Services/ProviderService";
@@ -77,6 +78,7 @@ function mapProviderSessionStatusToOrchestrationStatus(
 }
 
 export interface ImportThreadHandlerOptions {
+  readonly executionAdapterAuthority: ExecutionAdapterAuthorityShape;
   readonly fileSystem: FileSystem.FileSystem;
   readonly orchestrationEngine: OrchestrationEngineShape;
   readonly path: Path.Path;
@@ -334,7 +336,7 @@ export function makeImportThreadHandler(options: ImportThreadHandlerOptions) {
     });
   });
 
-  return Effect.fnUntraced(function* (body: ImportThreadRequest) {
+  const importThread = Effect.fnUntraced(function* (body: ImportThreadRequest) {
     const threadOption = yield* options.projectionSnapshotQuery.getThreadDetailById(body.threadId);
     if (Option.isNone(threadOption)) {
       return yield* Effect.fail(importMessagesError(`Thread '${body.threadId}' was not found.`));
@@ -435,30 +437,40 @@ export function makeImportThreadHandler(options: ImportThreadHandlerOptions) {
           importedAt: session.updatedAt,
         });
       }
+
+      yield* options.orchestrationEngine.dispatch({
+        type: "thread.session.set",
+        commandId: CommandId.makeUnsafe(crypto.randomUUID()),
+        threadId: thread.id,
+        session: {
+          threadId: thread.id,
+          status: mapProviderSessionStatusToOrchestrationStatus(session.status),
+          providerName: session.provider,
+          runtimeMode: thread.runtimeMode,
+          activeTurnId: null,
+          lastError: session.lastError ?? null,
+          updatedAt: session.updatedAt,
+        },
+        createdAt: session.updatedAt,
+      });
     }).pipe(
       Effect.onError(() =>
-        // Startup precedes history materialization. Roll it back when import
-        // cannot finish so no provider child or persisted binding is orphaned.
+        // Startup precedes history and session projection. Roll it back when
+        // either step fails so no provider child or persisted binding is orphaned.
         options.providerService.stopSession({ threadId: thread.id }).pipe(Effect.ignore),
       ),
     );
 
-    yield* options.orchestrationEngine.dispatch({
-      type: "thread.session.set",
-      commandId: CommandId.makeUnsafe(crypto.randomUUID()),
-      threadId: thread.id,
-      session: {
-        threadId: thread.id,
-        status: mapProviderSessionStatusToOrchestrationStatus(session.status),
-        providerName: session.provider,
-        runtimeMode: thread.runtimeMode,
-        activeTurnId: null,
-        lastError: session.lastError ?? null,
-        updatedAt: session.updatedAt,
-      },
-      createdAt: session.updatedAt,
-    });
-
     return { threadId: thread.id };
   });
+
+  return (body: ImportThreadRequest) =>
+    Effect.acquireUseRelease(
+      options.executionAdapterAuthority.acquireStructured(
+        body.threadId,
+        `rpc:thread-import:${crypto.randomUUID()}`,
+      ),
+      () => importThread(body),
+      (claim) => claim.release,
+    );
 }

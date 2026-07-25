@@ -4,6 +4,10 @@ import type { PiModelSelection, RuntimeMode } from "@agent-group/contracts";
 
 import { buildPiTerminalExtensionSource } from "./piTerminalExtension";
 import {
+  piTerminalSessionDir,
+  validatePiTerminalSessionFile,
+} from "./piTerminalSessionFile";
+import {
   buildTerminalAgentProcessEnv,
   ensurePrivateDirectory,
   requireLaunchValue,
@@ -17,6 +21,7 @@ export const PI_HOOK_TOKEN_ENV = "AGENT_GROUP_HOOK_TOKEN";
 export const PI_RUNTIME_INSTANCE_ID_ENV = "AGENT_GROUP_RUNTIME_INSTANCE_ID";
 export const PI_HOOK_SPOOL_DIR_ENV = "AGENT_GROUP_PI_HOOK_SPOOL_DIR";
 export const PI_RUNTIME_MODE_ENV = "AGENT_GROUP_PI_RUNTIME_MODE";
+export const PI_AGENT_DIR_ENV = "PI_CODING_AGENT_DIR";
 
 export interface PiTerminalLaunch extends TerminalAgentDriverLaunch {
   readonly sessionDir: string;
@@ -32,10 +37,7 @@ export function piTerminalRuntimeDir(
   return path.join(stateDir, "terminal-agent", "pi", runtimeInstanceId);
 }
 
-export function piTerminalSessionDir(stateDir: string): string {
-  requireLaunchValue(stateDir, "State directory");
-  return path.join(stateDir, "terminal-agent", "pi-sessions");
-}
+export { piTerminalSessionDir } from "./piTerminalSessionFile";
 
 export function piTerminalHookSpoolDir(runtimeDir: string): string {
   return path.join(runtimeDir, "hook-spool");
@@ -44,16 +46,22 @@ export function piTerminalHookSpoolDir(runtimeDir: string): string {
 export function buildPiTerminalArgs(input: {
   readonly extensionPath: string;
   readonly sessionDir: string;
-  readonly providerSessionId: string;
+  readonly providerSessionId?: string;
+  readonly resumeSessionPath?: string;
   readonly modelSelection: PiModelSelection;
 }): ReadonlyArray<string> {
-  requireLaunchValue(input.providerSessionId, "Pi session id");
+  const providerSessionId = input.providerSessionId?.trim();
+  const resumeSessionPath = input.resumeSessionPath?.trim();
+  if (Boolean(providerSessionId) === Boolean(resumeSessionPath)) {
+    throw new Error("Pi requires exactly one session id or resume path.");
+  }
   const args = [
     "--no-extensions",
     "-e",
     input.extensionPath,
-    "--session-id",
-    input.providerSessionId,
+    ...(resumeSessionPath
+      ? ["--session", resumeSessionPath]
+      : ["--session-id", providerSessionId!]),
     "--session-dir",
     input.sessionDir,
     "--model",
@@ -66,13 +74,16 @@ export function buildPiTerminalArgs(input: {
 
 export async function preparePiTerminalLaunch(input: {
   readonly stateDir: string;
+  readonly workspaceRoot: string;
   readonly runtimeInstanceId: string;
-  readonly providerSessionId: string;
+  readonly providerSessionId?: string;
+  readonly resumeSessionPath?: string;
   readonly hookEndpoint: string;
   readonly hookToken: string;
   readonly executable: string;
   readonly modelSelection: PiModelSelection;
   readonly runtimeMode: RuntimeMode;
+  readonly agentDir?: string;
   readonly baseEnv?: NodeJS.ProcessEnv;
 }): Promise<PiTerminalLaunch> {
   requireLaunchValue(input.hookEndpoint, "Hook endpoint");
@@ -91,6 +102,18 @@ export async function preparePiTerminalLaunch(input: {
   await ensurePrivateDirectory(runtimeDir);
   await ensurePrivateDirectory(sessionDir);
   await ensurePrivateDirectory(spoolDir);
+  const resumeSessionPath = input.resumeSessionPath
+    ? (
+        await validatePiTerminalSessionFile({
+          stateDir: input.stateDir,
+          workspaceRoot: input.workspaceRoot,
+          sessionPath: input.resumeSessionPath,
+          ...(input.providerSessionId
+            ? { expectedSessionId: input.providerSessionId }
+            : {}),
+        })
+      ).path
+    : undefined;
   await writePrivateFile(
     extensionPath,
     buildPiTerminalExtensionSource(),
@@ -101,7 +124,9 @@ export async function preparePiTerminalLaunch(input: {
     args: buildPiTerminalArgs({
       extensionPath,
       sessionDir,
-      providerSessionId: input.providerSessionId,
+      ...(resumeSessionPath
+        ? { resumeSessionPath }
+        : { providerSessionId: input.providerSessionId }),
       modelSelection: input.modelSelection,
     }),
     env: buildTerminalAgentProcessEnv(input.baseEnv ?? process.env, {
@@ -110,6 +135,9 @@ export async function preparePiTerminalLaunch(input: {
       [PI_RUNTIME_INSTANCE_ID_ENV]: input.runtimeInstanceId,
       [PI_HOOK_SPOOL_DIR_ENV]: spoolDir,
       [PI_RUNTIME_MODE_ENV]: input.runtimeMode,
+      ...(input.agentDir?.trim()
+        ? { [PI_AGENT_DIR_ENV]: input.agentDir.trim() }
+        : {}),
     }),
     runtimeDir,
     sessionDir,

@@ -3,14 +3,17 @@
 // Layer: Server orchestration ingestion
 // Exports: ProviderRuntimeIngestionLive and compatibility helper seams.
 
-import { Cause, Effect, Layer, Stream } from "effect";
+import type { ProviderRuntimeEvent } from "@agent-group/contracts";
+import { Cause, Effect, Layer, Result, Stream } from "effect";
 import { makeDrainableWorker } from "@agent-group/shared/DrainableWorker";
+import * as Semaphore from "effect/Semaphore";
 
 import { ProviderService } from "../../provider/Services/ProviderService.ts";
 import { ServerConfig } from "../../config.ts";
 import { ProjectionTurnRepository } from "../../persistence/Services/ProjectionTurns.ts";
 import { ProjectionTurnRepositoryLive } from "../../persistence/Layers/ProjectionTurns.ts";
 import { OrchestrationEngineService } from "../Services/OrchestrationEngine.ts";
+import { ExecutionAdapterAuthority } from "../Services/ExecutionAdapterAuthority.ts";
 import { ProjectionSnapshotQuery } from "../Services/ProjectionSnapshotQuery.ts";
 import {
   ProviderRuntimeIngestionService,
@@ -38,6 +41,7 @@ export { collectPersistedGeneratedImagePaths } from "../providerRuntimeGenerated
 const make = Effect.gen(function* () {
   const orchestrationEngine = yield* OrchestrationEngineService;
   const projectionSnapshotQuery = yield* ProjectionSnapshotQuery;
+  const executionAdapterAuthority = yield* ExecutionAdapterAuthority;
   const providerService = yield* ProviderService;
   const projectionTurnRepository = yield* ProjectionTurnRepository;
   const serverConfig = yield* ServerConfig;
@@ -106,12 +110,41 @@ const make = Effect.gen(function* () {
     updates,
   });
 
+  // Adapter callbacks may arrive after suspension. Lease structured ownership
+  // before any projection and retain it until every derived command commits.
+  const processStructuredRuntimeEvent = (event: ProviderRuntimeEvent) =>
+    Effect.gen(function* () {
+      const claimId = `provider-runtime:${event.provider}:${event.eventId}`;
+      const claimed = yield* Effect.result(
+        executionAdapterAuthority.acquireStructured(event.threadId, claimId),
+      );
+      if (Result.isFailure(claimed)) {
+        if (claimed.failure.reason !== "not-structured") {
+          return yield* Effect.fail(claimed.failure);
+        }
+        yield* Effect.logDebug("provider runtime ingestion ignored non-owning structured event", {
+          threadId: event.threadId,
+          provider: event.provider,
+          eventId: event.eventId,
+          eventType: event.type,
+        });
+        return;
+      }
+      yield* processor
+        .processRuntimeEvent(event)
+        .pipe(Effect.ensuring(claimed.success.release));
+    });
   const processInput = (input: RuntimeIngestionInput) =>
     input.source === "runtime"
-      ? processor.processRuntimeEvent(input.event)
+      ? input.event.terminalRuntimeFence
+        ? processor.processRuntimeEvent(input.event)
+        : processStructuredRuntimeEvent(input.event)
       : processor.processDomainEvent(input.event);
+  const processLock = yield* Semaphore.make(1);
+  const processInputSerially = (input: RuntimeIngestionInput) =>
+    processLock.withPermits(1)(processInput(input));
   const processInputSafely = (input: RuntimeIngestionInput) =>
-    processInput(input).pipe(
+    processInputSerially(input).pipe(
       Effect.catchCause((cause) => {
         if (Cause.hasInterruptsOnly(cause)) return Effect.failCause(cause);
         return Effect.logWarning("provider runtime ingestion failed to process event", {
@@ -142,7 +175,11 @@ const make = Effect.gen(function* () {
       }),
     );
   });
-  return { start, drain: worker.drain } satisfies ProviderRuntimeIngestionShape;
+  const publishTerminal: ProviderRuntimeIngestionShape["publishTerminal"] = (event) =>
+    worker.drain.pipe(
+      Effect.andThen(processInputSerially({ source: "runtime", event })),
+    );
+  return { start, drain: worker.drain, publishTerminal } satisfies ProviderRuntimeIngestionShape;
 });
 
 export const ProviderRuntimeIngestionLive = Layer.effect(

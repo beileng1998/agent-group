@@ -213,6 +213,90 @@ lifecycle.layer("ProviderService lifecycle serialization", (it) => {
       assert.equal(yield* lifecycle.codex.hasSession(threadId), false);
     }),
   );
+
+  it.effect("adopts a managed-terminal cursor and resumes it on the next structured start", () =>
+    Effect.gen(function* () {
+      const provider = yield* ProviderService;
+      const directory = yield* ProviderSessionDirectory;
+      const threadId = asThreadId("thread-terminal-cursor-adoption");
+      yield* provider.startSession(threadId, {
+        provider: "codex",
+        threadId,
+        runtimeMode: "full-access",
+      });
+      if (!provider.stopRuntimeSession) {
+        return assert.fail("Expected stopRuntimeSession to be available");
+      }
+      yield* provider.stopRuntimeSession({ threadId });
+      const terminalCursor = { threadId: "native-terminal-session" };
+      yield* provider.adoptSessionResumeCursor({
+        threadId,
+        provider: "codex",
+        runtimeMode: "full-access",
+        resumeCursor: terminalCursor,
+      });
+
+      const binding = Option.getOrUndefined(yield* directory.getBinding(threadId));
+      assert.deepEqual(binding?.resumeCursor, terminalCursor);
+      assert.equal(binding?.status, "stopped");
+
+      lifecycle.codex.startSession.mockClear();
+      yield* provider.startSession(threadId, {
+        provider: "codex",
+        threadId,
+        runtimeMode: "full-access",
+      });
+      assert.deepEqual(
+        lifecycle.codex.startSession.mock.calls[0]?.[0].resumeCursor,
+        terminalCursor,
+      );
+    }),
+  );
+
+  it.effect("ignores late structured events after managed-terminal cursor adoption", () =>
+    Effect.gen(function* () {
+      const provider = yield* ProviderService;
+      const directory = yield* ProviderSessionDirectory;
+      const threadId = asThreadId("thread-terminal-late-event");
+      yield* provider.startSession(threadId, {
+        provider: "codex",
+        threadId,
+        runtimeMode: "full-access",
+      });
+      if (!provider.stopRuntimeSession) {
+        return assert.fail("Expected stopRuntimeSession to be available");
+      }
+      yield* provider.stopRuntimeSession({ threadId });
+      const terminalCursor = { threadId: "terminal-owned-cursor" };
+      yield* provider.adoptSessionResumeCursor({
+        threadId,
+        provider: "codex",
+        runtimeMode: "full-access",
+        resumeCursor: terminalCursor,
+      });
+      yield* lifecycle.codex.waitForRuntimeSubscribers();
+
+      lifecycle.codex.emit({
+        type: "turn.started",
+        eventId: EventId.makeUnsafe("late-turn-started"),
+        provider: "codex",
+        threadId,
+        turnId: "late-turn",
+        createdAt: "2026-07-26T00:00:00.000Z",
+        payload: {},
+      });
+      yield* sleep(20);
+
+      const binding = Option.getOrUndefined(yield* directory.getBinding(threadId));
+      assert.equal(binding?.status, "stopped");
+      assert.deepEqual(binding?.resumeCursor, terminalCursor);
+      assert.equal(
+        (binding?.runtimePayload as { readonly lastRuntimeEvent?: string })
+          ?.lastRuntimeEvent,
+        "terminal.session.started",
+      );
+    }),
+  );
 });
 
 const queuedIdle = makeProviderServiceLayer({ runtimeIdleStopMs: 40 });

@@ -45,23 +45,40 @@ import { ProviderService } from "../src/provider/Services/ProviderService.ts";
 import { ServerSettingsService } from "../src/serverSettings.ts";
 import { CheckpointReactorLive } from "../src/orchestration/Layers/CheckpointReactor.ts";
 import { StudioOutputReactorLive } from "../src/orchestration/Layers/StudioOutputReactor.ts";
-import { OrchestrationEngineLive } from "../src/orchestration/Layers/OrchestrationEngine.ts";
+import { OrchestrationEngineCoreLive } from "../src/orchestration/Layers/OrchestrationEngine.ts";
 import { OrchestrationProjectionPipelineLive } from "../src/orchestration/Layers/ProjectionPipeline.ts";
 import { OrchestrationProjectionSnapshotQueryLive } from "../src/orchestration/Layers/ProjectionSnapshotQuery.ts";
 import { RuntimeReceiptBusLive } from "../src/orchestration/Layers/RuntimeReceiptBus.ts";
 import { OrchestrationReactorLive } from "../src/orchestration/Layers/OrchestrationReactor.ts";
 import { ProviderCommandReactorLive } from "../src/orchestration/Layers/ProviderCommandReactor.ts";
 import { ProviderRuntimeIngestionLive } from "../src/orchestration/Layers/ProviderRuntimeIngestion.ts";
+import { ExecutionAdapterAuthorityMemoryLive } from "../src/orchestration/Layers/ExecutionAdapterAuthorityMemoryLive.ts";
 import {
   OrchestrationEngineService,
   type OrchestrationEngineShape,
 } from "../src/orchestration/Services/OrchestrationEngine.ts";
+import {
+  ExecutionAdapterAuthority,
+  type ExecutionAdapterAuthorityShape,
+} from "../src/orchestration/Services/ExecutionAdapterAuthority.ts";
 import { OrchestrationReactor } from "../src/orchestration/Services/OrchestrationReactor.ts";
+import {
+  ProviderRuntimeIngestionService,
+  type ProviderRuntimeIngestionShape,
+} from "../src/orchestration/Services/ProviderRuntimeIngestion.ts";
+import {
+  ProviderCommandReactor,
+  type ProviderCommandReactorShape,
+} from "../src/orchestration/Services/ProviderCommandReactor.ts";
 import { ProjectionSnapshotQuery } from "../src/orchestration/Services/ProjectionSnapshotQuery.ts";
 import {
   RuntimeReceiptBus,
   type OrchestrationRuntimeReceipt,
 } from "../src/orchestration/Services/RuntimeReceiptBus.ts";
+import {
+  TerminalAgentService,
+  type TerminalAgentServiceShape,
+} from "../src/terminalAgent/Services/TerminalAgentService.ts";
 
 import {
   makeTestProviderAdapterHarness,
@@ -165,6 +182,9 @@ export interface OrchestrationIntegrationHarness {
   readonly dbPath: string;
   readonly adapterHarness: TestProviderAdapterHarness | null;
   readonly engine: OrchestrationEngineShape;
+  readonly executionAdapterAuthority: ExecutionAdapterAuthorityShape;
+  readonly runtimeIngestion: ProviderRuntimeIngestionShape;
+  readonly providerCommandReactor: ProviderCommandReactorShape;
   readonly snapshotQuery: ProjectionSnapshotQuery["Service"];
   readonly providerService: ProviderService["Service"];
   readonly checkpointStore: CheckpointStore["Service"];
@@ -248,11 +268,17 @@ export const makeOrchestrationIntegrationHarness = (
     yield* initializeGitWorkspace(workspaceDir);
 
     const persistenceLayer = makeSqlitePersistenceLive(dbPath);
-    const orchestrationLayer = OrchestrationEngineLive.pipe(
+    const executionAdapterAuthorityLayer = ExecutionAdapterAuthorityMemoryLive;
+    const orchestrationEngineLayer = OrchestrationEngineCoreLive.pipe(
       Layer.provide(OrchestrationProjectionSnapshotQueryLive),
       Layer.provide(OrchestrationProjectionPipelineLive),
       Layer.provide(OrchestrationEventStoreLive),
       Layer.provide(OrchestrationCommandReceiptRepositoryLive),
+      Layer.provide(executionAdapterAuthorityLayer),
+    );
+    const orchestrationLayer = Layer.mergeAll(
+      orchestrationEngineLayer,
+      executionAdapterAuthorityLayer,
     );
     const providerSessionDirectoryLayer = ProviderSessionDirectoryLive.pipe(
       Layer.provide(ProviderSessionRuntimeRepositoryLive),
@@ -309,9 +335,24 @@ export const makeOrchestrationIntegrationHarness = (
     const studioOutputReactorLayer = StudioOutputReactorLive.pipe(
       Layer.provideMerge(runtimeServicesLayer),
     );
+    const unavailableManagedTerminal = () =>
+      Effect.die("Managed terminals are not part of this integration harness.");
+    const terminalAgentServiceLayer = Layer.succeed(TerminalAgentService, {
+      get: unavailableManagedTerminal,
+      start: unavailableManagedTerminal,
+      restart: unavailableManagedTerminal,
+      switchToChat: unavailableManagedTerminal,
+      stopCurrentAdapter: unavailableManagedTerminal,
+      write: unavailableManagedTerminal,
+      resize: unavailableManagedTerminal,
+      subscribe: () => Stream.fromEffect(unavailableManagedTerminal()),
+      teardownThread: unavailableManagedTerminal,
+      recover: Effect.void,
+    } satisfies TerminalAgentServiceShape);
     const providerCommandReactorLayer = ProviderCommandReactorLive.pipe(
       Layer.provideMerge(runtimeServicesLayer),
       Layer.provideMerge(studioOutputReactorLayer),
+      Layer.provideMerge(terminalAgentServiceLayer),
       Layer.provideMerge(gitCoreLayer),
       Layer.provideMerge(textGenerationLayer),
       Layer.provideMerge(ServerSettingsService.layerTest()),
@@ -334,6 +375,18 @@ export const makeOrchestrationIntegrationHarness = (
     const runtime = ManagedRuntime.make(layer);
     const engine = yield* tryRuntimePromise("load OrchestrationEngine service", () =>
       runtime.runPromise(Effect.service(OrchestrationEngineService)),
+    ).pipe(Effect.orDie);
+    const executionAdapterAuthority = yield* tryRuntimePromise(
+      "load ExecutionAdapterAuthority service",
+      () => runtime.runPromise(Effect.service(ExecutionAdapterAuthority)),
+    ).pipe(Effect.orDie);
+    const runtimeIngestion = yield* tryRuntimePromise(
+      "load ProviderRuntimeIngestion service",
+      () => runtime.runPromise(Effect.service(ProviderRuntimeIngestionService)),
+    ).pipe(Effect.orDie);
+    const providerCommandReactor = yield* tryRuntimePromise(
+      "load ProviderCommandReactor service",
+      () => runtime.runPromise(Effect.service(ProviderCommandReactor)),
     ).pipe(Effect.orDie);
     const reactor = yield* tryRuntimePromise("load OrchestrationReactor service", () =>
       runtime.runPromise(Effect.service(OrchestrationReactor)),
@@ -493,6 +546,9 @@ export const makeOrchestrationIntegrationHarness = (
       dbPath,
       adapterHarness,
       engine,
+      executionAdapterAuthority,
+      runtimeIngestion,
+      providerCommandReactor,
       snapshotQuery,
       providerService,
       checkpointStore,

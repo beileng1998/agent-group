@@ -19,6 +19,7 @@ import type {
 } from "./Services/ProjectionSnapshotQuery.ts";
 import type { ProviderRuntimeBufferState } from "./providerRuntimeBufferState.ts";
 import { providerCommandId, providerTurnKey } from "./providerRuntimeIngestionValues.ts";
+import { terminalRuntimeCommandFence } from "./providerRuntimeTerminalFence.ts";
 
 function asObject(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -110,6 +111,7 @@ export function makeProviderRuntimeGeneratedImages(input: {
           delta: targetMessageText.trim().length > 0 ? `\n\n${joined}` : joined,
           ...(params.turnId ? { turnId: params.turnId } : {}),
           createdAt: params.createdAt,
+          ...terminalRuntimeCommandFence(params.event),
         });
         dispatchedDelta = true;
       }
@@ -121,6 +123,7 @@ export function makeProviderRuntimeGeneratedImages(input: {
           messageId: targetMessageId,
           ...(params.turnId ? { turnId: params.turnId } : {}),
           createdAt: params.createdAt,
+          ...terminalRuntimeCommandFence(params.event),
         });
       }
     });

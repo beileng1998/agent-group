@@ -10,7 +10,11 @@ import { Effect, Layer } from "effect";
 import { expect } from "vitest";
 
 import { makeNodePtyLayer } from "../terminal/Layers/NodePTY";
-import { PtyAdapter, type PtyAdapterShape } from "../terminal/Services/PTY";
+import {
+  PtyAdapter,
+  type PtyAdapterShape,
+  type PtyProcess,
+} from "../terminal/Services/PTY";
 import { defaultProcessTreeKiller } from "../terminal/processTreeKiller";
 import {
   TerminalHost,
@@ -78,10 +82,14 @@ it.layer(PtyTestLayer)("TerminalHost", (it) => {
           expect(created.snapshot).toBeNull();
           expect(created.generation).toBeTruthy();
           expect(created.pid).toBeGreaterThan(0);
+          expect(created.processGroupIdentity).toMatchObject({
+            pgid: created.pid,
+            leaderIdentity: { pid: created.pid },
+          });
 
           const outputs: TerminalHostOutput[] = [];
           host.onOutput("s1", (output) => outputs.push(output));
-          host.write("s1", "hello-host\n");
+          host.write("s1", "hello-host\n", created.generation);
           yield* Effect.promise(() =>
             waitFor(() => outputs.some((output) => output.data.includes("hello-host"))),
           );
@@ -105,6 +113,250 @@ it.layer(PtyTestLayer)("TerminalHost", (it) => {
           yield* Effect.promise(() => host.dispose());
         }
       }),
+  );
+
+  it.effect("keeps the snapshot sequence atomic with emulator ingestion", () =>
+    Effect.gen(function* () {
+      let dataListener: ((data: string) => void) | undefined;
+      let exitListener: ((event: { exitCode: number; signal: number | null }) => void) | undefined;
+      const fakePty: PtyProcess = {
+        pid: 12345,
+        write: () => {},
+        resize: () => {},
+        kill: () => exitListener?.({ exitCode: 0, signal: 15 }),
+        pause: () => {},
+        resume: () => {},
+        onData: (listener) => {
+          dataListener = listener;
+          return () => {};
+        },
+        onExit: (listener) => {
+          exitListener = listener;
+          return () => {};
+        },
+      };
+      const host = new TerminalHost({
+        spawnPty: async () => fakePty,
+        processTreeKiller: {
+          capture: () => ({
+            root: { pid: fakePty.pid, command: "fake", startTime: "stable" },
+            descendants: [],
+            captureComplete: true,
+          }),
+          inspect: () => ({ verified: true, survivors: [] }),
+          signal: () => {},
+        },
+      });
+      try {
+        yield* Effect.promise(() =>
+          host.createOrAttach({
+            sessionId: "snapshot-race",
+            command: "fake",
+            cwd: process.cwd(),
+            cols: 80,
+            rows: 24,
+          }),
+        );
+        dataListener?.("before-snapshot");
+        const attaching = host.attach("snapshot-race");
+        // This chunk receives the next sequence synchronously, while its
+        // emulator write is queued after the already-enqueued snapshot.
+        dataListener?.("after-snapshot");
+        const attached = yield* Effect.promise(() => attaching);
+
+        expect(attached.snapshot?.outputSequence).toBe(1);
+        expect(attached.snapshot?.snapshotAnsi).toContain("before-snapshot");
+        expect(attached.snapshot?.snapshotAnsi).not.toContain("after-snapshot");
+      } finally {
+        yield* Effect.promise(() => host.dispose());
+      }
+    }),
+  );
+
+  it.effect("unsubscribes listeners when snapshot-first attach is interrupted", () =>
+    Effect.gen(function* () {
+      let exitListener: ((event: { exitCode: number; signal: number | null }) => void) | undefined;
+      const fakePty: PtyProcess = {
+        pid: 12347,
+        write: () => {},
+        resize: () => {},
+        kill: () => exitListener?.({ exitCode: 0, signal: 15 }),
+        pause: () => {},
+        resume: () => {},
+        onData: () => () => {},
+        onExit: (listener) => {
+          exitListener = listener;
+          return () => {};
+        },
+      };
+      const host = new TerminalHost({
+        spawnPty: async () => fakePty,
+        processTreeKiller: {
+          capture: () => ({
+            root: { pid: fakePty.pid, command: "fake", startTime: "stable" },
+            descendants: [],
+            captureComplete: true,
+          }),
+          inspect: () => ({ verified: true, survivors: [] }),
+          signal: () => {},
+        },
+      });
+      const blocker = deferred<void>();
+      try {
+        yield* Effect.promise(() =>
+          host.createOrAttach({
+            sessionId: "cancelled-attach",
+            command: "fake",
+            cwd: process.cwd(),
+            cols: 80,
+            rows: 24,
+          }),
+        );
+        const sessions = (
+          host as unknown as {
+            readonly sessions: Map<
+              string,
+              {
+                emulatorQueue: Promise<void>;
+                readonly outputListeners: Set<unknown>;
+                readonly exitListeners: Set<unknown>;
+              }
+            >;
+          }
+        ).sessions;
+        const session = sessions.get("cancelled-attach")!;
+        session.emulatorQueue = blocker.promise;
+        const controller = new AbortController();
+        const attaching = host.attachClient(
+          "cancelled-attach",
+          { onOutput: () => {}, onExit: () => {} },
+          controller.signal,
+        );
+
+        expect(session.outputListeners.size).toBe(1);
+        expect(session.exitListeners.size).toBe(1);
+        controller.abort();
+        expect(session.outputListeners.size).toBe(0);
+        expect(session.exitListeners.size).toBe(0);
+
+        blocker.resolve(undefined);
+        yield* Effect.promise(() =>
+          expect(attaching).rejects.toThrow("attach was interrupted"),
+        );
+      } finally {
+        blocker.resolve(undefined);
+        yield* Effect.promise(() => host.dispose());
+      }
+    }),
+  );
+
+  it.effect("answers PTY capability queries without an attached Web client", () =>
+    Effect.gen(function* () {
+      let dataListener: ((data: string) => void) | undefined;
+      let exitListener: ((event: { exitCode: number; signal: number | null }) => void) | undefined;
+      const writes: string[] = [];
+      const fakePty: PtyProcess = {
+        pid: 12346,
+        write: (data) => writes.push(data),
+        resize: () => {},
+        kill: () => exitListener?.({ exitCode: 0, signal: 15 }),
+        pause: () => {},
+        resume: () => {},
+        onData: (listener) => {
+          dataListener = listener;
+          return () => {};
+        },
+        onExit: (listener) => {
+          exitListener = listener;
+          return () => {};
+        },
+      };
+      const host = new TerminalHost({
+        spawnPty: async () => fakePty,
+        processTreeKiller: {
+          capture: () => ({
+            root: { pid: fakePty.pid, command: "fake", startTime: "stable" },
+            descendants: [],
+            captureComplete: true,
+          }),
+          inspect: () => ({ verified: true, survivors: [] }),
+          signal: () => {},
+        },
+      });
+      try {
+        yield* Effect.promise(() =>
+          host.createOrAttach({
+            sessionId: "query-reply",
+            command: "fake",
+            cwd: process.cwd(),
+            cols: 80,
+            rows: 24,
+          }),
+        );
+        dataListener?.("\x1b[6n");
+        yield* Effect.promise(() => waitFor(() => writes.includes("\x1b[1;1R")));
+        expect(writes).toEqual(["\x1b[1;1R"]);
+      } finally {
+        yield* Effect.promise(() => host.dispose());
+      }
+    }),
+  );
+
+  it.effect("single-flights concurrent createOrAttach calls for one session id", () =>
+    Effect.gen(function* () {
+      const spawn = deferred<PtyProcess>();
+      let spawnCalls = 0;
+      let exitListener: ((event: { exitCode: number; signal: number | null }) => void) | undefined;
+      const fakePty: PtyProcess = {
+        pid: 23456,
+        write: () => {},
+        resize: () => {},
+        kill: () => exitListener?.({ exitCode: 0, signal: 15 }),
+        pause: () => {},
+        resume: () => {},
+        onData: () => () => {},
+        onExit: (listener) => {
+          exitListener = listener;
+          return () => {};
+        },
+      };
+      const host = new TerminalHost({
+        spawnPty: async () => {
+          spawnCalls += 1;
+          return spawn.promise;
+        },
+        processTreeKiller: {
+          capture: () => ({
+            root: { pid: fakePty.pid, command: "fake", startTime: "stable" },
+            descendants: [],
+            captureComplete: true,
+          }),
+          inspect: () => ({ verified: true, survivors: [] }),
+          signal: () => {},
+        },
+      });
+      const input = {
+        sessionId: "single-flight",
+        command: "fake",
+        cwd: process.cwd(),
+        cols: 80,
+        rows: 24,
+      };
+      try {
+        const first = host.createOrAttach(input);
+        const second = host.createOrAttach(input);
+        expect(spawnCalls).toBe(1);
+        spawn.resolve(fakePty);
+
+        const [created, attached] = yield* Effect.promise(() => Promise.all([first, second]));
+        expect(created.isNew).toBe(true);
+        expect(attached.isNew).toBe(false);
+        expect(attached.generation).toBe(created.generation);
+        expect(spawnCalls).toBe(1);
+      } finally {
+        yield* Effect.promise(() => host.dispose());
+      }
+    }),
   );
 
   it.effect(
@@ -158,7 +410,9 @@ it.layer(PtyTestLayer)("TerminalHost", (it) => {
         expect(host.isKilled("s3")).toBe(true);
         expect(host.isAlive("s3")).toBe(false);
         expect(host.generationOf("s3")).toBeNull();
-        expect(() => host.write("s3", "x")).toThrow(TerminalHostSessionNotFoundError);
+        expect(() => host.write("s3", "x", created.generation)).toThrow(
+          TerminalHostSessionNotFoundError,
+        );
         yield* Effect.promise(() => waitFor(() => pidDead(created.pid)));
         for (const descendant of tree.descendants) {
           yield* Effect.promise(() => waitFor(() => pidDead(descendant.pid)));

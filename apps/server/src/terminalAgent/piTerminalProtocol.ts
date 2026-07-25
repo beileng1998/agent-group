@@ -94,15 +94,21 @@ function record(value: unknown): Record<string, unknown> | undefined {
     : undefined;
 }
 
-function nonEmptyString(value: unknown): string | undefined {
-  if (typeof value !== "string") return undefined;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : undefined;
+function providerString(value: unknown, field: string): string | undefined {
+  return optionalBoundedHookString(value, `Pi terminal ${field}`);
+}
+
+function pathString(value: unknown, field: string): string | undefined {
+  return optionalBoundedHookString(
+    value,
+    `Pi terminal ${field}`,
+    TERMINAL_HOOK_PATH_MAX_CHARS,
+  );
 }
 
 function optionalFields(input: Record<string, unknown>) {
-  const sessionId = nonEmptyString(input.session_id);
-  const sessionFile = nonEmptyString(input.session_file);
+  const sessionId = providerString(input.session_id, "session id");
+  const sessionFile = pathString(input.session_file, "session file");
   return {
     ...(sessionId ? { session_id: sessionId } : {}),
     ...(sessionFile ? { session_file: sessionFile } : {}),
@@ -111,8 +117,16 @@ function optionalFields(input: Record<string, unknown>) {
 
 export function parsePiTerminalEvent(value: unknown): PiTerminalEvent {
   const input = record(value);
-  const eventName = nonEmptyString(input?.event_name);
-  const eventId = nonEmptyString(input?.event_id);
+  const eventName = optionalBoundedHookString(
+    input?.event_name,
+    "Pi terminal event name",
+    64,
+  );
+  const eventId = optionalBoundedHookString(
+    input?.event_id,
+    "Pi terminal event id",
+    TERMINAL_HOOK_RUNTIME_ID_MAX_CHARS,
+  );
   if (
     !input ||
     !eventId ||
@@ -123,15 +137,21 @@ export function parsePiTerminalEvent(value: unknown): PiTerminalEvent {
   const base = { event_id: eventId, ...optionalFields(input) };
   switch (eventName) {
     case "session_start": {
-      const sessionId = nonEmptyString(input.session_id);
-      const reason = nonEmptyString(input.reason);
+      const sessionId = providerString(input.session_id, "session id");
+      const reason = providerString(input.reason, "reason");
       if (!sessionId || !reason) {
         throw new Error("Invalid Pi session start event.");
       }
-      const model = nonEmptyString(input.model);
-      const modelProvider = nonEmptyString(input.model_provider);
-      const thinkingLevel = nonEmptyString(input.thinking_level);
-      const permissionMode = nonEmptyString(input.permission_mode);
+      const model = providerString(input.model, "model");
+      const modelProvider = providerString(input.model_provider, "model provider");
+      const thinkingLevel = providerString(
+        input.thinking_level,
+        "thinking level",
+      );
+      const permissionMode = providerString(
+        input.permission_mode,
+        "permission mode",
+      );
       return {
         ...base,
         event_name: eventName,
@@ -147,8 +167,11 @@ export function parsePiTerminalEvent(value: unknown): PiTerminalEvent {
       if (typeof input.prompt !== "string") {
         throw new Error("Invalid Pi prompt submit event.");
       }
-      const source = nonEmptyString(input.source);
-      const streamingBehavior = nonEmptyString(input.streaming_behavior);
+      const source = providerString(input.source, "prompt source");
+      const streamingBehavior = providerString(
+        input.streaming_behavior,
+        "streaming behavior",
+      );
       return {
         ...base,
         event_name: eventName,
@@ -160,7 +183,7 @@ export function parsePiTerminalEvent(value: unknown): PiTerminalEvent {
       };
     }
     case "turn_stop": {
-      const turnId = nonEmptyString(input.turn_id);
+      const turnId = providerString(input.turn_id, "turn id");
       return {
         ...base,
         event_name: eventName,
@@ -171,9 +194,9 @@ export function parsePiTerminalEvent(value: unknown): PiTerminalEvent {
       };
     }
     case "turn_failure": {
-      const message = nonEmptyString(input.message);
+      const message = providerString(input.message, "failure message");
       if (!message) throw new Error("Invalid Pi turn failure event.");
-      const turnId = nonEmptyString(input.turn_id);
+      const turnId = providerString(input.turn_id, "turn id");
       return {
         ...base,
         event_name: eventName,
@@ -182,10 +205,16 @@ export function parsePiTerminalEvent(value: unknown): PiTerminalEvent {
       };
     }
     case "runtime_state": {
-      const model = nonEmptyString(input.model);
-      const modelProvider = nonEmptyString(input.model_provider);
-      const thinkingLevel = nonEmptyString(input.thinking_level);
-      const permissionMode = nonEmptyString(input.permission_mode);
+      const model = providerString(input.model, "model");
+      const modelProvider = providerString(input.model_provider, "model provider");
+      const thinkingLevel = providerString(
+        input.thinking_level,
+        "thinking level",
+      );
+      const permissionMode = providerString(
+        input.permission_mode,
+        "permission mode",
+      );
       return {
         ...base,
         event_name: eventName,
@@ -196,7 +225,7 @@ export function parsePiTerminalEvent(value: unknown): PiTerminalEvent {
       };
     }
     case "session_compact": {
-      const reason = nonEmptyString(input.reason);
+      const reason = providerString(input.reason, "compact reason");
       if (!reason || typeof input.will_retry !== "boolean") {
         throw new Error("Invalid Pi session compact event.");
       }
@@ -208,9 +237,12 @@ export function parsePiTerminalEvent(value: unknown): PiTerminalEvent {
       };
     }
     case "session_shutdown": {
-      const reason = nonEmptyString(input.reason);
+      const reason = providerString(input.reason, "shutdown reason");
       if (!reason) throw new Error("Invalid Pi session shutdown event.");
-      const targetSessionFile = nonEmptyString(input.target_session_file);
+      const targetSessionFile = pathString(
+        input.target_session_file,
+        "target session file",
+      );
       return {
         ...base,
         event_name: eventName,
@@ -230,3 +262,8 @@ export function parsePiTerminalEvent(value: unknown): PiTerminalEvent {
       throw new Error("Unsupported Pi terminal event.");
   }
 }
+import {
+  optionalBoundedHookString,
+  TERMINAL_HOOK_PATH_MAX_CHARS,
+  TERMINAL_HOOK_RUNTIME_ID_MAX_CHARS,
+} from "./terminalAgentHookProtocolBounds";

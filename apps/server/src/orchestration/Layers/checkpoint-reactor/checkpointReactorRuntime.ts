@@ -2,11 +2,11 @@ import type { OrchestrationEvent, ProviderRuntimeEvent } from "@agent-group/cont
 import { Cause, Effect, Stream } from "effect";
 import { makeDrainableWorker } from "@agent-group/shared/DrainableWorker";
 
-import type { CheckpointStoreError } from "../../../checkpointing/Errors.ts";
 import type { ProviderServiceShape } from "../../../provider/Services/ProviderService.ts";
-import type { OrchestrationDispatchError } from "../../Errors.ts";
 import type { CheckpointReactorShape } from "../../Services/CheckpointReactor.ts";
+import type { ExecutionAdapterAuthorityShape } from "../../Services/ExecutionAdapterAuthority.ts";
 import type { OrchestrationEngineShape } from "../../Services/OrchestrationEngine.ts";
+import { withStructuredRuntimeLease } from "../executionAdapterStructuredLease.ts";
 import type { CheckpointCaptureHandlers } from "./checkpointCaptureHandlers.ts";
 import type { CheckpointReactorInput, CheckpointReactorState } from "./checkpointReactorValues.ts";
 import { toTurnId } from "./checkpointReactorValues.ts";
@@ -18,6 +18,7 @@ export interface CheckpointReactorRuntimeDependencies {
   readonly capture: CheckpointCaptureHandlers;
   readonly orchestrationEngine: OrchestrationEngineShape;
   readonly providerService: ProviderServiceShape;
+  readonly authority: Pick<ExecutionAdapterAuthorityShape, "acquireStructured">;
   readonly restore: CheckpointRestoreHandler;
   readonly state: CheckpointReactorState;
   readonly status: CheckpointStatus;
@@ -25,8 +26,16 @@ export interface CheckpointReactorRuntimeDependencies {
 }
 
 export function makeCheckpointReactorRuntime(dependencies: CheckpointReactorRuntimeDependencies) {
-  const { capture, orchestrationEngine, providerService, restore, state, status, turnStart } =
-    dependencies;
+  const {
+    authority,
+    capture,
+    orchestrationEngine,
+    providerService,
+    restore,
+    state,
+    status,
+    turnStart,
+  } = dependencies;
 
   return Effect.gen(function* () {
     const supportsLiveTurnDiffPatch = Effect.fnUntraced(function* (
@@ -92,12 +101,19 @@ export function makeCheckpointReactorRuntime(dependencies: CheckpointReactorRunt
       }
     });
 
-    const processInput = (
-      input: CheckpointReactorInput,
-    ): Effect.Effect<void, CheckpointStoreError | OrchestrationDispatchError, never> =>
-      input.source === "domain"
-        ? processDomainEvent(input.event)
-        : processRuntimeEvent(input.event);
+    const processInput = (input: CheckpointReactorInput) =>
+      withStructuredRuntimeLease({
+        authority,
+        threadId:
+          input.source === "domain"
+            ? input.event.payload.threadId
+            : input.event.threadId,
+        operation: `checkpoint:${input.source}:${input.event.type}`,
+        effect:
+          input.source === "domain"
+            ? processDomainEvent(input.event)
+            : processRuntimeEvent(input.event),
+      });
 
     const processInputSafely = (input: CheckpointReactorInput) =>
       processInput(input).pipe(

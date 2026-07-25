@@ -13,6 +13,7 @@ import type {
   ProviderForkThreadResult,
   ProviderRuntimeEvent,
   ProviderSession,
+  TerminalAgentRuntimeState,
 } from "@agent-group/contracts";
 import {
   ApprovalRequestId,
@@ -49,17 +50,27 @@ import { ProviderCommandReactorLive } from "./ProviderCommandReactor.ts";
 import { OrchestrationEngineService } from "../Services/OrchestrationEngine.ts";
 import { ProviderCommandReactor } from "../Services/ProviderCommandReactor.ts";
 import {
+  ExecutionAdapterAuthority,
+  type ExecutionAdapterAuthorityState,
+} from "../Services/ExecutionAdapterAuthority.ts";
+import {
   StudioOutputReactor,
   type StudioOutputReactorShape,
 } from "../Services/StudioOutputReactor.ts";
 import { attachmentRelativePath } from "../../attachmentStore.ts";
 import { ServerSettingsService } from "../../serverSettings.ts";
+import {
+  TerminalAgentService,
+  TerminalAgentServiceError,
+  type TerminalAgentServiceShape,
+} from "../../terminalAgent/Services/TerminalAgentService.ts";
 import { checkpointRefForThreadTurn } from "../../checkpointing/Utils.ts";
 import {
   CheckpointStore,
   type CheckpointStoreShape,
 } from "../../checkpointing/Services/CheckpointStore.ts";
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import { makeExecutionAdapterAuthority } from "./ExecutionAdapterAuthority.ts";
 
 const asProjectId = (value: string): ProjectId => ProjectId.makeUnsafe(value);
 const asApprovalRequestId = (value: string): ApprovalRequestId =>
@@ -129,6 +140,10 @@ describe("ProviderCommandReactor", () => {
     readonly studioOutputReactor?: Partial<StudioOutputReactorShape>;
     readonly forkThreadResult?: ProviderForkThreadResult | null;
     readonly resolveTranscriptPath?: NonNullable<ProviderServiceShape["resolveTranscriptPath"]>;
+    readonly terminalAuthorityThreadIds?: ReadonlyArray<string>;
+    readonly stopManagedTerminal?: (
+      threadId: ThreadId,
+    ) => Effect.Effect<TerminalAgentRuntimeState, TerminalAgentServiceError>;
   }) {
     const now = new Date().toISOString();
     const baseDir =
@@ -382,6 +397,7 @@ describe("ProviderCommandReactor", () => {
       clearSessionResumeCursor: clearSessionResumeCursor as NonNullable<
         ProviderServiceShape["clearSessionResumeCursor"]
       >,
+      adoptSessionResumeCursor: () => Effect.void,
       listSessions: () => Effect.succeed(runtimeSessions),
       resolveTranscriptPath,
       getCapabilities: (_provider) =>
@@ -396,6 +412,80 @@ describe("ProviderCommandReactor", () => {
       streamEvents: Stream.fromPubSub(runtimeEventPubSub),
     };
 
+    // OrchestrationEngineLive owns its default in-memory authority. A separate
+    // real reactor authority models replayed events whose command claim is gone,
+    // while still exercising terminal denial and the structured fallback path.
+    const authorityStates = new Map<ThreadId, ExecutionAdapterAuthorityState>();
+    for (const rawThreadId of input?.terminalAuthorityThreadIds ?? []) {
+      const threadId = ThreadId.makeUnsafe(rawThreadId);
+      authorityStates.set(threadId, {
+        adapter: "terminal",
+        revision: 1,
+        provider: "codex",
+        status: "ready",
+        runtimeInstanceId: `runtime:${threadId}`,
+        generation: `generation:${threadId}`,
+        pid: 12_345,
+        ownerIdentity: {
+          pid: 12_345,
+          startTime: "Sat Jul 25 00:00:00 2026",
+          commandFingerprint: "0".repeat(64),
+        },
+        processGroupIdentity: null,
+        providerSessionId: null,
+        activeTurnId: null,
+        startedAt: now,
+        exitCode: null,
+        exitSignal: null,
+        error: null,
+      });
+    }
+    const executionAdapterAuthority = Effect.runSync(
+      makeExecutionAdapterAuthority({
+        initialStates: authorityStates,
+        persist: () => Effect.void,
+        now: () => new Date(now),
+      }),
+    );
+    const stopManagedTerminal = vi.fn<
+      (
+        threadId: ThreadId,
+      ) => Effect.Effect<TerminalAgentRuntimeState, TerminalAgentServiceError>
+    >(
+      input?.stopManagedTerminal ??
+        ((threadId) =>
+          Effect.succeed({
+            threadId,
+            authority: "terminal",
+            revision: 1,
+            provider: "codex",
+            status: "stopped",
+            runtimeInstanceId: `runtime:${threadId}`,
+            generation: `generation:${threadId}`,
+            pid: 12_345,
+            providerSessionId: null,
+            model: modelSelection.model ?? null,
+            effort: null,
+            permission: null,
+            capabilities: null,
+            exit: null,
+            error: null,
+          } satisfies TerminalAgentRuntimeState)),
+    );
+    const terminalAgentService = {
+      stopCurrentAdapter: (
+        threadId: ThreadId,
+        stopStructured: () => Effect.Effect<void, unknown>,
+      ) =>
+        executionAdapterAuthority.getState(threadId).pipe(
+          Effect.flatMap((state) =>
+            state.adapter === "terminal"
+              ? stopManagedTerminal(threadId).pipe(Effect.as("terminal" as const))
+              : stopStructured().pipe(Effect.as("structured" as const)),
+          ),
+        ),
+    } as unknown as TerminalAgentServiceShape;
+
     const orchestrationLayer = OrchestrationEngineLive.pipe(
       Layer.provide(OrchestrationProjectionPipelineLive),
       Layer.provide(OrchestrationProjectionSnapshotQueryLive),
@@ -406,6 +496,8 @@ describe("ProviderCommandReactor", () => {
       Layer.provideMerge(orchestrationLayer),
       Layer.provideMerge(OrchestrationProjectionSnapshotQueryLive),
       Layer.provideMerge(Layer.succeed(ProviderService, service)),
+      Layer.provideMerge(Layer.succeed(ExecutionAdapterAuthority, executionAdapterAuthority)),
+      Layer.provideMerge(Layer.succeed(TerminalAgentService, terminalAgentService)),
       Layer.provideMerge(Layer.succeed(StudioOutputReactor, studioOutputReactor)),
       Layer.provideMerge(Layer.succeed(CheckpointStore, checkpointStore)),
       Layer.provideMerge(
@@ -478,6 +570,7 @@ describe("ProviderCommandReactor", () => {
       captureCheckpoint,
       restoreCheckpoint,
       stopSession,
+      stopManagedTerminal,
       stopRuntimeSession,
       clearSessionResumeCursor,
       resolveTranscriptPath,
@@ -2041,6 +2134,104 @@ describe("ProviderCommandReactor", () => {
     expect(sent?.input).not.toContain("Old transcript");
     expect(harness.startSession.mock.calls[0]?.[1]).toMatchObject({ cwd: workspaceRoot });
     expect(fs.existsSync(path.join(workspaceRoot, ".agent-group/state.json"))).toBe(true);
+  });
+
+  it("rejects a composer turn while the thread is attached to the terminal adapter", async () => {
+    const harness = await createHarness({ terminalAuthorityThreadIds: ["thread-1"] });
+    const now = new Date().toISOString();
+
+    await Effect.runPromise(
+      harness.engine.dispatch({
+        type: "thread.turn.start",
+        commandId: CommandId.makeUnsafe("cmd-terminal-mode-turn"),
+        threadId: ThreadId.makeUnsafe("thread-1"),
+        message: {
+          messageId: asMessageId("terminal-mode-user"),
+          role: "user",
+          text: "composer must not dispatch while terminal adapter is active",
+          attachments: [],
+        },
+        interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
+        runtimeMode: "approval-required",
+        createdAt: now,
+      }),
+    );
+
+    await waitFor(async () => {
+      const readModel = await Effect.runPromise(harness.engine.getReadModel());
+      const thread = readModel.threads.find(
+        (entry) => entry.id === ThreadId.makeUnsafe("thread-1"),
+      );
+      return (
+        thread?.activities.some((activity) => activity.kind === "provider.turn.start.failed") ??
+        false
+      );
+    });
+    // The adapter boundary fired before any session/dispatch work happened.
+    expect(harness.startSession).not.toHaveBeenCalled();
+    expect(harness.sendTurn).not.toHaveBeenCalled();
+    const readModel = await Effect.runPromise(harness.engine.getReadModel());
+    const thread = readModel.threads.find((entry) => entry.id === ThreadId.makeUnsafe("thread-1"));
+    expect(thread?.session).toBeNull();
+    const failure = thread?.activities.find(
+      (activity) => activity.kind === "provider.turn.start.failed",
+    );
+    expect(failure?.payload).toMatchObject({
+      detail: expect.stringContaining("terminal execution adapter"),
+    });
+  });
+
+  it("does not ensure model or runtime-mode sessions under terminal authority", async () => {
+    const harness = await createHarness({
+      terminalAuthorityThreadIds: ["thread-1"],
+      sessionModelSwitch: "restart-session",
+    });
+    const threadId = ThreadId.makeUnsafe("thread-1");
+    const now = new Date().toISOString();
+
+    harness.setRuntimeSessionTurnState({ threadId, status: "ready" });
+    await Effect.runPromise(
+      harness.engine.dispatch({
+        type: "thread.session.set",
+        commandId: CommandId.makeUnsafe("cmd-terminal-authority-session"),
+        threadId,
+        session: {
+          threadId,
+          status: "ready",
+          providerName: "codex",
+          runtimeMode: "approval-required",
+          activeTurnId: null,
+          lastError: null,
+          updatedAt: now,
+        },
+        createdAt: now,
+      }),
+    );
+    await harness.drain();
+    harness.startSession.mockClear();
+    harness.stopSession.mockClear();
+
+    await Effect.runPromise(
+      harness.engine.dispatch({
+        type: "thread.meta.update",
+        commandId: CommandId.makeUnsafe("cmd-terminal-authority-model"),
+        threadId,
+        modelSelection: { provider: "codex", model: "gpt-5.3-codex" },
+      }),
+    );
+    await Effect.runPromise(
+      harness.engine.dispatch({
+        type: "thread.runtime-mode.set",
+        commandId: CommandId.makeUnsafe("cmd-terminal-authority-runtime-mode"),
+        threadId,
+        runtimeMode: "full-access",
+        createdAt: now,
+      }),
+    );
+    await harness.drain();
+
+    expect(harness.startSession).not.toHaveBeenCalled();
+    expect(harness.stopSession).not.toHaveBeenCalled();
   });
 
   it("sends original provider input when Agent Group context is disabled", async () => {
@@ -5668,6 +5859,103 @@ describe("ProviderCommandReactor", () => {
     expect(thread?.session?.status).toBe("stopped");
     expect(thread?.session?.threadId).toBe("thread-1");
     expect(thread?.session?.activeTurnId).toBeNull();
+  });
+
+  it("routes thread.session.stop through the managed terminal lifecycle", async () => {
+    const threadId = ThreadId.makeUnsafe("thread-1");
+    const harness = await createHarness({ terminalAuthorityThreadIds: [threadId] });
+    const now = new Date().toISOString();
+
+    await Effect.runPromise(
+      harness.engine.dispatch({
+        type: "thread.session.set",
+        commandId: CommandId.makeUnsafe("cmd-terminal-session-set-for-stop"),
+        threadId,
+        session: {
+          threadId,
+          status: "ready",
+          providerName: "codex",
+          runtimeMode: "approval-required",
+          activeTurnId: null,
+          lastError: null,
+          updatedAt: now,
+        },
+        createdAt: now,
+      }),
+    );
+
+    await Effect.runPromise(
+      harness.engine.dispatch({
+        type: "thread.session.stop",
+        commandId: CommandId.makeUnsafe("cmd-terminal-session-stop"),
+        threadId,
+        createdAt: now,
+      }),
+    );
+
+    await waitFor(async () => {
+      const readModel = await Effect.runPromise(harness.engine.getReadModel());
+      return (
+        harness.stopManagedTerminal.mock.calls.length === 1 &&
+        readModel.threads.find((thread) => thread.id === threadId)?.session?.status === "stopped"
+      );
+    });
+
+    expect(harness.stopManagedTerminal).toHaveBeenCalledWith(threadId);
+    expect(harness.stopSession).not.toHaveBeenCalled();
+    const readModel = await Effect.runPromise(harness.engine.getReadModel());
+    const session = readModel.threads.find((thread) => thread.id === threadId)?.session;
+    expect(session?.activeTurnId).toBeNull();
+    expect(session?.status).toBe("stopped");
+  });
+
+  it("does not claim a managed terminal stopped when teardown fails", async () => {
+    const threadId = ThreadId.makeUnsafe("thread-1");
+    const harness = await createHarness({
+      terminalAuthorityThreadIds: [threadId],
+      stopManagedTerminal: () =>
+        Effect.fail(
+          new TerminalAgentServiceError({
+            reason: "adapter",
+            message: "PTY teardown failed",
+          }),
+        ),
+    });
+    const now = new Date().toISOString();
+
+    await Effect.runPromise(
+      harness.engine.dispatch({
+        type: "thread.session.set",
+        commandId: CommandId.makeUnsafe("cmd-terminal-session-set-for-failed-stop"),
+        threadId,
+        session: {
+          threadId,
+          status: "ready",
+          providerName: "codex",
+          runtimeMode: "approval-required",
+          activeTurnId: null,
+          lastError: null,
+          updatedAt: now,
+        },
+        createdAt: now,
+      }),
+    );
+    await Effect.runPromise(
+      harness.engine.dispatch({
+        type: "thread.session.stop",
+        commandId: CommandId.makeUnsafe("cmd-terminal-session-stop-failed"),
+        threadId,
+        createdAt: now,
+      }),
+    );
+    await harness.drain();
+
+    expect(harness.stopManagedTerminal).toHaveBeenCalledWith(threadId);
+    expect(harness.stopSession).not.toHaveBeenCalled();
+    const readModel = await Effect.runPromise(harness.engine.getReadModel());
+    expect(readModel.threads.find((thread) => thread.id === threadId)?.session?.status).toBe(
+      "ready",
+    );
   });
 
   it("does not restore pending sidechat context after an explicit session stop", async () => {

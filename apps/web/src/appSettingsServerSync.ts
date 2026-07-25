@@ -40,6 +40,11 @@ export function appSettingsPatchToServerSettingsPatch(
   if (hasOwn(patch, "enableProviderUpdateChecks")) {
     serverPatch.enableProviderUpdateChecks = Boolean(patch.enableProviderUpdateChecks);
   }
+  if (hasOwn(patch, "enableManagedAgentTerminal")) {
+    serverPatch.enableManagedAgentTerminal = Boolean(
+      patch.enableManagedAgentTerminal,
+    );
+  }
   if (patch.defaultThreadEnvMode === "local" || patch.defaultThreadEnvMode === "worktree") {
     serverPatch.defaultThreadEnvMode = patch.defaultThreadEnvMode;
   }
@@ -204,6 +209,7 @@ export function buildInitialServerSettingsMigrationPatch(
     "defaultThreadEnvMode",
     "enableAssistantStreaming",
     "enableProviderUpdateChecks",
+    "enableManagedAgentTerminal",
     "antigravityBinaryPath",
     "grokBinaryPath",
     "droidBinaryPath",

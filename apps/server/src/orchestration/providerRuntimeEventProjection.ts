@@ -34,6 +34,7 @@ import {
   STRICT_PROVIDER_LIFECYCLE_GUARD,
   toTurnId,
 } from "./providerRuntimeIngestionValues.ts";
+import { terminalRuntimeCommandFence } from "./providerRuntimeTerminalFence.ts";
 
 type Assistants = ReturnType<typeof makeProviderRuntimeAssistantMessages>;
 type Buffers = ReturnType<typeof makeProviderRuntimeBuffers>;
@@ -123,6 +124,7 @@ export function makeProviderRuntimeEventProjection(input: {
               delta: spillChunk,
               ...(turnId ? { turnId } : {}),
               createdAt: now,
+              ...terminalRuntimeCommandFence(event),
             });
           }
         } else {
@@ -134,6 +136,7 @@ export function makeProviderRuntimeEventProjection(input: {
             delta: assistantDelta,
             ...(turnId ? { turnId } : {}),
             createdAt: now,
+            ...terminalRuntimeCommandFence(event),
           });
         }
       }
@@ -320,6 +323,7 @@ export function makeProviderRuntimeEventProjection(input: {
               updatedAt: now,
             },
             createdAt: now,
+            ...terminalRuntimeCommandFence(event),
           });
         }
       }

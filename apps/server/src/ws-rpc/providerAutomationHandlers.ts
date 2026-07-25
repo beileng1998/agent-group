@@ -3,9 +3,11 @@ import { Effect, Stream } from "effect";
 
 import { AutomationService } from "../automation/Services/AutomationService";
 import { ServerConfig } from "../config";
+import type { ExecutionAdapterAuthorityShape } from "../orchestration/Services/ExecutionAdapterAuthority";
 import { ProviderDiscoveryService } from "../provider/Services/ProviderDiscoveryService";
 import { ProviderService } from "../provider/Services/ProviderService";
 import { discoverSkillsCatalog, agentGroupSkillsDir } from "../provider/skillsCatalog";
+import type { ServerRuntimeStartup } from "../serverRuntimeStartup";
 import { toWsRpcError } from "../wsRpcError";
 import type { WsRpcHandlers } from "./types";
 
@@ -14,6 +16,8 @@ export function makeProviderAutomationHandlers(dependencies: {
   readonly config: typeof ServerConfig.Service;
   readonly providerDiscoveryService: typeof ProviderDiscoveryService.Service;
   readonly providerService: typeof ProviderService.Service;
+  readonly executionAdapterAuthority: ExecutionAdapterAuthorityShape;
+  readonly runtimeStartup: typeof ServerRuntimeStartup.Service;
   readonly rpcEffect: <A, E, R>(
     effect: Effect.Effect<A, E, R>,
     fallbackMessage: string,
@@ -27,7 +31,16 @@ export function makeProviderAutomationHandlers(dependencies: {
       ),
     [WS_METHODS.providerCompactThread]: (input) =>
       dependencies.rpcEffect(
-        dependencies.providerService.compactThread(input),
+        dependencies.runtimeStartup.enqueueCommand(
+          Effect.acquireUseRelease(
+            dependencies.executionAdapterAuthority.acquireStructured(
+              input.threadId,
+              `rpc:provider-compact:${crypto.randomUUID()}`,
+            ),
+            () => dependencies.providerService.compactThread(input),
+            (claim) => claim.release,
+          ),
+        ),
         "Failed to compact thread",
       ),
     [WS_METHODS.providerListCommands]: (input) =>
@@ -99,12 +112,16 @@ export function makeProviderAutomationHandlers(dependencies: {
       ),
     [WS_METHODS.automationRunNow]: (input) =>
       dependencies.rpcEffect(
-        dependencies.automationService.runNow(input),
+        dependencies.runtimeStartup.enqueueCommand(
+          dependencies.automationService.runNow(input),
+        ),
         "Failed to run automation",
       ),
     [WS_METHODS.automationCancelRun]: (input) =>
       dependencies.rpcEffect(
-        dependencies.automationService.cancelRun(input),
+        dependencies.runtimeStartup.enqueueCommand(
+          dependencies.automationService.cancelRun(input),
+        ),
         "Failed to cancel automation run",
       ),
     [WS_METHODS.automationMarkRunRead]: (input) =>

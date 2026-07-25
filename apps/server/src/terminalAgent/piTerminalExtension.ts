@@ -1,4 +1,6 @@
-const PI_BRIDGE_TIMEOUT_MS = 5_000;
+import { PI_TERMINAL_EXTENSION_SPOOL_SOURCE } from "./piTerminalExtensionSpoolSource";
+
+const PI_BRIDGE_DEADLINE_MS = 8_000;
 
 export function buildPiTerminalExtensionSource(): string {
   return `#!/usr/bin/env node
@@ -8,12 +10,9 @@ import http from "node:http";
 import path from "node:path";
 
 const MAX_BYTES = 1024 * 1024;
-const MAX_SPOOL_FILES = 32;
-
 function asText(value) {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
-
 function assistantOutcome(message) {
   if (!message || message.role !== "assistant") return undefined;
   const text = typeof message.content === "string"
@@ -26,17 +25,13 @@ function assistantOutcome(message) {
       : undefined;
   const stopReason = asText(message.stopReason);
   const errorMessage = asText(message.errorMessage);
-  const failure = stopReason === "error"
-    ? errorMessage || "Pi turn failed."
-    : stopReason === "aborted"
-      ? errorMessage || "Pi turn aborted."
-      : undefined;
+  const failure = stopReason === "error" ? errorMessage || "Pi turn failed."
+    : stopReason === "aborted" ? errorMessage || "Pi turn aborted." : undefined;
   return {
     ...(text && text.trim() ? { text } : {}),
     ...(failure ? { failure } : {})
   };
 }
-
 function modelState(model) {
   const id = asText(model && model.id);
   if (!id) return {};
@@ -46,7 +41,6 @@ function modelState(model) {
     ...(provider ? { model_provider: provider } : {})
   };
 }
-
 export default function agentGroupExtension(pi) {
   const endpoint = process.env.AGENT_GROUP_HOOK_ENDPOINT;
   const token = process.env.AGENT_GROUP_HOOK_TOKEN;
@@ -57,13 +51,13 @@ export default function agentGroupExtension(pi) {
   const recoveryPromptPath = spoolDir
     ? path.join(path.dirname(spoolDir), "recovery-prompt.json")
     : undefined;
-  const prepared = [];
+  let prepared;
+  let pendingCommit;
   let activeTurnId;
   let managedRun = false;
   let lastAssistant;
   let lastFailure;
   let transportQueue = Promise.resolve();
-
   function requestBridge(inputOrPayload) {
     return new Promise((resolve, reject) => {
       if (!endpoint || !token || !runtimeInstanceId) {
@@ -82,6 +76,15 @@ export default function agentGroupExtension(pi) {
         reject(new Error("Bridge event too large."));
         return;
       }
+      let settled = false;
+      let timer;
+      const finish = (error, value) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (error) reject(error);
+        else resolve(value);
+      };
       const request = http.request({
         socketPath: endpoint,
         path: "/hook",
@@ -100,59 +103,27 @@ export default function agentGroupExtension(pi) {
             incoming.destroy(new Error("Bridge response too large."));
           }
         });
-        incoming.on("error", reject);
+        incoming.on("error", (error) => finish(error));
         incoming.on("end", () => {
           if (incoming.statusCode !== 200) {
-            reject(new Error("Bridge rejected event."));
+            finish(new Error("Bridge rejected event."));
             return;
           }
           try {
-            resolve(JSON.parse(output || "{}"));
+            finish(undefined, JSON.parse(output || "{}"));
           } catch (error) {
-            reject(error);
+            finish(error);
           }
         });
       });
-      request.setTimeout(${PI_BRIDGE_TIMEOUT_MS}, () => {
+      timer = setTimeout(() => {
         request.destroy(new Error("Bridge timeout."));
-      });
-      request.on("error", reject);
+      }, ${PI_BRIDGE_DEADLINE_MS});
+      request.on("error", (error) => finish(error));
       request.end(encoded);
     });
   }
-
-  async function writePrivateJson(filePath, value) {
-    const temporaryPath = filePath + "." + randomUUID() + ".tmp";
-    await fs.writeFile(temporaryPath, JSON.stringify(value), { mode: 0o600 });
-    await fs.chmod(temporaryPath, 0o600);
-    await fs.rm(filePath, { force: true });
-    await fs.rename(temporaryPath, filePath);
-  }
-
-  async function writeSpool(input) {
-    if (!spoolDir) throw new Error("Spool unavailable.");
-    await fs.mkdir(spoolDir, { recursive: true, mode: 0o700 });
-    await fs.chmod(spoolDir, 0o700);
-    const entries = (await fs.readdir(spoolDir))
-      .filter((name) => name.endsWith(".json"))
-      .sort();
-    for (const stale of entries.slice(
-      0,
-      Math.max(0, entries.length - MAX_SPOOL_FILES + 1),
-    )) {
-      await fs.rm(path.join(spoolDir, stale), { force: true });
-    }
-    const filePath = path.join(
-      spoolDir,
-      String(Date.now()).padStart(13, "0") + "-" + input.event_id + ".json"
-    );
-    await writePrivateJson(filePath, {
-      runtimeInstanceId,
-      eventId: input.event_id,
-      input
-    });
-  }
-
+${PI_TERMINAL_EXTENSION_SPOOL_SOURCE}
   async function readRecoveryPrompt() {
     if (!recoveryPromptPath) return undefined;
     try {
@@ -161,7 +132,6 @@ export default function agentGroupExtension(pi) {
       return undefined;
     }
   }
-
   async function resolvePromptEventId(prompt) {
     const previous = await readRecoveryPrompt();
     return previous &&
@@ -171,7 +141,6 @@ export default function agentGroupExtension(pi) {
       ? previous.eventId
       : randomUUID();
   }
-
   async function persistRecoveryPrompt(prompt, eventId) {
     if (!recoveryPromptPath || typeof prompt !== "string") {
       throw new Error("Recovery storage unavailable.");
@@ -184,13 +153,11 @@ export default function agentGroupExtension(pi) {
       createdAt: new Date().toISOString()
     });
   }
-
   async function clearRecoveryPrompt() {
     if (recoveryPromptPath) {
       await fs.rm(recoveryPromptPath, { force: true });
     }
   }
-
   async function replaySpool() {
     if (!spoolDir) return;
     const entries = (await fs.readdir(spoolDir).catch(() => []))
@@ -213,7 +180,6 @@ export default function agentGroupExtension(pi) {
       await fs.rm(filePath, { force: true });
     }
   }
-
   function send(rawInput, lifecycle = false) {
     const input = { event_id: randomUUID(), ...rawInput };
     const task = transportQueue.then(async () => {
@@ -246,6 +212,20 @@ export default function agentGroupExtension(pi) {
     }
   }
 
+  function stopManagedDelivery(ctx, message) {
+    try { ctx.abort(); } catch { /* continue to shutdown */ }
+    try { ctx.shutdown(); } catch { /* the empty payload is the fallback */ }
+    notify(ctx, message);
+  }
+  function contextMessage(delivery) {
+    return {
+      customType: "agent-group-context",
+      content: delivery.context,
+      display: false,
+      details: delivery.turnId ? { turnId: delivery.turnId } : undefined
+    };
+  }
+
   pi.on("session_start", async (event, ctx) => {
     try {
       await send({
@@ -262,6 +242,10 @@ export default function agentGroupExtension(pi) {
   });
 
   pi.on("input", async (event, ctx) => {
+    if (prepared || pendingCommit) {
+      notify(ctx, "The previous managed input is still pending.");
+      return { action: "handled" };
+    }
     const eventId = await resolvePromptEventId(event.text);
     try {
       await persistRecoveryPrompt(event.text, eventId);
@@ -286,25 +270,25 @@ export default function agentGroupExtension(pi) {
           ? rawContext
           : undefined;
       if (!additionalContext) throw new Error("Context unavailable.");
-      await requestBridge({
-        runtimeInstanceId,
-        eventId,
-        mode: "prompt-accepted",
-        input: { prompt: event.text }
-      });
-      await clearRecoveryPrompt();
       const turnId = asText(response.turnId);
+      const delivery = {
+        eventId,
+        prompt: event.text,
+        context: additionalContext,
+        turnId
+      };
       if (event.streamingBehavior) {
-        activeTurnId = turnId || activeTurnId;
-        managedRun = true;
-        pi.sendMessage({
-          customType: "agent-group-context",
-          content: additionalContext,
-          display: false,
-          details: turnId ? { turnId } : undefined
-        }, { deliverAs: event.streamingBehavior });
+        pendingCommit = delivery;
+        try {
+          pi.sendMessage(contextMessage(delivery), {
+            deliverAs: event.streamingBehavior
+          });
+        } catch (error) {
+          pendingCommit = undefined;
+          throw error;
+        }
       } else {
-        prepared.push({ context: additionalContext, turnId });
+        prepared = delivery;
       }
       return { action: "continue" };
     } catch {
@@ -314,40 +298,46 @@ export default function agentGroupExtension(pi) {
   });
 
   pi.on("before_agent_start", async (event, ctx) => {
-    const delivery = prepared.shift();
-    if (!delivery) {
-      try {
-        ctx.abort();
-      } catch {
-        // Shutdown is the independent fail-closed boundary.
-      }
-      try {
-        ctx.shutdown();
-      } catch {
-        // The guard message remains as a final fallback.
-      }
+    const delivery = prepared;
+    if (!delivery || delivery.prompt !== event.prompt || pendingCommit) {
+      stopManagedDelivery(ctx, "Managed context required.");
       try {
         await send({
           event_name: "unmanaged_input",
           ...sessionFields(ctx),
           prompt: event.prompt
         });
-      } catch {
-        // Shutdown remains fail-closed without telemetry.
-      }
-      notify(ctx, "Managed context required.");
+      } catch {}
       return { systemPrompt: "Stop. Managed context is unavailable." };
     }
-    activeTurnId = delivery.turnId || activeTurnId;
-    managedRun = true;
-    return {
-      message: {
-        customType: "agent-group-context",
-        content: delivery.context,
-        display: false,
-        details: delivery.turnId ? { turnId: delivery.turnId } : undefined
+    prepared = undefined;
+    pendingCommit = delivery;
+    return { message: contextMessage(delivery) };
+  });
+
+  pi.on("before_provider_request", async (event, ctx) => {
+    const delivery = pendingCommit;
+    if (!delivery) return;
+    try {
+      const encodedContext = JSON.stringify(delivery.context).slice(1, -1);
+      if (!JSON.stringify(event.payload).includes(encodedContext)) {
+        throw new Error("Managed context missing from provider payload.");
       }
-    };
+      await requestBridge({
+        runtimeInstanceId,
+        eventId: delivery.eventId,
+        mode: "prompt-accepted",
+        input: { prompt: delivery.prompt }
+      });
+      await clearRecoveryPrompt();
+      pendingCommit = undefined;
+      activeTurnId = delivery.turnId || activeTurnId;
+      managedRun = true;
+    } catch {
+      pendingCommit = undefined;
+      stopManagedDelivery(ctx, "Agent Group context delivery failed.");
+      return {};
+    }
   });
 
   pi.on("message_end", (event) => {
@@ -359,7 +349,7 @@ export default function agentGroupExtension(pi) {
 
   pi.on("agent_settled", async (_event, ctx) => {
     if (!managedRun) return;
-    const input = {
+    const input = boundLifecycleInput({
       event_name: lastFailure ? "turn_failure" : "turn_stop",
       ...sessionFields(ctx),
       ...(activeTurnId ? { turn_id: activeTurnId } : {}),
@@ -368,14 +358,17 @@ export default function agentGroupExtension(pi) {
         : lastAssistant
           ? { assistant_text: lastAssistant }
           : {})
-    };
-    prepared.length = 0;
+    });
+    const abandonedCommit = pendingCommit !== undefined;
+    prepared = undefined;
+    pendingCommit = undefined;
     managedRun = false;
     activeTurnId = undefined;
     lastAssistant = undefined;
     lastFailure = undefined;
     try {
       await send(input, true);
+      if (abandonedCommit) await clearRecoveryPrompt();
     } catch {
       notify(ctx, "Agent Group bridge unavailable.");
     }
@@ -423,7 +416,8 @@ export default function agentGroupExtension(pi) {
   });
 
   pi.on("session_shutdown", async (event, ctx) => {
-    prepared.length = 0;
+    prepared = undefined;
+    pendingCommit = undefined;
     managedRun = false;
     activeTurnId = undefined;
     lastAssistant = undefined;

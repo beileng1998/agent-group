@@ -1,4 +1,5 @@
 import { Schema } from "effect";
+import { TerminalAgentRuntimeFence } from "../terminalAgent";
 import {
   EventId,
   IsoDateTime,
@@ -262,6 +263,7 @@ export const ProviderRuntimeEventBase = Schema.Struct({
   itemId: Schema.optional(RuntimeItemId),
   requestId: Schema.optional(RuntimeRequestId),
   providerRefs: Schema.optional(ProviderRefs),
+  terminalRuntimeFence: Schema.optional(TerminalAgentRuntimeFence),
   raw: Schema.optional(RuntimeEventRaw),
 });
 export type ProviderRuntimeEventBase = typeof ProviderRuntimeEventBase.Type;

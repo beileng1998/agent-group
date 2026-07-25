@@ -25,6 +25,7 @@ import type {
   ProviderSession,
   ProviderSessionStartInput,
   ProviderStopSessionInput,
+  RuntimeMode,
   ThreadId,
   ProviderTurnStartResult,
 } from "@agent-group/contracts";
@@ -119,6 +120,17 @@ export interface ProviderServiceShape {
    */
   readonly clearSessionResumeCursor?: (input: {
     readonly threadId: ThreadId;
+  }) => Effect.Effect<void, ProviderServiceError>;
+
+  /**
+   * Adopt a provider-native cursor produced by a managed terminal session.
+   * This persists continuity without starting a structured runtime.
+   */
+  readonly adoptSessionResumeCursor: (input: {
+    readonly threadId: ThreadId;
+    readonly provider: ProviderKind;
+    readonly runtimeMode: RuntimeMode;
+    readonly resumeCursor: unknown;
   }) => Effect.Effect<void, ProviderServiceError>;
 
   /**

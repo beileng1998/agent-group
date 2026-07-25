@@ -120,6 +120,7 @@ export function serverSettingsToAppSettings(settings: ServerSettings): Partial<A
     defaultThreadEnvMode: settings.defaultThreadEnvMode,
     enableAssistantStreaming: settings.enableAssistantStreaming,
     enableProviderUpdateChecks: settings.enableProviderUpdateChecks,
+    enableManagedAgentTerminal: settings.enableManagedAgentTerminal,
     antigravityBinaryPath: settings.providers.antigravity.binaryPath,
     grokBinaryPath: settings.providers.grok.binaryPath,
     droidBinaryPath: settings.providers.droid.binaryPath,

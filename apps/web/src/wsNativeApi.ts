@@ -184,6 +184,15 @@ export function createWsNativeApi(): NativeApi {
         };
       },
     },
+    terminalAgent: {
+      start: (input) => transport.request(WS_METHODS.terminalAgentStart, input),
+      get: (input) => transport.request(WS_METHODS.terminalAgentGet, input),
+      write: (input) => transport.request(WS_METHODS.terminalAgentWrite, input),
+      resize: (input) => transport.request(WS_METHODS.terminalAgentResize, input),
+      switchToChat: (input) => transport.request(WS_METHODS.terminalAgentSwitchToChat, input),
+      restart: (input) => transport.request(WS_METHODS.terminalAgentRestart, input),
+      subscribe: (input, callback) => transport.subscribeTerminalAgent(input, callback),
+    },
     projects: {
       discoverScripts: (input) => transport.request(WS_METHODS.projectsDiscoverScripts, input),
       listDirectories: (input) => transport.request(WS_METHODS.projectsListDirectories, input),

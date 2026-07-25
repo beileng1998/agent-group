@@ -19,6 +19,9 @@ const StrictRequest = {
 const BoundedRuntimeId = TrimmedNonEmptyString.check(Schema.isMaxLength(128));
 const BoundedProviderValue = TrimmedNonEmptyString.check(Schema.isMaxLength(512));
 
+/** Hard UTF-8 budget for the ANSI payload restored into a managed xterm view. */
+export const TERMINAL_AGENT_SNAPSHOT_MAX_BYTES = 8 * 1024 * 1024;
+
 /**
  * Managed terminals are an execution surface for these providers, not a new
  * ProviderKind. The server derives the provider from the Thread; requests never
@@ -39,6 +42,7 @@ export const TerminalAgentRuntimeStatus = Schema.Literals([
   "attention",
   "context-blocked",
   "stopping",
+  "stopped",
   "exited",
   "error",
   "unsupported",
@@ -96,11 +100,17 @@ export const TerminalAgentRuntimeState = Schema.Struct({
   effort: Schema.NullOr(BoundedProviderValue),
   permission: Schema.NullOr(BoundedProviderValue),
   capabilities: Schema.NullOr(TerminalAgentCapabilitySnapshot),
-  context: Schema.NullOr(TerminalAgentContextSnapshot),
   exit: Schema.NullOr(TerminalAgentExit),
   error: Schema.NullOr(TrimmedNonEmptyString),
 });
 export type TerminalAgentRuntimeState = typeof TerminalAgentRuntimeState.Type;
+
+/** Internal fence copied onto terminal-originated runtime projection work. */
+export const TerminalAgentRuntimeFence = Schema.Struct({
+  revision: NonNegativeInt,
+  generation: BoundedRuntimeId,
+});
+export type TerminalAgentRuntimeFence = typeof TerminalAgentRuntimeFence.Type;
 
 export const TerminalAgentThreadInput = Schema.Struct({
   threadId: ThreadId,
@@ -137,20 +147,22 @@ export type TerminalAgentResizeInput = Schema.Codec.Encoded<typeof TerminalAgent
 export const TerminalAgentGetInput = TerminalAgentThreadInput;
 export type TerminalAgentGetInput = Schema.Codec.Encoded<typeof TerminalAgentGetInput>;
 
-export const TerminalAgentSwitchToTerminalInput = TerminalAgentThreadInput;
-export type TerminalAgentSwitchToTerminalInput = Schema.Codec.Encoded<
-  typeof TerminalAgentSwitchToTerminalInput
->;
-
 export const TerminalAgentSwitchToChatInput = TerminalAgentThreadInput;
 export type TerminalAgentSwitchToChatInput = Schema.Codec.Encoded<
   typeof TerminalAgentSwitchToChatInput
 >;
 
-export const TerminalAgentStopInput = TerminalAgentThreadInput;
-export type TerminalAgentStopInput = Schema.Codec.Encoded<typeof TerminalAgentStopInput>;
+export const TerminalAgentSubscriptionMode = Schema.Literals([
+  "state",
+  "terminal",
+]);
+export type TerminalAgentSubscriptionMode =
+  typeof TerminalAgentSubscriptionMode.Type;
 
-export const TerminalAgentSubscribeInput = TerminalAgentThreadInput;
+export const TerminalAgentSubscribeInput = Schema.Struct({
+  threadId: ThreadId,
+  mode: Schema.optional(TerminalAgentSubscriptionMode),
+}).annotate(StrictRequest);
 export type TerminalAgentSubscribeInput = Schema.Codec.Encoded<
   typeof TerminalAgentSubscribeInput
 >;
@@ -213,7 +225,8 @@ export type TerminalAgentErrorEvent = typeof TerminalAgentErrorEvent.Type;
 /**
  * Subscription ordering is part of the wire contract: an active runtime emits
  * exactly one `attached` snapshot before any `output` item. Consumers restore
- * the xterm payload and then ignore output with seq <= outputSequence.
+ * the xterm payload, ignore seq <= outputSequence, accept only the next
+ * sequence, and reconnect for a fresh snapshot on a forward gap.
  */
 export const TerminalAgentEvent = Schema.Union([
   TerminalAgentAttachedEvent,

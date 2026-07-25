@@ -30,13 +30,18 @@ import {
   ProviderService,
   type ProviderServiceShape,
 } from "../../provider/Services/ProviderService.ts";
-import { OrchestrationEngineLive } from "./OrchestrationEngine.ts";
+import { OrchestrationEngineCoreLive } from "./OrchestrationEngine.ts";
+import { makeExecutionAdapterAuthority } from "./ExecutionAdapterAuthority.ts";
 import { OrchestrationProjectionPipelineLive } from "./ProjectionPipeline.ts";
 import { OrchestrationProjectionSnapshotQueryLive } from "./ProjectionSnapshotQuery.ts";
 import {
   collectPersistedGeneratedImagePaths,
   ProviderRuntimeIngestionLive,
 } from "./ProviderRuntimeIngestion.ts";
+import {
+  ExecutionAdapterAuthority,
+  type ExecutionAdapterAuthorityShape,
+} from "../Services/ExecutionAdapterAuthority.ts";
 import {
   OrchestrationEngineService,
   type OrchestrationEngineShape,
@@ -80,6 +85,7 @@ function createProviderServiceHarness() {
     respondToRequest: () => unsupported(),
     respondToUserInput: () => unsupported(),
     stopSession: () => unsupported(),
+    adoptSessionResumeCursor: () => Effect.void,
     listSessions: () => Effect.succeed([...runtimeSessions]),
     getCapabilities: (provider) =>
       Effect.succeed({
@@ -172,13 +178,25 @@ describe("ProviderRuntimeIngestion", () => {
     const workspaceRoot = makeTempDir("agent-group-provider-project-");
     fs.mkdirSync(path.join(workspaceRoot, ".git"));
     const provider = createProviderServiceHarness();
-    const orchestrationLayer = OrchestrationEngineLive.pipe(
+    const executionAdapterAuthority: ExecutionAdapterAuthorityShape = Effect.runSync(
+      makeExecutionAdapterAuthority({
+        persist: () => Effect.void,
+        now: () => new Date(),
+      }),
+    );
+    const executionAdapterAuthorityLayer = Layer.succeed(
+      ExecutionAdapterAuthority,
+      executionAdapterAuthority,
+    );
+    const orchestrationLayer = OrchestrationEngineCoreLive.pipe(
       Layer.provide(OrchestrationProjectionPipelineLive),
       Layer.provide(OrchestrationProjectionSnapshotQueryLive),
       Layer.provide(OrchestrationEventStoreLive),
       Layer.provide(OrchestrationCommandReceiptRepositoryLive),
+      Layer.provide(executionAdapterAuthorityLayer),
     );
     const layer = ProviderRuntimeIngestionLive.pipe(
+      Layer.provide(executionAdapterAuthorityLayer),
       Layer.provideMerge(orchestrationLayer),
       Layer.provideMerge(OrchestrationProjectionSnapshotQueryLive),
       Layer.provideMerge(SqlitePersistenceMemory),
@@ -256,6 +274,9 @@ describe("ProviderRuntimeIngestion", () => {
       engine,
       emit: provider.emit,
       setProviderSession: provider.setSession,
+      executionAdapterAuthority,
+      publishTerminal: (event: ProviderRuntimeEvent) =>
+        Effect.runPromise(ingestion.publishTerminal(event)),
       drain,
     };
   }
@@ -300,6 +321,91 @@ describe("ProviderRuntimeIngestion", () => {
     );
     expect(thread.session?.status).toBe("error");
     expect(thread.session?.lastError).toBe("turn failed");
+  });
+
+  it("ignores a delayed structured session exit after terminal ownership starts a turn", async () => {
+    const harness = await createHarness();
+    const threadId = asThreadId("thread-1");
+    const generation = "terminal-generation-1";
+    const starting = await Effect.runPromise(
+      harness.executionAdapterAuthority.beginTerminalSwitch({
+        threadId,
+        provider: "codex",
+        runtimeInstanceId: "terminal-runtime-1",
+        providerSessionId: "terminal-provider-session-1",
+        startedAt: new Date().toISOString(),
+      }),
+    );
+    const terminal = await Effect.runPromise(
+      harness.executionAdapterAuthority.completeTerminalStart({
+        threadId,
+        revision: starting.revision,
+        generation,
+        pid: 4242,
+        ownerIdentity: {
+          pid: 4242,
+          startTime: "terminal-test-start",
+          commandFingerprint: "terminal-test-command",
+        },
+        processGroupIdentity: null,
+      }),
+    );
+    const turnId = asTurnId("terminal-turn-after-structured-stop");
+    await harness.publishTerminal({
+      type: "turn.started",
+      eventId: asEventId("evt-terminal-turn-started-after-structured-stop"),
+      provider: "codex",
+      createdAt: new Date().toISOString(),
+      threadId,
+      turnId,
+      terminalRuntimeFence: {
+        revision: terminal.revision,
+        generation,
+      },
+      payload: {},
+    });
+    await Effect.runPromise(
+      harness.executionAdapterAuthority.updateTerminal({
+        threadId,
+        revision: terminal.revision,
+        generation,
+        patch: {
+          status: "running",
+          activeTurnId: turnId,
+        },
+      }),
+    );
+    await waitForThread(
+      harness.engine,
+      (thread) =>
+        thread.session?.status === "running" &&
+        thread.session.activeTurnId === turnId,
+    );
+
+    harness.emit({
+      type: "session.exited",
+      eventId: asEventId("evt-delayed-structured-session-exit"),
+      provider: "codex",
+      createdAt: new Date().toISOString(),
+      threadId,
+    });
+    await harness.drain();
+
+    const readModel = await Effect.runPromise(harness.engine.getReadModel());
+    const thread = readModel.threads.find((entry) => entry.id === threadId);
+    expect(thread?.session?.status).toBe("running");
+    expect(thread?.session?.activeTurnId).toBe(turnId);
+    expect(
+      await Effect.runPromise(
+        harness.executionAdapterAuthority.getState(threadId),
+      ),
+    ).toMatchObject({
+      adapter: "terminal",
+      revision: terminal.revision,
+      generation,
+      status: "running",
+      activeTurnId: turnId,
+    });
   });
 
   it("applies provider session.state.changed transitions directly", async () => {
