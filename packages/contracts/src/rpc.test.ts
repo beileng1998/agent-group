@@ -6,6 +6,8 @@ import {
   WsPullRequestsReviewRequestCountRpc,
   WsRpcError,
   WsRpcGroup,
+  WsTerminalAgentStartRpc,
+  WsTerminalAgentSubscribeRpc,
 } from "./rpc";
 
 describe("WS RPC contracts", () => {
@@ -27,5 +29,10 @@ describe("WS RPC contracts", () => {
 
   it("exports the count-only pull request review RPC", () => {
     expect(WsPullRequestsReviewRequestCountRpc).toBeDefined();
+  });
+
+  it("exports managed terminal RPCs including the snapshot-first stream", () => {
+    expect(WsTerminalAgentStartRpc).toBeDefined();
+    expect(WsTerminalAgentSubscribeRpc).toBeDefined();
   });
 });

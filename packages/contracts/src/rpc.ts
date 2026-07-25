@@ -6,6 +6,7 @@ import * as OrchestrationRpc from "./rpc/orchestrationRpc";
 import * as ProjectRpc from "./rpc/projectRpc";
 import * as ProviderRpc from "./rpc/providerRpc";
 import * as ServerRpc from "./rpc/serverRpc";
+import * as TerminalAgentRpc from "./rpc/terminalAgentRpc";
 import * as TerminalRpc from "./rpc/terminalRpc";
 
 export * from "./rpc/automationRpc";
@@ -15,6 +16,7 @@ export * from "./rpc/orchestrationRpc";
 export * from "./rpc/projectRpc";
 export * from "./rpc/providerRpc";
 export * from "./rpc/serverRpc";
+export * from "./rpc/terminalAgentRpc";
 export * from "./rpc/terminalRpc";
 
 export const WsRpcGroup = RpcGroup.make(
@@ -90,6 +92,15 @@ export const WsRpcGroup = RpcGroup.make(
   TerminalRpc.WsTerminalRestartRpc,
   TerminalRpc.WsTerminalCloseRpc,
   TerminalRpc.WsSubscribeTerminalEventsRpc,
+  TerminalAgentRpc.WsTerminalAgentStartRpc,
+  TerminalAgentRpc.WsTerminalAgentGetRpc,
+  TerminalAgentRpc.WsTerminalAgentWriteRpc,
+  TerminalAgentRpc.WsTerminalAgentResizeRpc,
+  TerminalAgentRpc.WsTerminalAgentSwitchToTerminalRpc,
+  TerminalAgentRpc.WsTerminalAgentSwitchToChatRpc,
+  TerminalAgentRpc.WsTerminalAgentStopRpc,
+  TerminalAgentRpc.WsTerminalAgentRestartRpc,
+  TerminalAgentRpc.WsTerminalAgentSubscribeRpc,
   ServerRpc.WsServerGetConfigRpc,
   ServerRpc.WsServerGetEnvironmentRpc,
   ServerRpc.WsServerGetSettingsRpc,
