@@ -20,8 +20,10 @@ export async function fetchJson(input: {
 }): Promise<FetchJsonResult> {
   const response = await fetch(input.url, {
     method: input.method ?? "GET",
-    headers: input.headers,
-    body: input.body === undefined ? undefined : JSON.stringify(input.body),
+    // Why the spreads: exactOptionalPropertyTypes rejects an explicit
+    // undefined headers/body against DOM's RequestInit.
+    ...(input.headers === undefined ? {} : { headers: input.headers }),
+    ...(input.body === undefined ? {} : { body: JSON.stringify(input.body) }),
     signal: AbortSignal.timeout(input.timeoutMs ?? DEFAULT_TIMEOUT_MS),
   });
 

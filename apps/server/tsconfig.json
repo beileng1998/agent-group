@@ -3,7 +3,10 @@
   "compilerOptions": {
     "composite": true,
     "types": ["node", "bun"],
-    "lib": ["ES2023", "esnext.disposable"],
+    // Why DOM: @xterm addon typings carry `/// <reference lib="dom"/>`, so
+    // any import of them injects DOM globals anyway. Declaring the libs keeps
+    // the global type set fixed regardless of which deps join the program.
+    "lib": ["ES2023", "esnext.disposable", "DOM", "DOM.Iterable"],
     "noEmit": true,
     "allowImportingTsExtensions": true
   },
