@@ -39,6 +39,7 @@ export const ClaudeServerProviderSettings = Schema.Struct({
   launchArgs: Schema.String.check(Schema.isMaxLength(4096)).pipe(
     Schema.withDecodingDefault(() => ""),
   ),
+  maxTurnsEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(() => false)),
   maxTurns: ClaudeMaxTurns.pipe(Schema.withDecodingDefault(() => DEFAULT_CLAUDE_MAX_TURNS)),
   responseIdleTimeoutMs: ClaudeResponseIdleTimeoutMs.pipe(
     Schema.withDecodingDefault(() => DEFAULT_CLAUDE_RESPONSE_IDLE_TIMEOUT_MS),
@@ -199,6 +200,7 @@ export const ServerSettingsPatch = Schema.Struct({
         Schema.Struct({
           ...ProviderSettingsBasePatch,
           launchArgs: Schema.optionalKey(Schema.String.check(Schema.isMaxLength(4096))),
+          maxTurnsEnabled: Schema.optionalKey(Schema.Boolean),
           maxTurns: Schema.optionalKey(ClaudeMaxTurns),
           responseIdleTimeoutMs: Schema.optionalKey(ClaudeResponseIdleTimeoutMs),
         }),

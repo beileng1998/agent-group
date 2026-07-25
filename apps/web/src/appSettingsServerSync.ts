@@ -71,12 +71,16 @@ export function appSettingsPatchToServerSettingsPatch(
   }
   if (
     hasOwn(patch, "claudeBinaryPath") ||
+    hasOwn(patch, "claudeMaxTurnsEnabled") ||
     hasOwn(patch, "claudeMaxTurns") ||
     hasOwn(patch, "claudeResponseIdleTimeoutMs") ||
     hasOwn(patch, "customClaudeModels")
   ) {
     providers.claudeAgent = {
       ...(hasOwn(patch, "claudeBinaryPath") ? { binaryPath: patch.claudeBinaryPath ?? "" } : {}),
+      ...(hasOwn(patch, "claudeMaxTurnsEnabled")
+        ? { maxTurnsEnabled: Boolean(patch.claudeMaxTurnsEnabled) }
+        : {}),
       ...(hasOwn(patch, "claudeMaxTurns") ? { maxTurns: patch.claudeMaxTurns } : {}),
       ...(hasOwn(patch, "claudeResponseIdleTimeoutMs")
         ? { responseIdleTimeoutMs: patch.claudeResponseIdleTimeoutMs }
@@ -190,6 +194,7 @@ export function buildInitialServerSettingsMigrationPatch(
 
   for (const key of [
     "claudeBinaryPath",
+    "claudeMaxTurnsEnabled",
     "claudeMaxTurns",
     "claudeResponseIdleTimeoutMs",
     "codexBinaryPath",

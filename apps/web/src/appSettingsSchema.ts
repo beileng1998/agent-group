@@ -104,6 +104,7 @@ export const PersistedProviderKind = Schema.Literals([
 
 export const AppSettingsSchema = Schema.Struct({
   claudeBinaryPath: Schema.String.check(Schema.isMaxLength(4096)).pipe(withDefaults(() => "")),
+  claudeMaxTurnsEnabled: Schema.Boolean.pipe(withDefaults(() => false)),
   claudeMaxTurns: Schema.Int.check(
     Schema.isBetween({ minimum: MIN_CLAUDE_MAX_TURNS, maximum: MAX_CLAUDE_MAX_TURNS }),
   ).pipe(withDefaults(() => DEFAULT_CLAUDE_MAX_TURNS)),

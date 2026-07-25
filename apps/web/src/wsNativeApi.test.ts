@@ -316,6 +316,7 @@ describe("wsNativeApi", () => {
             binaryPath: "claude",
             launchArgs: "",
             customModels: [],
+            maxTurnsEnabled: DEFAULT_SERVER_SETTINGS.providers.claudeAgent.maxTurnsEnabled,
             maxTurns: DEFAULT_SERVER_SETTINGS.providers.claudeAgent.maxTurns,
             responseIdleTimeoutMs:
               DEFAULT_SERVER_SETTINGS.providers.claudeAgent.responseIdleTimeoutMs,

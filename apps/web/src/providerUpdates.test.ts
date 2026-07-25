@@ -67,6 +67,7 @@ function serverSettings(overrides: Partial<ServerSettings["providers"]> = {}): S
         ...provider,
         binaryPath: "claude",
         launchArgs: "",
+        maxTurnsEnabled: DEFAULT_SERVER_SETTINGS.providers.claudeAgent.maxTurnsEnabled,
         maxTurns: DEFAULT_SERVER_SETTINGS.providers.claudeAgent.maxTurns,
         responseIdleTimeoutMs: DEFAULT_SERVER_SETTINGS.providers.claudeAgent.responseIdleTimeoutMs,
       },
