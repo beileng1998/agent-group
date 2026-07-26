@@ -2,6 +2,9 @@ import {
   type ProviderSession,
   ThreadId,
 } from "@agent-group/contracts";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -87,6 +90,7 @@ describe("terminal launch continuity", () => {
         operation: "start",
         providerSessionId: "fresh-pi-id",
         resume: false,
+        homeDir: os.homedir(),
       }),
     ).toEqual({
       providerSessionId: null,
@@ -121,6 +125,83 @@ describe("terminal launch continuity", () => {
       }),
     ).resolves.toEqual({
       providerSessionId: "fresh-pi-id",
+      providerResumeCursor: null,
+      resume: false,
+    });
+  });
+
+  it("resumes only Claude transcripts that still exist", async () => {
+    const claudeConfigDir = await mkdtemp(
+      path.join(os.tmpdir(), "terminal-claude-continuity-"),
+    );
+    const claudeSessionId = "a171ee2a-dc3b-4c3e-a874-8f8f6498d966";
+    const claudeTranscript = path.join(
+      claudeConfigDir,
+      "projects",
+      "-tmp-project",
+      `${claudeSessionId}.jsonl`,
+    );
+    await mkdir(path.dirname(claudeTranscript), { recursive: true });
+    await writeFile(claudeTranscript, "{}\n", "utf8");
+
+    await expect(
+      resolveAvailableTerminalLaunchContinuity({
+        sessions: [session("claudeAgent", { resume: claudeSessionId })],
+        threadId,
+        provider: "claudeAgent",
+        operation: "start",
+        providerSessionId: "fresh-claude-session",
+        resume: false,
+        homeDir: os.homedir(),
+        env: { CLAUDE_CONFIG_DIR: claudeConfigDir },
+      }),
+    ).resolves.toMatchObject({
+      providerSessionId: claudeSessionId,
+      resume: true,
+    });
+    await expect(
+      resolveAvailableTerminalLaunchContinuity({
+        sessions: [
+          session("claudeAgent", {
+            resume: "b171ee2a-dc3b-4c3e-a874-8f8f6498d966",
+          }),
+        ],
+        threadId,
+        provider: "claudeAgent",
+        operation: "start",
+        providerSessionId: "fresh-claude-session",
+        resume: false,
+        homeDir: os.homedir(),
+        env: { CLAUDE_CONFIG_DIR: claudeConfigDir },
+      }),
+    ).resolves.toEqual({
+      providerSessionId: "fresh-claude-session",
+      providerResumeCursor: null,
+      resume: false,
+    });
+  });
+
+  it("falls back when a durable Codex cursor has no native transcript", async () => {
+    const codexHome = await mkdtemp(
+      path.join(os.tmpdir(), "terminal-codex-continuity-"),
+    );
+    await expect(
+      resolveAvailableTerminalLaunchContinuity({
+        sessions: [],
+        threadId,
+        provider: "codex",
+        operation: "start",
+        providerSessionId: null,
+        resume: false,
+        persistedResumeCursor: {
+          threadId: "019efcc0-2dac-7911-b800-3b30e98ac1e1",
+        },
+        homeDir: os.homedir(),
+        codexHomePath: codexHome,
+        env: {},
+      }),
+    ).resolves.toEqual({
+      providerSessionId: null,
       providerResumeCursor: null,
       resume: false,
     });

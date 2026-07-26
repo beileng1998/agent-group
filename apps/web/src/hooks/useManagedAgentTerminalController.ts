@@ -7,10 +7,9 @@ import type {
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import type { ManagedAgentTerminalController } from "../components/agent-terminal/ManagedAgentTerminalContext";
 import type {
+  ManagedAgentTerminalCoreController,
   ManagedAgentTerminalAction,
-  ManagedAgentTerminalSurface,
 } from "../components/agent-terminal/ManagedAgentTerminalContext";
 import {
   acceptManagedTerminalRpcState,
@@ -30,16 +29,13 @@ export function useManagedAgentTerminalController(input: {
   readonly threadId: ThreadId;
   readonly provider: ProviderKind | null | undefined;
   readonly serverBacked: boolean;
-}): ManagedAgentTerminalController {
+  readonly startBlockedReason?: string | null;
+}): ManagedAgentTerminalCoreController {
   const settingsQuery = useQuery(serverSettingsQueryOptions());
   const featureEnabled = settingsQuery.data?.enableManagedAgentTerminal === true;
   const [state, setState] = useState<TerminalAgentRuntimeState | null>(null);
   const [pendingAction, setPendingAction] =
     useState<ManagedAgentTerminalAction | null>(null);
-  const [surfaceSelection, setSurfaceSelection] = useState<{
-    readonly threadId: ThreadId;
-    readonly surface: ManagedAgentTerminalSurface;
-  } | null>(null);
   const busyRef = useRef(false);
   const mutationTokenRef = useRef<symbol | null>(null);
   const requestVersionRef = useRef(0);
@@ -53,7 +49,9 @@ export function useManagedAgentTerminalController(input: {
         api: NonNullable<ReturnType<typeof readNativeApi>>,
       ) => Promise<TerminalAgentRuntimeState | null>,
     ) => {
-      if (busyRef.current) return;
+      if (busyRef.current) {
+        throw new Error("Another Agent Terminal action is already in progress.");
+      }
       const api = readNativeApi();
       if (!api?.terminalAgent) {
         throw new Error("Managed Agent Terminal is unavailable.");
@@ -87,7 +85,9 @@ export function useManagedAgentTerminalController(input: {
 
   const start = useCallback(
     () => {
-      setSurfaceSelection({ threadId: input.threadId, surface: "terminal" });
+      if (input.startBlockedReason) {
+        return Promise.reject(new Error(input.startBlockedReason));
+      }
       return runMutation("start", (api) =>
         api.terminalAgent.start({
           threadId: input.threadId,
@@ -96,15 +96,13 @@ export function useManagedAgentTerminalController(input: {
         }),
       );
     },
-    [input.threadId, runMutation],
+    [input.startBlockedReason, input.threadId, runMutation],
   );
   const switchToChat = useCallback(
-    () => {
-      setSurfaceSelection({ threadId: input.threadId, surface: "chat" });
-      return runMutation("switch-to-chat", (api) =>
+    () =>
+      runMutation("switch-to-chat", (api) =>
         api.terminalAgent.switchToChat({ threadId: input.threadId }),
-      );
-    },
+      ),
     [input.threadId, runMutation],
   );
   const restart = useCallback(
@@ -208,21 +206,6 @@ export function useManagedAgentTerminalController(input: {
   }, []);
   const currentState = state?.threadId === input.threadId ? state : null;
   const active = isManagedTerminalAuthority(currentState);
-  const surface =
-    surfaceSelection?.threadId === input.threadId
-      ? surfaceSelection.surface
-      : active
-        ? "terminal"
-        : "chat";
-  const showSurface = useCallback(
-    (nextSurface: ManagedAgentTerminalSurface) => {
-      setSurfaceSelection({
-        threadId: input.threadId,
-        surface: nextSurface,
-      });
-    },
-    [input.threadId],
-  );
   const available =
     input.serverBacked &&
     (active || (featureEnabled && isManagedTerminalProvider(input.provider)));
@@ -236,9 +219,8 @@ export function useManagedAgentTerminalController(input: {
       available,
       busy,
       pendingAction,
-      surface,
       featureEnabled,
-      showSurface,
+      startBlockedReason: input.startBlockedReason ?? null,
       start,
       switchToChat,
       restart,
@@ -251,14 +233,13 @@ export function useManagedAgentTerminalController(input: {
       busy,
       featureEnabled,
       input.threadId,
+      input.startBlockedReason,
       currentState,
       pendingAction,
       restart,
       setViewportSize,
-      showSurface,
       start,
       stop,
-      surface,
       switchToChat,
     ],
   );

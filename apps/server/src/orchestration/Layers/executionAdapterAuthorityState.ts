@@ -16,6 +16,15 @@ export interface ExecutionAdapterAuthorityRuntimeState {
   readonly claims: Map<ThreadId, Map<string, ExecutionAdapterClaimRecord>>;
 }
 
+export function executionAdapterAuthorityStateEqual(
+  left: ExecutionAdapterAuthorityState,
+  right: ExecutionAdapterAuthorityState,
+): boolean {
+  const rightRecord = right as unknown as Record<string, unknown>;
+  return Object.keys(left).length === Object.keys(right).length &&
+    Object.entries(left).every(([key, value]) => Object.is(value, rightRecord[key]));
+}
+
 export const makeStructuredAuthorityState = (
   revision = 0,
 ): StructuredAuthorityState => ({

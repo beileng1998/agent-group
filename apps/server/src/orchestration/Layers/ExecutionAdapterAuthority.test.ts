@@ -161,6 +161,72 @@ describe("ExecutionAdapterAuthority", () => {
     });
   });
 
+  it("does not persist an identical terminal state behind an active claim", async () => {
+    let persistCount = 0;
+    const authority = await Effect.runPromise(
+      makeExecutionAdapterAuthority({
+        persist: () =>
+          Effect.sync(() => {
+            persistCount += 1;
+          }),
+        now: () => new Date("2026-07-25T00:00:00.000Z"),
+      }),
+    );
+    const starting = await Effect.runPromise(
+      authority.beginTerminalSwitch({
+        threadId,
+        provider: "codex",
+        runtimeInstanceId: "runtime-no-op",
+        providerSessionId: null,
+        startedAt: "2026-07-25T00:00:00.000Z",
+      }),
+    );
+    const ready = await Effect.runPromise(
+      authority.completeTerminalStart({
+        threadId,
+        revision: starting.revision,
+        generation: "generation-no-op",
+        pid: 42,
+        ownerIdentity: {
+          pid: 42,
+          startTime: "2026-07-25T00:00:00.000Z",
+          commandFingerprint: "0".repeat(64),
+        },
+        processGroupIdentity: null,
+      }),
+    );
+    const claim = await Effect.runPromise(
+      authority.acquireTerminal(threadId, ready.revision, "generation-no-op", "terminal:no-op"),
+    );
+    const exitedPatch = {
+      status: "exited" as const,
+      activeTurnId: null,
+      exitCode: 1,
+      exitSignal: null,
+    };
+    await Effect.runPromise(
+      authority.updateTerminal({
+        threadId,
+        revision: ready.revision,
+        generation: "generation-no-op",
+        patch: exitedPatch,
+      }),
+    );
+    const beforeNoOp = persistCount;
+    await Effect.runPromise(
+      authority.updateTerminal({
+        threadId,
+        revision: ready.revision,
+        generation: "generation-no-op",
+        requireNoClaims: true,
+        patch: exitedPatch,
+      }),
+    );
+
+    expect(persistCount).toBe(beforeNoOp);
+    await Effect.runPromise(claim.release);
+  });
+
   it("accepts a later transition after a transient persistence failure", async () => {
     let attempts = 0;
     const authority = await Effect.runPromise(

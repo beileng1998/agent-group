@@ -4,6 +4,7 @@
 // using only xterm public addons.
 // Layer: Server terminal host tests
 
+import { TERMINAL_AGENT_SCROLLBACK_ROWS } from "@agent-group/shared/terminalAgent";
 import { describe, expect, it } from "vitest";
 
 import { HeadlessEmulator } from "./headless-emulator";
@@ -20,6 +21,27 @@ async function withEmulator<T>(
 }
 
 describe("HeadlessEmulator", () => {
+  it("bounds retained scrollback by the managed Terminal product budget", async () => {
+    const emulator = new HeadlessEmulator({ cols: 20, rows: 2 });
+    try {
+      await emulator.write(
+        Array.from(
+          { length: TERMINAL_AGENT_SCROLLBACK_ROWS + 50 },
+          (_, index) => `line-${index}\r\n`,
+        ).join(""),
+      );
+      const snapshot = emulator.getSnapshot({ outputSequence: 1 });
+      expect(snapshot.scrollbackLines).toBeLessThanOrEqual(
+        TERMINAL_AGENT_SCROLLBACK_ROWS,
+      );
+      expect(snapshot.snapshotAnsi).toContain(
+        `line-${TERMINAL_AGENT_SCROLLBACK_ROWS + 49}`,
+      );
+    } finally {
+      emulator.dispose();
+    }
+  });
+
   it("forwards xterm query replies only for flagged live writes", async () => {
     const replies: string[] = [];
     const emulator = new HeadlessEmulator({

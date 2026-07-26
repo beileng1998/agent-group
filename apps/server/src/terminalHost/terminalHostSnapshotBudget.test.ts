@@ -51,6 +51,26 @@ describe("terminal snapshot byte budget", () => {
     expect(terminalSnapshotUtf8Bytes(captured)).toBe(13);
   });
 
+  it("starts from the requested recent-history row cap", () => {
+    const requestedRows: Array<number | undefined> = [];
+    const emulator = {
+      getSnapshot: (input: { scrollbackRows?: number }) => {
+        requestedRows.push(input.scrollbackRows);
+        return snapshot(input.scrollbackRows ?? 8);
+      },
+    } as HeadlessEmulator;
+
+    const captured = captureTerminalSnapshotWithinBudget({
+      emulator,
+      outputSequence: 3,
+      scrollbackRows: 5,
+      maxBytes: 13,
+    });
+
+    expect(requestedRows).toEqual([5, 2]);
+    expect(captured.scrollbackAnsi).toBe("🙂🙂");
+  });
+
   it("uses xterm's public scrollback option without truncating the viewport", async () => {
     const emulator = new HeadlessEmulator({
       cols: 20,

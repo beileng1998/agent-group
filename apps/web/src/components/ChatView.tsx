@@ -9,7 +9,8 @@ import { buildChatShellSurfaceGraph } from "./chat/buildChatShellSurfaceGraph";
 import type { ChatViewProps } from "./chat/ChatView.types";
 import { ChatViewSurface } from "./chat/ChatViewSurface";
 import { NoActiveThreadView } from "./chat/NoActiveThreadView";
-import { ManagedAgentTerminalProvider } from "./agent-terminal/ManagedAgentTerminalContext";
+import { ManagedAgentTerminalControllerProvider } from "./agent-terminal/ManagedAgentTerminalContext";
+import { managedTerminalStartBlockedReason } from "./agent-terminal/managedTerminalPresentation";
 
 export default function ChatView(props: ChatViewProps) {
   const surfaceMode = props.surfaceMode ?? "single";
@@ -22,13 +23,6 @@ export default function ChatView(props: ChatViewProps) {
     presentationMode,
     isFocusedPane,
   });
-  const managedAgentTerminal = useManagedAgentTerminalController({
-    threadId: props.threadId,
-    serverBacked: foundation.thread.isServerThread,
-    provider:
-      foundation.thread.activeThread?.session?.provider ??
-      foundation.thread.activeThread?.modelSelection.provider,
-  });
   const runtimeGraph = useChatRuntimeGraphOwner({
     foundation,
     panels: {
@@ -38,6 +32,18 @@ export default function ChatView(props: ChatViewProps) {
       onOpenBrowserUrl: props.onOpenBrowserUrl,
     },
     onSidechatPromoted: props.onSidechatPromoted,
+  });
+  const managedAgentTerminal = useManagedAgentTerminalController({
+    threadId: props.threadId,
+    serverBacked: foundation.thread.isServerThread,
+    provider:
+      foundation.thread.activeThread?.session?.provider ??
+      foundation.thread.activeThread?.modelSelection.provider,
+    startBlockedReason: managedTerminalStartBlockedReason({
+      hasLiveTurn: runtimeGraph.runtimeActivity.session.hasLiveTurn,
+      isConnecting: runtimeGraph.runtimeActivity.session.isConnecting,
+      isSendBusy: runtimeGraph.runtimeActivity.dispatch.isSendBusy,
+    }),
   });
   const interactionGraph = useChatViewInteractionGraphOwner({
     foundation,
@@ -85,7 +91,7 @@ export default function ChatView(props: ChatViewProps) {
   const dropzone = interactionGraph.composerInteraction.references.dropzone;
 
   return (
-    <ManagedAgentTerminalProvider value={managedAgentTerminal}>
+    <ManagedAgentTerminalControllerProvider controller={managedAgentTerminal}>
       <ChatViewSurface
         drag={{
           active:
@@ -112,6 +118,6 @@ export default function ChatView(props: ChatViewProps) {
           onDismissRateLimit: shellSurface.banners.dismissRateLimit,
         }}
       />
-    </ManagedAgentTerminalProvider>
+    </ManagedAgentTerminalControllerProvider>
   );
 }

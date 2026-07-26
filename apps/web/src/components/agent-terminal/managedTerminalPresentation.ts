@@ -27,6 +27,20 @@ export function managedTerminalProviderLabel(provider: TerminalAgentProvider): s
   }
 }
 
+export function managedTerminalStartBlockedReason(input: {
+  readonly hasLiveTurn: boolean;
+  readonly isConnecting: boolean;
+  readonly isSendBusy: boolean;
+}): string | null {
+  if (input.hasLiveTurn) {
+    return "Stop or wait for the current Chat turn before opening Terminal.";
+  }
+  if (input.isConnecting || input.isSendBusy) {
+    return "Wait for Chat to finish starting before opening Terminal.";
+  }
+  return null;
+}
+
 export function managedTerminalStatusLabel(
   state: TerminalAgentRuntimeState | null,
 ): string {

@@ -11,6 +11,7 @@ import {
   classifyManagedTerminalOutput,
   isManagedTerminalAuthority,
   managedTerminalEventThreadId,
+  managedTerminalStartBlockedReason,
   managedTerminalStatusLabel,
   splitManagedTerminalInput,
 } from "./managedTerminalPresentation";
@@ -36,6 +37,37 @@ function runtimeState(revision: number): TerminalAgentRuntimeState {
 }
 
 describe("managed terminal presentation", () => {
+  it("blocks Terminal startup while structured Chat is busy", () => {
+    expect(
+      managedTerminalStartBlockedReason({
+        hasLiveTurn: true,
+        isConnecting: false,
+        isSendBusy: false,
+      }),
+    ).toBe("Stop or wait for the current Chat turn before opening Terminal.");
+    expect(
+      managedTerminalStartBlockedReason({
+        hasLiveTurn: false,
+        isConnecting: true,
+        isSendBusy: false,
+      }),
+    ).toBe("Wait for Chat to finish starting before opening Terminal.");
+    expect(
+      managedTerminalStartBlockedReason({
+        hasLiveTurn: false,
+        isConnecting: false,
+        isSendBusy: true,
+      }),
+    ).toBe("Wait for Chat to finish starting before opening Terminal.");
+    expect(
+      managedTerminalStartBlockedReason({
+        hasLiveTurn: false,
+        isConnecting: false,
+        isSendBusy: false,
+      }),
+    ).toBeNull();
+  });
+
   it("allows failed terminal states to return control to Chat", () => {
     expect(
       canSwitchManagedTerminalToChat({

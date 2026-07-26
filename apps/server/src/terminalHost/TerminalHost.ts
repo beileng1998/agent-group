@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 
+import { TERMINAL_AGENT_SCROLLBACK_ROWS } from "@agent-group/shared/terminalAgent";
+
 import type { PtyProcess, PtySpawnInput } from "../terminal/Services/PTY";
 import { defaultProcessTreeKiller, type ProcessTreeKiller } from "../terminal/processTreeKiller";
 import {
@@ -461,7 +463,9 @@ export class TerminalHost {
     session: TerminalHostSession,
     isNew: boolean,
   ): Promise<TerminalHostAttachResult> {
-    const snapshot = await this.enqueueSnapshot(session);
+    const snapshot = await this.enqueueSnapshot(session, {
+      scrollbackRows: TERMINAL_AGENT_SCROLLBACK_ROWS,
+    });
     return {
       isNew,
       generation: session.generation,

@@ -37,6 +37,7 @@ function controller(
     pendingAction: null,
     surface: patch.active ? "terminal" : "chat",
     featureEnabled: true,
+    startBlockedReason: null,
     showSurface: vi.fn(),
     start: vi.fn(),
     switchToChat: vi.fn(),
@@ -123,5 +124,22 @@ describe("AgentTerminalControl", () => {
     expect(markup).not.toMatch(
       /<button[^>]*disabled=""[^>]*title="Show Chat history"/s,
     );
+  });
+
+  it("shows why Terminal cannot start while Chat is running", () => {
+    const reason =
+      "Stop or wait for the current Chat turn before opening Terminal.";
+    const markup = renderToStaticMarkup(
+      <ManagedAgentTerminalProvider
+        value={controller({ startBlockedReason: reason })}
+      >
+        <AgentTerminalControl />
+      </ManagedAgentTerminalProvider>,
+    );
+
+    expect(markup).toContain('aria-disabled="true"');
+    expect(markup).toContain(`title="${reason}"`);
+    expect(markup).toContain(reason);
+    expect(markup).toContain('aria-selected="true"');
   });
 });

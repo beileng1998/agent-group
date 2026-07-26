@@ -6,6 +6,10 @@ import type {
   ThreadId,
 } from "@agent-group/contracts";
 
+import {
+  findClaudeTranscriptPath,
+  findCodexTranscriptPath,
+} from "../provider/ProviderTranscriptPaths";
 import type { TerminalAgentProviderResumeCursor } from "./terminalAgentProtocol";
 import {
   terminalProviderResumeCursor,
@@ -83,35 +87,62 @@ export function resolveTerminalLaunchContinuity(input: {
 }
 
 export async function resolveAvailableTerminalLaunchContinuity(
-  input: Parameters<typeof resolveTerminalLaunchContinuity>[0],
+  input: Parameters<typeof resolveTerminalLaunchContinuity>[0] & {
+    readonly homeDir: string;
+    readonly codexHomePath?: string;
+    readonly env?: NodeJS.ProcessEnv;
+  },
 ): Promise<TerminalAgentLaunchContinuity> {
   const continuity = resolveTerminalLaunchContinuity(input);
-  if (
-    input.operation !== "start" ||
-    input.provider !== "pi" ||
-    !(
-      typeof continuity.providerResumeCursor === "string" ||
-      (continuity.providerResumeCursor &&
-        "path" in continuity.providerResumeCursor)
-    )
-  ) {
+  if (input.operation !== "start" || !continuity.resume) {
     return continuity;
   }
-  const cursorPath =
-    typeof continuity.providerResumeCursor === "string"
-      ? continuity.providerResumeCursor
-      : continuity.providerResumeCursor.path;
-  try {
-    await fs.lstat(cursorPath);
-    return continuity;
-  } catch (cause) {
-    if (
-      !(cause instanceof Error) ||
-      !("code" in cause) ||
-      cause.code !== "ENOENT"
-    ) {
-      return continuity;
+
+  let available = true;
+  if (input.provider === "codex" && continuity.providerSessionId) {
+    available =
+      (await findCodexTranscriptPath({
+        providerThreadId: continuity.providerSessionId,
+        ...(input.codexHomePath
+          ? { homePath: input.codexHomePath }
+          : {}),
+        ...(input.env ? { env: input.env } : {}),
+      })) !== null;
+  } else if (
+    input.provider === "claudeAgent" &&
+    continuity.providerSessionId
+  ) {
+    available =
+      (await findClaudeTranscriptPath({
+        homeDir: input.homeDir,
+        sessionId: continuity.providerSessionId,
+        ...(input.env ? { env: input.env } : {}),
+      })) !== null;
+  } else if (
+    input.provider === "pi" &&
+    (typeof continuity.providerResumeCursor === "string" ||
+      (continuity.providerResumeCursor &&
+        "path" in continuity.providerResumeCursor))
+  ) {
+    const cursorPath =
+      typeof continuity.providerResumeCursor === "string"
+        ? continuity.providerResumeCursor
+        : continuity.providerResumeCursor.path;
+    try {
+      await fs.lstat(cursorPath);
+    } catch (cause) {
+      if (
+        !(cause instanceof Error) ||
+        !("code" in cause) ||
+        cause.code !== "ENOENT"
+      ) {
+        return continuity;
+      }
+      available = false;
     }
+  }
+  if (available) {
+    return continuity;
   }
   return {
     providerSessionId: input.providerSessionId,

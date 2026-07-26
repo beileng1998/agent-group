@@ -4,6 +4,7 @@ import {
   TERMINAL_MIN_COLS,
   TERMINAL_MIN_ROWS,
 } from "@agent-group/contracts";
+import { TERMINAL_AGENT_SCROLLBACK_ROWS } from "@agent-group/shared/terminalAgent";
 import { FitAddon } from "@xterm/addon-fit";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { Terminal } from "@xterm/xterm";
@@ -63,7 +64,7 @@ export class ManagedAgentTerminalRuntime {
       fontSize: getTerminalFontSizePx(),
       fontWeight: getTerminalFontWeight(),
       fontWeightBold: getTerminalBoldFontWeight(),
-      scrollback: 5_000,
+      scrollback: TERMINAL_AGENT_SCROLLBACK_ROWS,
       theme: terminalThemeFromApp(),
       vtExtensions: { kittyKeyboard: true },
       scrollbar: { showScrollbar: false },

@@ -122,6 +122,7 @@ describe("launchTerminalRuntime compensation", () => {
       launchTerminalRuntime({
         dependencies: {
           stateDir,
+          homeDir: stateDir,
           bridge,
           coordinator,
           engine: {} as never,
@@ -186,8 +187,8 @@ describe("launchTerminalRuntime compensation", () => {
     expect(abortCalls).toBe(1);
     expect(unregisterCalls).toBe(1);
     expect(preparedArgs?.slice(0, 2)).toEqual([
-      "resume",
-      "latest-codex-thread",
+      "--dangerously-bypass-hook-trust",
+      "--no-alt-screen",
     ]);
     expect(records.has(threadId)).toBe(false);
     expect(state).toMatchObject({ adapter: "structured" });
@@ -259,6 +260,7 @@ describe("launchTerminalRuntime compensation", () => {
       launchTerminalRuntime({
         dependencies: {
           stateDir,
+          homeDir: stateDir,
           bridge,
           coordinator,
           engine: {} as never,
@@ -410,6 +412,7 @@ describe("launchTerminalRuntime compensation", () => {
       launchTerminalRuntime({
         dependencies: {
           stateDir,
+          homeDir: stateDir,
           bridge,
           coordinator,
           engine: {} as never,

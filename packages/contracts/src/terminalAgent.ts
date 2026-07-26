@@ -20,7 +20,7 @@ const BoundedRuntimeId = TrimmedNonEmptyString.check(Schema.isMaxLength(128));
 const BoundedProviderValue = TrimmedNonEmptyString.check(Schema.isMaxLength(512));
 
 /** Hard UTF-8 budget for the ANSI payload restored into a managed xterm view. */
-export const TERMINAL_AGENT_SNAPSHOT_MAX_BYTES = 8 * 1024 * 1024;
+export const TERMINAL_AGENT_SNAPSHOT_MAX_BYTES = 1024 * 1024;
 
 /**
  * Managed terminals are an execution surface for these providers, not a new

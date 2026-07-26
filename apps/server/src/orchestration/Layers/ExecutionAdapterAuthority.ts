@@ -21,6 +21,7 @@ import {
 import {
   type ExecutionAdapterAuthorityRuntimeState,
   completeTerminalStartState,
+  executionAdapterAuthorityStateEqual,
   makeExecutionAdapterAuthorityError as authorityError,
   makeStructuredAuthorityState as structuredState,
   terminalAuthorityAcceptsOperations,
@@ -238,6 +239,7 @@ export function makeExecutionAdapterAuthority(input: {
             if (result instanceof ExecutionAdapterAuthorityError) {
               return yield* Effect.fail(result);
             }
+            if (result === state) return result;
             const states = new Map(current.states).set(threadId, result);
             yield* input.persist(states).pipe(
               Effect.mapError((cause) =>
@@ -395,6 +397,8 @@ export function makeExecutionAdapterAuthority(input: {
         if (next.generation !== undefined && current.generation !== next.generation) {
           return authorityError("stale-generation", `Terminal generation is stale.`);
         }
+        const updated = { ...current, ...next.patch };
+        if (executionAdapterAuthorityStateEqual(current, updated)) return current;
         if (next.requireNoClaims && claims.size > 0) {
           return authorityError(
             "structured-operation-active",
@@ -410,7 +414,7 @@ export function makeExecutionAdapterAuthority(input: {
             `Terminal revision ${next.revision} cannot leave ${current.status} without restarting.`,
           );
         }
-        return { ...current, ...next.patch };
+        return updated;
       });
 
     const beginStructuredSwitch: ExecutionAdapterAuthorityShape["beginStructuredSwitch"] = (

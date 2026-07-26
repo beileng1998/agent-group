@@ -82,6 +82,7 @@ const make = Effect.gen(function* () {
   const onRecoveryFailure = makeTerminalRecoveryFailureHandler(coordinator);
   const launchDependencies: TerminalRuntimeLaunchDependencies = {
     stateDir: config.stateDir,
+    homeDir: config.homeDir,
     bridge,
     coordinator,
     engine,

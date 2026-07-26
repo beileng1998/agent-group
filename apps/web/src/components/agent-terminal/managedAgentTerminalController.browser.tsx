@@ -14,7 +14,7 @@ import { render } from "vitest-browser-react";
 import { useManagedAgentTerminalController } from "../../hooks/useManagedAgentTerminalController";
 import { serverQueryKeys } from "../../lib/serverReactQuery";
 import { AgentTerminalControl } from "../chat/header/AgentTerminalControl";
-import { ManagedAgentTerminalProvider } from "./ManagedAgentTerminalContext";
+import { ManagedAgentTerminalControllerProvider } from "./ManagedAgentTerminalContext";
 
 const THREAD_ID = "managed-terminal-stop-browser" as ThreadId;
 const TERMINAL_STATE: TerminalAgentRuntimeState = {
@@ -34,6 +34,15 @@ const TERMINAL_STATE: TerminalAgentRuntimeState = {
   exit: null,
   error: null,
 };
+const STRUCTURED_STATE: TerminalAgentRuntimeState = {
+  ...TERMINAL_STATE,
+  authority: "structured",
+  revision: 0,
+  runtimeInstanceId: null,
+  generation: null,
+  pid: null,
+  providerSessionId: null,
+};
 
 const originalNativeApi = window.nativeApi;
 
@@ -43,6 +52,61 @@ afterEach(() => {
 });
 
 describe("managed Agent Terminal controller", () => {
+  it("keeps Chat selected and explains when a live Chat turn blocks Terminal", async () => {
+    const start = vi.fn(async () => TERMINAL_STATE);
+    window.nativeApi = {
+      terminalAgent: {
+        get: async () => STRUCTURED_STATE,
+        subscribe: (_input, listener) => {
+          listener({ type: "state", state: STRUCTURED_STATE });
+          return () => {};
+        },
+        start,
+      },
+    } as unknown as NativeApi;
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    queryClient.setQueryData(serverQueryKeys.settings(), {
+      enableManagedAgentTerminal: true,
+    } as ServerSettings);
+    const blockedReason =
+      "Stop or wait for the current Chat turn before opening Terminal.";
+
+    function Harness() {
+      const controller = useManagedAgentTerminalController({
+        threadId: THREAD_ID,
+        provider: "codex",
+        serverBacked: true,
+        startBlockedReason: blockedReason,
+      });
+      return (
+        <ManagedAgentTerminalControllerProvider controller={controller}>
+          <AgentTerminalControl />
+        </ManagedAgentTerminalControllerProvider>
+      );
+    }
+
+    const mounted = await render(
+      <QueryClientProvider client={queryClient}>
+        <Harness />
+      </QueryClientProvider>,
+    );
+    try {
+      const chat = page.getByRole("tab", { name: "Chat" });
+      const terminal = page.getByRole("tab", { name: "Terminal" });
+      await expect.element(chat).toHaveAttribute("aria-selected", "true");
+      await expect.element(terminal).toHaveAttribute("aria-disabled", "true");
+      expect(terminal.element().title).toBe(blockedReason);
+      terminal.element().click();
+      await expect.element(chat).toHaveAttribute("aria-selected", "true");
+      expect(start).not.toHaveBeenCalled();
+    } finally {
+      await mounted.unmount();
+      queryClient.clear();
+    }
+  });
+
   it("changes the visible surface without stopping the Terminal runtime", async () => {
     const switchToChat = vi.fn(async () => ({
       ...TERMINAL_STATE,
@@ -64,17 +128,19 @@ describe("managed Agent Terminal controller", () => {
     queryClient.setQueryData(serverQueryKeys.settings(), {
       enableManagedAgentTerminal: true,
     } as ServerSettings);
+    let ownerRenderCount = 0;
 
     function Harness() {
+      ownerRenderCount += 1;
       const controller = useManagedAgentTerminalController({
         threadId: THREAD_ID,
         provider: "codex",
         serverBacked: true,
       });
       return (
-        <ManagedAgentTerminalProvider value={controller}>
+        <ManagedAgentTerminalControllerProvider controller={controller}>
           <AgentTerminalControl />
-        </ManagedAgentTerminalProvider>
+        </ManagedAgentTerminalControllerProvider>
       );
     }
 
@@ -103,9 +169,122 @@ describe("managed Agent Terminal controller", () => {
       expect(chatElement.scrollHeight).toBeLessThanOrEqual(
         chatElement.clientHeight,
       );
+      const rendersBeforeSwitch = ownerRenderCount;
       await chat.click();
       await expect.element(chat).toHaveAttribute("aria-selected", "true");
+      expect(ownerRenderCount).toBe(rendersBeforeSwitch);
       expect(switchToChat).not.toHaveBeenCalled();
+    } finally {
+      await mounted.unmount();
+      queryClient.clear();
+    }
+  });
+
+  it("does not leave Chat before the server accepts Terminal authority", async () => {
+    const start = vi.fn(async () => {
+      throw new Error("Chat turn is already running.");
+    });
+    window.nativeApi = {
+      terminalAgent: {
+        get: async () => STRUCTURED_STATE,
+        subscribe: (_input, listener) => {
+          listener({ type: "state", state: STRUCTURED_STATE });
+          return () => {};
+        },
+        start,
+      },
+    } as unknown as NativeApi;
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    queryClient.setQueryData(serverQueryKeys.settings(), {
+      enableManagedAgentTerminal: true,
+    } as ServerSettings);
+
+    function Harness() {
+      const controller = useManagedAgentTerminalController({
+        threadId: THREAD_ID,
+        provider: "codex",
+        serverBacked: true,
+      });
+      return (
+        <ManagedAgentTerminalControllerProvider controller={controller}>
+          <AgentTerminalControl />
+        </ManagedAgentTerminalControllerProvider>
+      );
+    }
+
+    const mounted = await render(
+      <QueryClientProvider client={queryClient}>
+        <Harness />
+      </QueryClientProvider>,
+    );
+    try {
+      const chat = page.getByRole("tab", { name: "Chat" });
+      const terminal = page.getByRole("tab", { name: "Terminal" });
+      await expect.element(chat).toHaveAttribute("aria-selected", "true");
+      await terminal.click();
+      await expect.poll(() => start.mock.calls.length).toBe(1);
+      await expect.element(chat).toHaveAttribute("aria-selected", "true");
+      await expect.element(terminal).toHaveAttribute("aria-selected", "false");
+    } finally {
+      await mounted.unmount();
+      queryClient.clear();
+    }
+  });
+
+  it("honors a newer Chat intent while Terminal startup is pending", async () => {
+    let resolveStart: (state: TerminalAgentRuntimeState) => void = () => {};
+    const start = vi.fn(
+      () =>
+        new Promise<TerminalAgentRuntimeState>((resolve) => {
+          resolveStart = resolve;
+        }),
+    );
+    window.nativeApi = {
+      terminalAgent: {
+        get: async () => STRUCTURED_STATE,
+        subscribe: (_input, listener) => {
+          listener({ type: "state", state: STRUCTURED_STATE });
+          return () => {};
+        },
+        start,
+      },
+    } as unknown as NativeApi;
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    queryClient.setQueryData(serverQueryKeys.settings(), {
+      enableManagedAgentTerminal: true,
+    } as ServerSettings);
+
+    function Harness() {
+      const controller = useManagedAgentTerminalController({
+        threadId: THREAD_ID,
+        provider: "codex",
+        serverBacked: true,
+      });
+      return (
+        <ManagedAgentTerminalControllerProvider controller={controller}>
+          <AgentTerminalControl />
+        </ManagedAgentTerminalControllerProvider>
+      );
+    }
+
+    const mounted = await render(
+      <QueryClientProvider client={queryClient}>
+        <Harness />
+      </QueryClientProvider>,
+    );
+    try {
+      const chat = page.getByRole("tab", { name: "Chat" });
+      const terminal = page.getByRole("tab", { name: "Terminal" });
+      await terminal.click();
+      await expect.poll(() => start.mock.calls.length).toBe(1);
+      await chat.click();
+      resolveStart(TERMINAL_STATE);
+      await expect.element(chat).toHaveAttribute("aria-selected", "true");
+      await expect.element(terminal).toHaveAttribute("aria-selected", "false");
     } finally {
       await mounted.unmount();
       queryClient.clear();

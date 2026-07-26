@@ -10,6 +10,35 @@ import type { TerminalAgentProviderResumeCursor } from "./terminalAgentProtocol"
 import type { TerminalAgentRuntimeRecord } from "./terminalAgentRuntimeTypes";
 import type { ResolvedTerminalTarget } from "./terminalAgentRuntimeTypes";
 
+const TRANSCRIPT_BOOTSTRAP_MAX_CHARS = 120_000;
+const TRANSCRIPT_BOOTSTRAP_OMITTED_PREFIX =
+  "[Earlier transcript omitted]\n\n";
+
+function isVisibleTranscriptMessage(
+  message: OrchestrationMessage,
+): boolean {
+  return (
+    !message.streaming &&
+    (message.role === "user" || message.role === "assistant") &&
+    message.text.length > 0
+  );
+}
+
+function suffixOfParts(
+  parts: ReadonlyArray<string>,
+  maximumChars: number,
+): string {
+  let remaining = maximumChars;
+  const suffix: string[] = [];
+  for (let index = parts.length - 1; index >= 0 && remaining > 0; index -= 1) {
+    const part = parts[index]!;
+    const retained = part.slice(Math.max(0, part.length - remaining));
+    suffix.push(retained);
+    remaining -= retained.length;
+  }
+  return suffix.reverse().join("");
+}
+
 export function terminalProviderResumeCursor(
   provider: TerminalAgentProvider,
   resumeCursor: unknown,
@@ -75,20 +104,40 @@ export function terminalProviderSessionId(
 export function visibleTranscriptBootstrap(
   messages: ReadonlyArray<OrchestrationMessage>,
 ): string | null {
-  const visible = messages
-    .filter(
-      (message) =>
-        !message.streaming &&
-        (message.role === "user" || message.role === "assistant") &&
-        message.text.length > 0,
-    )
-    .map((message) => `${message.role === "user" ? "User" : "Assistant"}:\n${message.text}`)
-    .join("\n\n");
-  if (!visible) return null;
-  const maximumChars = 120_000;
-  return visible.length <= maximumChars
-    ? visible
-    : `[Earlier transcript omitted]\n\n${visible.slice(-maximumChars)}`;
+  const retained: string[] = [];
+  let remaining = TRANSCRIPT_BOOTSTRAP_MAX_CHARS;
+  let omitted = false;
+
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index]!;
+    if (!isVisibleTranscriptMessage(message)) continue;
+    if (remaining === 0) {
+      omitted = true;
+      break;
+    }
+    const heading = message.role === "user" ? "User:\n" : "Assistant:\n";
+    const separator = retained.length > 0 ? "\n\n" : "";
+    const chunkLength = heading.length + message.text.length + separator.length;
+    if (chunkLength <= remaining) {
+      retained.push(`${heading}${message.text}${separator}`);
+      remaining -= chunkLength;
+      continue;
+    }
+    retained.push(
+      suffixOfParts(
+        [heading, message.text, separator],
+        remaining,
+      ),
+    );
+    omitted = true;
+    break;
+  }
+
+  if (retained.length === 0) return null;
+  const visible = retained.reverse().join("");
+  return omitted
+    ? `${TRANSCRIPT_BOOTSTRAP_OMITTED_PREFIX}${visible}`
+    : visible;
 }
 
 export function terminalAgentRuntimeState(input: {

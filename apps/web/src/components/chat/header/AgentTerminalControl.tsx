@@ -1,10 +1,16 @@
-import { Loader2Icon, MessageCircleIcon, TerminalIcon } from "../../../lib/icons";
+import {
+  Loader2Icon,
+  MessageCircleIcon,
+  TerminalIcon,
+  TriangleAlertIcon,
+} from "../../../lib/icons";
 import { cn } from "../../../lib/utils";
 import { useManagedAgentTerminal } from "../../agent-terminal/ManagedAgentTerminalContext";
 import {
   managedTerminalProviderLabel,
   managedTerminalStatusLabel,
 } from "../../agent-terminal/managedTerminalPresentation";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "../../ui/tooltip";
 import { toastManager } from "../../ui/toast";
 
 async function reportSwitch(
@@ -38,9 +44,13 @@ export function AgentTerminalControl({ compact = false }: { compact?: boolean })
   const terminalLabel = state
     ? managedTerminalProviderLabel(state.provider)
     : "Agent";
-  const terminalTitle = controller.featureEnabled
-    ? `Switch to ${terminalLabel} Terminal`
-    : "Managed Agent Terminal is disabled for new sessions";
+  const startBlockedReason =
+    !controller.active ? controller.startBlockedReason : null;
+  const terminalTitle =
+    startBlockedReason ??
+    (controller.featureEnabled
+      ? `Switch to ${terminalLabel} Terminal`
+      : "Managed Agent Terminal is disabled for new sessions");
 
   return (
     <div
@@ -67,39 +77,58 @@ export function AgentTerminalControl({ compact = false }: { compact?: boolean })
         <MessageCircleIcon className="size-3.5 shrink-0" />
         <span className={cn(compact && "sr-only")}>Chat</span>
       </button>
-      <button
-        type="button"
-        role="tab"
-        aria-selected={terminalSelected}
-        disabled={
-          controller.pendingAction === "start" ||
-          (!controller.active && !controller.featureEnabled)
-        }
-        title={
-          controller.active && state
-            ? `Show ${terminalLabel} Terminal · ${managedTerminalStatusLabel(state)}`
-            : terminalTitle
-        }
-        className={cn(
-          SEGMENT_CLASS_NAME,
-          terminalSelected
-            ? ACTIVE_SEGMENT_CLASS_NAME
-            : IDLE_SEGMENT_CLASS_NAME,
-        )}
-        onClick={() => {
-          controller.showSurface("terminal");
-          if (!controller.active) {
-            void reportSwitch(controller.start, "Terminal");
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <button
+              type="button"
+              role="tab"
+              aria-disabled={startBlockedReason !== null}
+              aria-selected={terminalSelected}
+              disabled={controller.pendingAction === "start"}
+              title={
+                controller.active && state
+                  ? `Show ${terminalLabel} Terminal · ${managedTerminalStatusLabel(state)}`
+                  : terminalTitle
+              }
+              className={cn(
+                SEGMENT_CLASS_NAME,
+                terminalSelected
+                  ? ACTIVE_SEGMENT_CLASS_NAME
+                  : IDLE_SEGMENT_CLASS_NAME,
+                startBlockedReason && "cursor-not-allowed opacity-55",
+              )}
+              onClick={() => {
+                if (startBlockedReason) {
+                  toastManager.add({
+                    type: "info",
+                    title: "Terminal is waiting for Chat",
+                    description: startBlockedReason,
+                  });
+                  return;
+                }
+                if (controller.active) {
+                  controller.showSurface("terminal");
+                } else {
+                  void reportSwitch(controller.start, "Terminal");
+                }
+              }}
+            >
+              {controller.pendingAction === "start" ? (
+                <Loader2Icon className="size-3.5 shrink-0 animate-spin" />
+              ) : startBlockedReason ? (
+                <TriangleAlertIcon className="size-3.5 shrink-0" />
+              ) : (
+                <TerminalIcon className="size-3.5 shrink-0" />
+              )}
+              <span className={cn(compact && "sr-only")}>Terminal</span>
+            </button>
           }
-        }}
-      >
-        {controller.pendingAction === "start" ? (
-          <Loader2Icon className="size-3.5 shrink-0 animate-spin" />
-        ) : (
-          <TerminalIcon className="size-3.5 shrink-0" />
-        )}
-        <span className={cn(compact && "sr-only")}>Terminal</span>
-      </button>
+        />
+        <TooltipPopup side="bottom" className="max-w-72 whitespace-normal">
+          {terminalTitle}
+        </TooltipPopup>
+      </Tooltip>
     </div>
   );
 }

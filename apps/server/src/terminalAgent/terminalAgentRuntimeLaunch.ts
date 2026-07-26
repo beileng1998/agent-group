@@ -35,6 +35,7 @@ import type { TerminalAgentProviderResumeCursor } from "./terminalAgentProtocol"
 
 export interface TerminalRuntimeLaunchDependencies {
   readonly stateDir: string;
+  readonly homeDir: string;
   readonly bridge: TerminalAgentBridgeShape;
   readonly coordinator: ExecutionAdapterCoordinatorShape;
   readonly engine: OrchestrationEngineShape;
@@ -212,6 +213,8 @@ async function launchTerminalRuntimeUnlocked(input: {
             input.target.threadId,
             input.target.provider,
           ),
+        homeDir: input.dependencies.homeDir,
+        codexHomePath: input.settings.providers.codex.homePath,
       });
       const launch = await prepareTerminalAgentLaunch({
         stateDir: input.dependencies.stateDir,

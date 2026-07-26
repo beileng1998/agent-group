@@ -1,9 +1,28 @@
+import type { OrchestrationMessage } from "@agent-group/contracts";
 import { describe, expect, it } from "vitest";
 
 import {
   terminalProviderResumeCursor,
   terminalProviderSessionId,
+  visibleTranscriptBootstrap,
 } from "./terminalAgentRuntimeState";
+
+function message(
+  role: OrchestrationMessage["role"],
+  text: string,
+  streaming = false,
+): OrchestrationMessage {
+  return {
+    id: "message-id",
+    role,
+    text,
+    turnId: null,
+    streaming,
+    source: "native",
+    createdAt: "2026-07-26T00:00:00.000Z",
+    updatedAt: "2026-07-26T00:00:00.000Z",
+  } as OrchestrationMessage;
+}
 
 describe("terminal provider resume cursors", () => {
   it("normalizes each provider's native structured-session cursor", () => {
@@ -32,5 +51,30 @@ describe("terminal provider resume cursors", () => {
     expect(
       terminalProviderSessionId("pi", "/managed/pi/session.jsonl"),
     ).toBeNull();
+  });
+});
+
+describe("visibleTranscriptBootstrap", () => {
+  it("keeps only complete visible user and assistant messages", () => {
+    expect(
+      visibleTranscriptBootstrap([
+        message("user", "Question"),
+        message("assistant", "in progress", true),
+        message("system", "internal"),
+        message("assistant", "Answer"),
+      ]),
+    ).toBe("User:\nQuestion\n\nAssistant:\nAnswer");
+  });
+
+  it("bounds work and output to the recent transcript window", () => {
+    const bootstrap = visibleTranscriptBootstrap([
+      message("user", "OLD-PREFIX-".repeat(200_000)),
+      message("assistant", "z".repeat(120_001)),
+    ]);
+
+    expect(bootstrap).not.toContain("OLD-PREFIX");
+    expect(bootstrap).toBe(
+      `[Earlier transcript omitted]\n\n${"z".repeat(120_000)}`,
+    );
   });
 });

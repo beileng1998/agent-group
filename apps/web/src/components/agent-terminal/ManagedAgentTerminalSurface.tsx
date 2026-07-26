@@ -1,5 +1,6 @@
 import "@xterm/xterm/css/xterm.css";
 
+import { TERMINAL_AGENT_SCROLLBACK_ROWS } from "@agent-group/shared/terminalAgent";
 import { useEffect, useRef, useState } from "react";
 
 import {
@@ -101,6 +102,12 @@ export function ManagedAgentTerminalSurface() {
         {state?.model ? (
           <span className="min-w-0 truncate">{state.model}</span>
         ) : null}
+        <span
+          className="hidden shrink-0 lg:inline"
+          title="Older terminal output is omitted to keep restores fast."
+        >
+          Latest {TERMINAL_AGENT_SCROLLBACK_ROWS.toLocaleString()} lines
+        </span>
         <span className="ml-auto hidden shrink-0 sm:inline">
           {connectionLabel(status)}
         </span>
@@ -189,10 +196,10 @@ export function ManagedAgentTerminalSurface() {
                     ? "Starting Agent Terminal..."
                     : "Agent Terminal is not running."
                   : status === "reconnecting"
-                    ? "Reconnecting to Terminal..."
+                    ? "Reconnecting and restoring recent Terminal history..."
                     : status === "error"
                       ? "The Terminal stream is unavailable."
-                      : "Connecting to Terminal..."}
+                      : `Restoring up to ${TERMINAL_AGENT_SCROLLBACK_ROWS.toLocaleString()} recent lines...`}
               </span>
               {active && status === "error" ? (
                 <Button

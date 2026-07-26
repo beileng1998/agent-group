@@ -7,6 +7,7 @@
 // inside @xterm public addons. No xterm private API is read here.
 
 import { createRequire } from 'node:module'
+import { TERMINAL_AGENT_SCROLLBACK_ROWS } from '@agent-group/shared/terminalAgent'
 import type * as XtermHeadless from '@xterm/headless'
 import { SerializeAddon } from '@xterm/addon-serialize'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
@@ -36,8 +37,6 @@ export type HeadlessEmulatorWriteOptions = {
   forwardQueryReplies?: boolean
 }
 
-const DEFAULT_SCROLLBACK = 5000
-
 export class HeadlessEmulator {
   private terminal: XtermHeadless.Terminal
   private serializer: SerializeAddon
@@ -53,7 +52,7 @@ export class HeadlessEmulator {
     this.terminal = new Terminal({
       cols: opts.cols,
       rows: opts.rows,
-      scrollback: opts.scrollback ?? DEFAULT_SCROLLBACK,
+      scrollback: opts.scrollback ?? TERMINAL_AGENT_SCROLLBACK_ROWS,
       allowProposedApi: true,
       logLevel: 'off',
       vtExtensions: { kittyKeyboard: true }
