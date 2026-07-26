@@ -420,7 +420,7 @@ it.layer(PtyTestLayer)("TerminalHost", (it) => {
           host.createOrAttach({
             sessionId: "s4",
             command: "/bin/sh",
-            args: ["-c", "exit 7"],
+            args: ["-c", "sleep 0.2; exit 7"],
             cwd: process.cwd(),
             cols: 80,
             rows: 24,

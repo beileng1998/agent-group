@@ -174,10 +174,7 @@ const make = Effect.gen(function* () {
     );
   });
   const publishTerminal: ProviderRuntimeIngestionShape["publishTerminal"] = (event) =>
-    worker.drain.pipe(
-      Effect.andThen(processInputSafely({ source: "runtime", event })),
-      Effect.orDie,
-    );
+    worker.drain.pipe(Effect.andThen(processInputSerially({ source: "runtime", event })));
   return { start, drain: worker.drain, publishTerminal } satisfies ProviderRuntimeIngestionShape;
 });
 
