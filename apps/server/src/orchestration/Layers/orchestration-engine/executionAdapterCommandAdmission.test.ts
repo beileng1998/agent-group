@@ -92,6 +92,7 @@ describe("executionAdapterAdmissionForCommand", () => {
         commandId,
         threadId,
         interactionMode: "default",
+        createdAt: "2026-07-26T00:00:00.000Z",
       }),
     ).toBeNull();
   });

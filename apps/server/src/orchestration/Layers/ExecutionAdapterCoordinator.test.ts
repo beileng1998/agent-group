@@ -1,3 +1,4 @@
+import { TurnId } from "@agent-group/contracts";
 import { Effect, Fiber } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -206,7 +207,11 @@ describe("ExecutionAdapterCoordinator", () => {
 
   it("rejects a live structured turn without opening a terminal authority window", async () => {
     const { coordinator, hostState } = await makeCoordinator({
-      runtime: { ...structuredSession, status: "running", activeTurnId: "turn-1" },
+      runtime: {
+        ...structuredSession,
+        status: "running",
+        activeTurnId: TurnId.makeUnsafe("turn-1"),
+      },
     });
 
     const failed = await Effect.runPromiseExit(
@@ -243,7 +248,7 @@ describe("ExecutionAdapterCoordinator", () => {
           return {
             ...structuredSession,
             status: "running" as const,
-            activeTurnId: "turn-raced",
+            activeTurnId: TurnId.makeUnsafe("turn-raced"),
           };
         }),
     });

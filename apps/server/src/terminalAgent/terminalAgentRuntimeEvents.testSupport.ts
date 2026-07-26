@@ -12,6 +12,7 @@ import type {
   ExecutionAdapterState,
 } from "../orchestration/Services/ExecutionAdapterCoordinator";
 import type { ProviderRuntimeIngestionShape } from "../orchestration/Services/ProviderRuntimeIngestion";
+import { resolveTerminalAgentBridgeOperation } from "./terminalAgentBridgeOperation";
 import { makeTerminalAgentBridgeHandler } from "./terminalAgentRuntimeEvents";
 import type { TerminalAgentRuntimeRecord } from "./terminalAgentRuntimeTypes";
 
@@ -163,15 +164,17 @@ export function makeRuntimeEventsHarness(provider: "pi" | "claudeAgent" = "pi") 
     },
   });
   const invoke = (input: unknown, eventId?: string, mode?: string) =>
-    handler(
-      {
-        runtimeInstanceId: runtime.runtimeInstanceId,
-        input,
-        ...(eventId ? { eventId } : {}),
-        ...(mode ? { mode } : {}),
-      },
-      new AbortController().signal,
-    );
+    resolveTerminalAgentBridgeOperation(
+      handler(
+        {
+          runtimeInstanceId: runtime.runtimeInstanceId,
+          input,
+          ...(eventId ? { eventId } : {}),
+          ...(mode ? { mode } : {}),
+        },
+        new AbortController().signal,
+      ),
+    ).result;
   return {
     commands,
     events,

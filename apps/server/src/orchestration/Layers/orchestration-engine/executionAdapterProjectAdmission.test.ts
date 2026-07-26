@@ -9,7 +9,7 @@ const projectId = ProjectId.makeUnsafe("project-root-change");
 const threadId = ThreadId.makeUnsafe("thread-root-change");
 const readModel = {
   threads: [{ id: threadId, projectId, deletedAt: null }],
-} as OrchestrationReadModel;
+} as unknown as OrchestrationReadModel;
 
 describe("withProjectStructuredAdmission", () => {
   it("rejects a canonical root mutation while any Project Thread is terminal-owned", async () => {

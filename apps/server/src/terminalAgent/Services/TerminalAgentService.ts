@@ -1,11 +1,13 @@
 import type {
   TerminalAgentEvent,
   TerminalAgentRuntimeState,
-  TerminalAgentStartInput,
-  TerminalAgentWriteInput,
-  TerminalAgentResizeInput,
   TerminalAgentSubscriptionMode,
   ThreadId,
+} from "@agent-group/contracts";
+import {
+  TerminalAgentResizeInput,
+  TerminalAgentStartInput,
+  TerminalAgentWriteInput,
 } from "@agent-group/contracts";
 import { Schema, ServiceMap } from "effect";
 import type { Effect, Stream } from "effect";
@@ -36,10 +38,10 @@ export interface TerminalAgentServiceShape {
     threadId: ThreadId,
   ) => Effect.Effect<TerminalAgentRuntimeState, TerminalAgentServiceError>;
   readonly start: (
-    input: TerminalAgentStartInput,
+    input: typeof TerminalAgentStartInput.Type,
   ) => Effect.Effect<TerminalAgentRuntimeState, TerminalAgentServiceError>;
   readonly restart: (
-    input: TerminalAgentStartInput,
+    input: typeof TerminalAgentStartInput.Type,
   ) => Effect.Effect<TerminalAgentRuntimeState, TerminalAgentServiceError>;
   readonly switchToChat: (
     threadId: ThreadId,
@@ -54,10 +56,10 @@ export interface TerminalAgentServiceShape {
     stopStructured: () => Effect.Effect<void, unknown>,
   ) => Effect.Effect<"structured" | "terminal", TerminalAgentServiceError>;
   readonly write: (
-    input: TerminalAgentWriteInput,
+    input: typeof TerminalAgentWriteInput.Type,
   ) => Effect.Effect<void, TerminalAgentServiceError>;
   readonly resize: (
-    input: TerminalAgentResizeInput,
+    input: typeof TerminalAgentResizeInput.Type,
   ) => Effect.Effect<void, TerminalAgentServiceError>;
   readonly subscribe: (
     threadId: ThreadId,

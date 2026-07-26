@@ -14,7 +14,16 @@ export type CheckpointReactorInput =
     }
   | {
       readonly source: "domain";
-      readonly event: OrchestrationEvent;
+      readonly event: Extract<
+        OrchestrationEvent,
+        {
+          type:
+            | "thread.turn-start-requested"
+            | "thread.message-sent"
+            | "thread.checkpoint-revert-requested"
+            | "thread.turn-diff-completed";
+        }
+      >;
     };
 
 export const ASSISTANT_MESSAGE_ID_RETRY_DELAY_MS = 20;

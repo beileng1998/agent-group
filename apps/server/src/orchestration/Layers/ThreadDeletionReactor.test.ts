@@ -37,6 +37,7 @@ type ThreadDeletedEvent = Extract<OrchestrationEvent, { type: "thread.deleted" }
 
 const makeThreadDeletedEvent = (threadId: ThreadId): ThreadDeletedEvent => ({
   type: "thread.deleted",
+  sequence: 1,
   eventId: EventId.makeUnsafe(`event:${threadId}`),
   aggregateKind: "thread",
   aggregateId: threadId,
@@ -120,7 +121,7 @@ describe("ThreadDeletionReactor", () => {
       refreshCommandReadModel: () => Effect.succeed({}),
     } as unknown as OrchestrationEngineShape;
     const profileStatsArchive = {
-      purgeThreadWithStatsSnapshot: ({ threadId }) =>
+      purgeThreadWithStatsSnapshot: ({ threadId }: { readonly threadId: string }) =>
         Effect.sync(() => {
           operations.push(`purge:${threadId}`);
           return true;
@@ -128,13 +129,13 @@ describe("ThreadDeletionReactor", () => {
       purgeSoftDeletedManualThreads: () => Effect.succeed(0),
     } satisfies ProfileStatsArchiveShape;
     const providerService = {
-      stopSession: ({ threadId }) =>
+      stopSession: ({ threadId }: { readonly threadId: ThreadId }) =>
         Effect.sync(() => {
           operations.push(`provider:${threadId}`);
         }),
     } as unknown as ProviderServiceShape;
     const terminalManager = {
-      close: ({ threadId }) =>
+      close: ({ threadId }: { readonly threadId: ThreadId }) =>
         Effect.sync(() => {
           operations.push(`terminal:${threadId}`);
         }),

@@ -38,7 +38,7 @@ describe("terminal snapshot byte budget", () => {
         requestedRows.push(input.scrollbackRows);
         return snapshot(input.scrollbackRows ?? 8);
       },
-    } as HeadlessEmulator;
+    } as unknown as HeadlessEmulator;
 
     const captured = captureTerminalSnapshotWithinBudget({
       emulator,
@@ -58,7 +58,7 @@ describe("terminal snapshot byte budget", () => {
         requestedRows.push(input.scrollbackRows);
         return snapshot(input.scrollbackRows ?? 8);
       },
-    } as HeadlessEmulator;
+    } as unknown as HeadlessEmulator;
 
     const captured = captureTerminalSnapshotWithinBudget({
       emulator,
@@ -105,7 +105,7 @@ describe("terminal snapshot byte budget", () => {
   it("fails with a stable error when the visible viewport alone exceeds the budget", () => {
     const emulator = {
       getSnapshot: (input: { scrollbackRows?: number }) => snapshot(input.scrollbackRows ?? 8),
-    } as HeadlessEmulator;
+    } as unknown as HeadlessEmulator;
 
     expect(() =>
       captureTerminalSnapshotWithinBudget({

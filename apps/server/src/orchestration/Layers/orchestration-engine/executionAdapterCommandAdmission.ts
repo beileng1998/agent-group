@@ -59,12 +59,11 @@ export function executionAdapterAdmissionForCommand(
   }
   const claim = (
     threadId: ThreadId,
-    kind: ExecutionAdapterCommandAdmission["kind"],
-  ): ExecutionAdapterCommandAdmission => ({
-    kind,
-    threadId,
-    claimId: `command:${command.commandId}`,
-  });
+    kind: "turn-start" | "structured-operation",
+  ): Extract<ExecutionAdapterCommandAdmission, { kind: "turn-start" | "structured-operation" }> =>
+    kind === "turn-start"
+      ? { kind: "turn-start", threadId, claimId: `command:${command.commandId}` }
+      : { kind: "structured-operation", threadId, claimId: `command:${command.commandId}` };
   switch (command.type) {
     case "project.meta.update":
       return command.workspaceRoot !== undefined

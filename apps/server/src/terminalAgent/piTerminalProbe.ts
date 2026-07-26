@@ -35,7 +35,7 @@ function parseVersion(value: string): ReadonlyArray<number> | undefined {
 
 function versionIsSupported(version: ReadonlyArray<number>): boolean {
   for (let index = 0; index < MINIMUM_VERSION.length; index += 1) {
-    const difference = (version[index] ?? 0) - MINIMUM_VERSION[index];
+    const difference = (version[index] ?? 0) - (MINIMUM_VERSION[index] ?? 0);
     if (difference !== 0) return difference > 0;
   }
   return true;
@@ -46,7 +46,7 @@ function parseAvailableModels(text: string) {
     .split(/\r?\n/u)
     .map((line) => line.trim().split(/\s+/u))
     .filter((columns) => columns.length >= 2 && columns[0] !== "provider" && columns[0] !== "No")
-    .map(([provider, model]) => ({ provider, model }));
+    .flatMap(([provider, model]) => (provider && model ? [{ provider, model }] : []));
 }
 
 function resolveSelectedModel(

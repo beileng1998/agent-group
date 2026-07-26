@@ -56,7 +56,7 @@ export class HeadlessEmulator {
       allowProposedApi: true,
       logLevel: "off",
       vtExtensions: { kittyKeyboard: true },
-    });
+    } as ConstructorParameters<typeof Terminal>[0]);
 
     this.serializer = new SerializeAddon();
     this.terminal.loadAddon(this.serializer);

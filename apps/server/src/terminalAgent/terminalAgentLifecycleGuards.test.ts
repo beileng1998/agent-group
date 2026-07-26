@@ -1,3 +1,4 @@
+import { TurnId } from "@agent-group/contracts";
 import { describe, expect, it } from "vitest";
 
 import { terminalTurnIsInFlight } from "./terminalAgentLifecycleGuards";
@@ -13,7 +14,11 @@ describe("terminalTurnIsInFlight", () => {
   it("blocks switching for accepted and prepared terminal turns", () => {
     expect(
       terminalTurnIsInFlight(
-        { ...readyAuthority, status: "running", activeTurnId: "turn-1" },
+        {
+          ...readyAuthority,
+          status: "running",
+          activeTurnId: TurnId.makeUnsafe("turn-1"),
+        } as Parameters<typeof terminalTurnIsInFlight>[0],
         undefined,
       ),
     ).toBe(true);

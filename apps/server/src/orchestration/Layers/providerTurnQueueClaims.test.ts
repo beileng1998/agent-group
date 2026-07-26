@@ -93,7 +93,7 @@ async function makeHarness() {
             ]
           : [],
       ),
-  } as ProviderServiceShape;
+  } as unknown as ProviderServiceShape;
   const thread = {
     id: threadId,
     branch: null,
@@ -118,6 +118,12 @@ async function makeHarness() {
         promotionFails
           ? Effect.fail(new Error("promotion failed")).pipe(Effect.orDie)
           : Effect.gen(function* () {
+              if (
+                command.type !== "thread.turn.start" &&
+                command.type !== "thread.turn.dispatch-queued"
+              ) {
+                return yield* Effect.die(new Error(`Unexpected queued command: ${command.type}`));
+              }
               promotedCommandId = command.commandId;
               yield* authority.reserveStructuredStart(
                 command.threadId,

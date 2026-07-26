@@ -75,7 +75,6 @@ describe("terminal launch continuity", () => {
         operation: "start",
         providerSessionId: "fresh-pi-id",
         resume: false,
-        homeDir: os.homedir(),
       }),
     ).toEqual({
       providerSessionId: null,
@@ -107,6 +106,7 @@ describe("terminal launch continuity", () => {
         operation: "start",
         providerSessionId: "fresh-pi-id",
         resume: false,
+        homeDir: os.homedir(),
       }),
     ).resolves.toEqual({
       providerSessionId: "fresh-pi-id",

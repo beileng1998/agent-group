@@ -294,9 +294,10 @@ async function launchTerminalRuntimeUnlocked(input: {
     let authority = await Effect.runPromise(
       input.dependencies.coordinator.getState(input.target.threadId),
     );
-    const failedRuntimeOwnsAuthority =
-      authority.adapter === "terminal" && authority.runtimeInstanceId === input.runtimeInstanceId;
-    if (failedRuntimeOwnsAuthority) {
+    if (
+      authority.adapter === "terminal" &&
+      authority.runtimeInstanceId === input.runtimeInstanceId
+    ) {
       await Effect.runPromise(
         input.dependencies.coordinator
           .updateTerminalState({

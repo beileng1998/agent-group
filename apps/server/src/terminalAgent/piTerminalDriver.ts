@@ -108,7 +108,9 @@ export async function preparePiTerminalLaunch(input: {
       sessionDir,
       ...(resumeSessionPath
         ? { resumeSessionPath }
-        : { providerSessionId: input.providerSessionId }),
+        : input.providerSessionId
+          ? { providerSessionId: input.providerSessionId }
+          : {}),
       modelSelection: input.modelSelection,
     }),
     env: buildTerminalAgentProcessEnv(input.baseEnv ?? process.env, {

@@ -31,7 +31,7 @@ export function terminalAgentBridgeEndpoint(
 function socketIdentity(
   stat: Awaited<ReturnType<typeof fs.lstat>>,
 ): TerminalAgentBridgeSocketIdentity {
-  return { device: stat.dev, inode: stat.ino };
+  return { device: Number(stat.dev), inode: Number(stat.ino) };
 }
 
 function sameSocketIdentity(

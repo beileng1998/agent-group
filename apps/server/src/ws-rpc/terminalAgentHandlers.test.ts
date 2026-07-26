@@ -4,7 +4,6 @@ import {
   WsRpcError,
   type TerminalAgentEvent,
   type TerminalAgentRuntimeState,
-  type TerminalAgentStartInput,
 } from "@agent-group/contracts";
 import { Effect, Stream } from "effect";
 import { describe, expect, it } from "vitest";
@@ -97,7 +96,7 @@ function makeHarness(options?: {
 describe("managed terminal RPC handlers", () => {
   it("routes every public command", async () => {
     const { calls, handlers } = makeHarness();
-    const startInput: TerminalAgentStartInput = { threadId, cols: 100, rows: 32 };
+    const startInput = { threadId, cols: 100, rows: 32 };
     const fence = { threadId, revision: 1, generation: "generation-1" };
 
     await Effect.runPromise(
@@ -140,7 +139,7 @@ describe("managed terminal RPC handlers", () => {
   it("queues terminal reads and mutations until runtime recovery is ready", async () => {
     const runtimeStartup = await Effect.runPromise(makeServerRuntimeStartup);
     const { calls, handlers } = makeHarness({ runtimeStartup });
-    const startInput: TerminalAgentStartInput = { threadId, cols: 100, rows: 32 };
+    const startInput = { threadId, cols: 100, rows: 32 };
     const fence = { threadId, revision: 1, generation: "generation-1" };
     const pending = [
       Effect.runPromise(handlers[WS_METHODS.terminalAgentGet]({ threadId })),

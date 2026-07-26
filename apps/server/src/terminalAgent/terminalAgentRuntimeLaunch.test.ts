@@ -343,9 +343,11 @@ describe("launchTerminalRuntime compensation", () => {
       streamChanges: Stream.empty,
       restartTerminal: () =>
         Effect.gen(function* () {
+          if (state.adapter !== "terminal") {
+            return yield* Effect.die(new Error("Expected terminal authority."));
+          }
           state = {
             ...state,
-            adapter: "terminal",
             revision: 8,
             status: "error",
             runtimeInstanceId: "runtime-new",

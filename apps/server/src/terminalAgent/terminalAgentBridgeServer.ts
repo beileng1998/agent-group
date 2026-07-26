@@ -4,6 +4,7 @@ import http from "node:http";
 import path from "node:path";
 
 import type { TerminalAgentBridgeHandler } from "./terminalAgentBridgeOperation";
+import type { TerminalAgentBridgeRequest } from "./terminalAgentProtocol";
 import { resolveTerminalAgentBridgeOperation } from "./terminalAgentBridgeOperation";
 import {
   TerminalAgentBridgeBudgetExceeded,

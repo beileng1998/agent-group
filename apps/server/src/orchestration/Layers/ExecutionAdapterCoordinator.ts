@@ -331,19 +331,23 @@ export function makeExecutionAdapterCoordinator(
           dependencies.terminalHost.kill(terminalHostSessionId(threadId)),
         );
         if (Result.isFailure(killed)) {
-          yield* dependencies.authority
-            .updateTerminal({
-              threadId,
-              revision: stopping.revision,
-              generation: stopping.generation,
-              patch: {
-                status: "error",
-                error: `Terminal teardown failed: ${
-                  killed.failure instanceof Error ? killed.failure.message : String(killed.failure)
-                }`,
-              },
-            })
-            .pipe(Effect.catch(() => Effect.void));
+          if (stopping.generation !== null) {
+            yield* dependencies.authority
+              .updateTerminal({
+                threadId,
+                revision: stopping.revision,
+                generation: stopping.generation,
+                patch: {
+                  status: "error",
+                  error: `Terminal teardown failed: ${
+                    killed.failure instanceof Error
+                      ? killed.failure.message
+                      : String(killed.failure)
+                  }`,
+                },
+              })
+              .pipe(Effect.catch(() => Effect.void));
+          }
           return yield* Effect.fail(
             fromUnknown(killed.failure, "host", "Terminal teardown failed"),
           );
