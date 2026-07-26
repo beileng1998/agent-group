@@ -17,15 +17,10 @@ describe("managed terminal query reply classifier", () => {
     expect(isTerminalQueryReply(reply)).toBe(true);
   });
 
-  it.each([
-    "yes",
-    "\r",
-    "\u0003",
-    "\u001b[A",
-    "\u001b[15~",
-    "\u001b[97;5u",
-    "\u001b[200~",
-  ])("preserves ordinary terminal input %j", (input) => {
-    expect(isTerminalQueryReply(input)).toBe(false);
-  });
+  it.each(["yes", "\r", "\u0003", "\u001b[A", "\u001b[15~", "\u001b[97;5u", "\u001b[200~"])(
+    "preserves ordinary terminal input %j",
+    (input) => {
+      expect(isTerminalQueryReply(input)).toBe(false);
+    },
+  );
 });

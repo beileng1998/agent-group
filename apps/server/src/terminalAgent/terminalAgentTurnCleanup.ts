@@ -1,26 +1,21 @@
 import { Effect } from "effect";
 
 import { retireTerminalContextFile } from "./terminalAgentRuntimeCleanup";
-import type {
-  ActiveTerminalTurn,
-  TerminalAgentRuntimeRecord,
-} from "./terminalAgentRuntimeTypes";
+import type { ActiveTerminalTurn, TerminalAgentRuntimeRecord } from "./terminalAgentRuntimeTypes";
 
 export async function retireTerminalTurnContext(
   runtime: TerminalAgentRuntimeRecord,
   turn: Pick<ActiveTerminalTurn, "turnId" | "context">,
 ): Promise<void> {
-  await retireTerminalContextFile(runtime.runtimeDir, turn.context.filePath).catch(
-    (cause) => {
-      Effect.runFork(
-        Effect.logWarning("managed terminal context cleanup failed", {
-          threadId: runtime.threadId,
-          turnId: turn.turnId,
-          cause,
-        }),
-      );
-    },
-  );
+  await retireTerminalContextFile(runtime.runtimeDir, turn.context.filePath).catch((cause) => {
+    Effect.runFork(
+      Effect.logWarning("managed terminal context cleanup failed", {
+        threadId: runtime.threadId,
+        turnId: turn.turnId,
+        cause,
+      }),
+    );
+  });
   if (runtime.context === turn.context) runtime.context = null;
 }
 

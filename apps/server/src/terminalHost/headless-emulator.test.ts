@@ -9,9 +9,7 @@ import { describe, expect, it } from "vitest";
 
 import { HeadlessEmulator } from "./headless-emulator";
 
-async function withEmulator<T>(
-  test: (emulator: HeadlessEmulator) => Promise<T> | T,
-): Promise<T> {
+async function withEmulator<T>(test: (emulator: HeadlessEmulator) => Promise<T> | T): Promise<T> {
   const emulator = new HeadlessEmulator({ cols: 80, rows: 24 });
   try {
     return await test(emulator);
@@ -31,12 +29,8 @@ describe("HeadlessEmulator", () => {
         ).join(""),
       );
       const snapshot = emulator.getSnapshot({ outputSequence: 1 });
-      expect(snapshot.scrollbackLines).toBeLessThanOrEqual(
-        TERMINAL_AGENT_SCROLLBACK_ROWS,
-      );
-      expect(snapshot.snapshotAnsi).toContain(
-        `line-${TERMINAL_AGENT_SCROLLBACK_ROWS + 49}`,
-      );
+      expect(snapshot.scrollbackLines).toBeLessThanOrEqual(TERMINAL_AGENT_SCROLLBACK_ROWS);
+      expect(snapshot.snapshotAnsi).toContain(`line-${TERMINAL_AGENT_SCROLLBACK_ROWS + 49}`);
     } finally {
       emulator.dispose();
     }

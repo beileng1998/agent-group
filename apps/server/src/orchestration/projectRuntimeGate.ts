@@ -1,10 +1,7 @@
 import { Effect } from "effect";
 import * as Semaphore from "effect/Semaphore";
 
-const entries = new Map<
-  string,
-  { readonly semaphore: Semaphore.Semaphore; users: number }
->();
+const entries = new Map<string, { readonly semaphore: Semaphore.Semaphore; users: number }>();
 
 /**
  * Serializes project-root mutations with runtime launches. The module singleton
@@ -22,15 +19,17 @@ export function withProjectRuntimeGate<A, E, R>(
     }
     entry.users += 1;
     const acquired = entry;
-    return acquired.semaphore.withPermits(1)(operation).pipe(
-      Effect.ensuring(
-        Effect.sync(() => {
-          acquired.users -= 1;
-          if (acquired.users === 0 && entries.get(projectId) === acquired) {
-            entries.delete(projectId);
-          }
-        }),
-      ),
-    );
+    return acquired.semaphore
+      .withPermits(1)(operation)
+      .pipe(
+        Effect.ensuring(
+          Effect.sync(() => {
+            acquired.users -= 1;
+            if (acquired.users === 0 && entries.get(projectId) === acquired) {
+              entries.delete(projectId);
+            }
+          }),
+        ),
+      );
   });
 }

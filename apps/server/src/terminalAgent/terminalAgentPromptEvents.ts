@@ -1,14 +1,8 @@
 import { TurnId } from "@agent-group/contracts";
 
-import {
-  finalizeAgentGroupTurn,
-  markAgentGroupTurnStarted,
-} from "../agentGroup/runtime";
+import { finalizeAgentGroupTurn, markAgentGroupTurnStarted } from "../agentGroup/runtime";
 import { prepareTerminalAgentPrompt } from "./terminalAgentPromptPreparation";
-import type {
-  TerminalAgentEvent,
-  TerminalAgentHookResponse,
-} from "./terminalAgentProtocol";
+import type { TerminalAgentEvent, TerminalAgentHookResponse } from "./terminalAgentProtocol";
 import {
   assertCurrentTerminalRuntime,
   assertTerminalHookNotAborted,
@@ -19,16 +13,12 @@ import {
   terminalProviderEventBase,
   updateTerminalRuntimeState,
 } from "./terminalAgentRuntimeEventSupport";
-import {
-  retireTerminalTurnContext,
-} from "./terminalAgentTurnCleanup";
+import { retireTerminalTurnContext } from "./terminalAgentTurnCleanup";
 import type { ActiveTerminalTurn } from "./terminalAgentRuntimeTypes";
 
 const MAX_ACCEPTED_PROMPT_EVENTS = 500;
 
-async function requireManagedTerminalPromptEnabled(
-  dependencies: RuntimeEventDependencies,
-) {
+async function requireManagedTerminalPromptEnabled(dependencies: RuntimeEventDependencies) {
   const settings = await dependencies.getSettings();
   if (!settings.enableManagedAgentTerminal) {
     throw new Error("Managed Agent Terminal is disabled in server settings.");
@@ -52,18 +42,11 @@ async function acceptSteer(
 ): Promise<TerminalAgentHookResponse> {
   const turn = dependencies.runtime.activeTurn!;
   const pending = turn.pendingPrompt;
-  if (
-    !pending ||
-    pending.promptEventId !== id ||
-    pending.prompt !== prompt
-  ) {
+  if (!pending || pending.promptEventId !== id || pending.prompt !== prompt) {
     throw new Error("The accepted prompt does not match the prepared Agent Turn.");
   }
   assertTerminalHookNotAborted(signal);
-  await assertCurrentTerminalRuntime(
-    dependencies.runtime,
-    dependencies.coordinator,
-  );
+  await assertCurrentTerminalRuntime(dependencies.runtime, dependencies.coordinator);
   assertTerminalHookNotAborted(signal);
   await observeTerminalMessage(dependencies, id, turn, "user", prompt);
   assertTerminalHookNotAborted(signal);
@@ -109,10 +92,7 @@ export async function acceptTerminalPrompt(
   }
 
   assertTerminalHookNotAborted(signal);
-  await assertCurrentTerminalRuntime(
-    dependencies.runtime,
-    dependencies.coordinator,
-  );
+  await assertCurrentTerminalRuntime(dependencies.runtime, dependencies.coordinator);
   let admissionTouched = false;
   let contextMarked = false;
   try {
@@ -127,28 +107,14 @@ export async function acceptTerminalPrompt(
     }
     assertTerminalHookNotAborted(signal);
     admissionTouched = true;
-    await observeTerminalMessage(
-      dependencies,
-      turn.promptEventId,
-      turn,
-      "user",
-      turn.prompt,
-    );
+    await observeTerminalMessage(dependencies, turn.promptEventId, turn, "user", turn.prompt);
     assertTerminalHookNotAborted(signal);
     await publishTerminalRuntimeEvent(dependencies, {
-      ...terminalProviderEventBase(
-        dependencies.runtime,
-        turn.promptEventId,
-        turn,
-      ),
+      ...terminalProviderEventBase(dependencies.runtime, turn.promptEventId, turn),
       type: "turn.started",
       payload: {
-        ...(dependencies.runtime.model
-          ? { model: dependencies.runtime.model }
-          : {}),
-        ...(dependencies.runtime.effort
-          ? { effort: dependencies.runtime.effort }
-          : {}),
+        ...(dependencies.runtime.model ? { model: dependencies.runtime.model } : {}),
+        ...(dependencies.runtime.effort ? { effort: dependencies.runtime.effort } : {}),
       },
     });
     admissionTouched = true;
@@ -212,10 +178,7 @@ export async function handleTerminalPrompt(
       return { block: { message: "The previous input is still being accepted." } };
     }
     assertTerminalHookNotAborted(signal);
-    await assertCurrentTerminalRuntime(
-      dependencies.runtime,
-      dependencies.coordinator,
-    );
+    await assertCurrentTerminalRuntime(dependencies.runtime, dependencies.coordinator);
     const prepared = await prepareTerminalAgentPrompt({
       runtime: dependencies.runtime,
       settings,
@@ -242,10 +205,7 @@ export async function handleTerminalPrompt(
   }
 
   assertTerminalHookNotAborted(signal);
-  await assertCurrentTerminalRuntime(
-    dependencies.runtime,
-    dependencies.coordinator,
-  );
+  await assertCurrentTerminalRuntime(dependencies.runtime, dependencies.coordinator);
   const turnId = TurnId.makeUnsafe(
     event.providerTurnId
       ? `terminal:${dependencies.runtime.runtimeInstanceId}:${event.providerTurnId}`

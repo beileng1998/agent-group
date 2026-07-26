@@ -1,16 +1,7 @@
-import {
-  parseClaudeHookInput,
-  parseClaudeStatusLine,
-} from "./claudeHookProtocol";
-import {
-  codexHookInputToTerminalEvent,
-  parseCodexHookInput,
-} from "./codexHookProtocol";
+import { parseClaudeHookInput, parseClaudeStatusLine } from "./claudeHookProtocol";
+import { codexHookInputToTerminalEvent, parseCodexHookInput } from "./codexHookProtocol";
 import { parsePiTerminalEvent, type PiTerminalEvent } from "./piTerminalProtocol";
-import type {
-  TerminalAgentBridgeRequest,
-  TerminalAgentEvent,
-} from "./terminalAgentProtocol";
+import type { TerminalAgentBridgeRequest, TerminalAgentEvent } from "./terminalAgentProtocol";
 import type { TerminalAgentRuntimeRecord } from "./terminalAgentRuntimeTypes";
 
 function assertSessionId(
@@ -36,11 +27,7 @@ function claudeEvent(
     request.input,
     request.mode === "status-line" ? "status-line" : undefined,
   );
-  assertSessionId(
-    runtime,
-    input.session_id,
-    input.hook_event_name === "SessionStart",
-  );
+  assertSessionId(runtime, input.session_id, input.hook_event_name === "SessionStart");
   const base = request.eventId ? { eventId: request.eventId } : {};
   switch (input.hook_event_name) {
     case "SessionStart":
@@ -67,7 +54,11 @@ function claudeEvent(
             ...(input.permission_mode ? { permissionMode: input.permission_mode } : {}),
           };
     case "SubagentStart":
-      return { ...base, type: "subagent_start", ...(input.agent_id ? { agentId: input.agent_id } : {}) };
+      return {
+        ...base,
+        type: "subagent_start",
+        ...(input.agent_id ? { agentId: input.agent_id } : {}),
+      };
     case "Stop":
       return {
         ...base,
@@ -76,8 +67,7 @@ function claudeEvent(
           ? { assistantText: input.last_assistant_message }
           : {}),
         hasBackgroundWork:
-          (input.background_tasks?.length ?? 0) > 0 ||
-          (input.session_crons?.length ?? 0) > 0,
+          (input.background_tasks?.length ?? 0) > 0 || (input.session_crons?.length ?? 0) > 0,
       };
     case "StopFailure":
       return {
@@ -95,9 +85,7 @@ function claudeEvent(
 function piModel(event: PiTerminalEvent) {
   return {
     ...("model" in event && event.model ? { model: event.model } : {}),
-    ...("thinking_level" in event && event.thinking_level
-      ? { effort: event.thinking_level }
-      : {}),
+    ...("thinking_level" in event && event.thinking_level ? { effort: event.thinking_level } : {}),
     ...("permission_mode" in event && event.permission_mode
       ? { permissionMode: event.permission_mode }
       : {}),
@@ -135,9 +123,7 @@ function piEvent(
         ...base,
         type: "turn_stop",
         ...(input.turn_id ? { providerTurnId: input.turn_id } : {}),
-        ...(input.assistant_text !== undefined
-          ? { assistantText: input.assistant_text }
-          : {}),
+        ...(input.assistant_text !== undefined ? { assistantText: input.assistant_text } : {}),
       };
     case "turn_failure":
       return {
@@ -183,11 +169,7 @@ export function parseTerminalAgentBridgeEvent(
   let event: TerminalAgentEvent | null;
   if (runtime.provider === "codex") {
     const input = parseCodexHookInput(request.input);
-    assertSessionId(
-      runtime,
-      input.session_id,
-      input.hook_event_name === "SessionStart",
-    );
+    assertSessionId(runtime, input.session_id, input.hook_event_name === "SessionStart");
     event = codexHookInputToTerminalEvent(input, request.eventId);
   } else {
     event =

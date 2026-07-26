@@ -57,9 +57,7 @@ export async function loadExecutionAdapterAuthority(
   const unavailablePath = executionAdapterAuthorityUnavailablePath(filePath);
   try {
     await fs.lstat(unavailablePath);
-    return unavailableLoadResult(
-      new Error("A durable authority recovery marker is present."),
-    );
+    return unavailableLoadResult(new Error("A durable authority recovery marker is present."));
   } catch (cause) {
     if ((cause as NodeJS.ErrnoException).code !== "ENOENT") {
       return unavailableLoadResult(cause);
@@ -149,9 +147,7 @@ function decodeOwnerIdentity(value: unknown): TerminalOwnerIdentity | null {
   };
 }
 
-function decodeProcessGroupIdentity(
-  value: unknown,
-): TerminalProcessGroupIdentity | null {
+function decodeProcessGroupIdentity(value: unknown): TerminalProcessGroupIdentity | null {
   if (value === undefined || value === null) return null;
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("Invalid terminal process-group identity.");
@@ -169,10 +165,7 @@ function decodeProcessGroupIdentity(
   return { pgid: Number(group.pgid), leaderIdentity };
 }
 
-function decodeState(
-  value: unknown,
-  version: number,
-): ExecutionAdapterAuthorityState {
+function decodeState(value: unknown, version: number): ExecutionAdapterAuthorityState {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("Invalid execution adapter state.");
   }
@@ -195,9 +188,7 @@ function decodeState(
       adapter: "structured",
       revision,
       status:
-        state.status === "restoring" ||
-        state.status === "stopping" ||
-        state.status === "deleting"
+        state.status === "restoring" || state.status === "stopping" || state.status === "deleting"
           ? state.status
           : "ready",
     };
@@ -221,27 +212,19 @@ function decodeState(
     throw new Error("Invalid terminal execution adapter state.");
   }
   const ownerIdentity =
-    version === LEGACY_SNAPSHOT_VERSION
-      ? null
-      : decodeOwnerIdentity(state.ownerIdentity);
+    version === LEGACY_SNAPSHOT_VERSION ? null : decodeOwnerIdentity(state.ownerIdentity);
   const processGroupIdentity =
     version <= OWNER_IDENTITY_SNAPSHOT_VERSION
       ? null
       : decodeProcessGroupIdentity(state.processGroupIdentity);
-  if (
-    ownerIdentity !== null &&
-    (state.pid === null || ownerIdentity.pid !== state.pid)
-  ) {
+  if (ownerIdentity !== null && (state.pid === null || ownerIdentity.pid !== state.pid)) {
     throw new Error("Terminal owner identity does not match its PID.");
   }
   if (
     processGroupIdentity !== null &&
     (ownerIdentity === null ||
       state.pid !== processGroupIdentity.pgid ||
-      !terminalOwnerIdentityMatches(
-        ownerIdentity,
-        processGroupIdentity.leaderIdentity,
-      ))
+      !terminalOwnerIdentityMatches(ownerIdentity, processGroupIdentity.leaderIdentity))
   ) {
     throw new Error("Terminal process-group identity does not match its owner.");
   }
@@ -296,10 +279,7 @@ export async function readExecutionAdapterAuthority(
     if (typeof item.threadId !== "string" || item.threadId.length === 0) {
       throw new Error("Invalid execution adapter authority thread id.");
     }
-    states.set(
-      ThreadId.makeUnsafe(item.threadId),
-      decodeState(item.state, Number(record.version)),
-    );
+    states.set(ThreadId.makeUnsafe(item.threadId), decodeState(item.state, Number(record.version)));
   }
   return states;
 }
@@ -335,10 +315,7 @@ export async function writeExecutionAdapterAuthority(
     }
     await fs.rename(temporaryPath, filePath);
     await fs.chmod(filePath, 0o600);
-    await syncParentDirectory(
-      directory,
-      options.syncDirectory ?? syncDirectory,
-    );
+    await syncParentDirectory(directory, options.syncDirectory ?? syncDirectory);
   } finally {
     await fs.rm(temporaryPath, { force: true });
   }

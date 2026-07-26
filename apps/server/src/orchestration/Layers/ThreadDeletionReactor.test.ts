@@ -5,30 +5,15 @@ import {
   ThreadId,
   type OrchestrationEvent,
 } from "@agent-group/contracts";
-import {
-  Cause,
-  Effect,
-  Exit,
-  Layer,
-  ManagedRuntime,
-  Queue,
-  Scope,
-  Stream,
-} from "effect";
+import { Cause, Effect, Exit, Layer, ManagedRuntime, Queue, Scope, Stream } from "effect";
 import { afterEach, describe, expect, it } from "vitest";
 
-import {
-  ProfileStatsArchive,
-  type ProfileStatsArchiveShape,
-} from "../../profileStatsArchive";
+import { ProfileStatsArchive, type ProfileStatsArchiveShape } from "../../profileStatsArchive";
 import {
   ProviderService,
   type ProviderServiceShape,
 } from "../../provider/Services/ProviderService";
-import {
-  TerminalManager,
-  type TerminalManagerShape,
-} from "../../terminal/Services/Manager";
+import { TerminalManager, type TerminalManagerShape } from "../../terminal/Services/Manager";
 import {
   TerminalAgentService,
   type TerminalAgentServiceShape,
@@ -176,9 +161,7 @@ describe("ThreadDeletionReactor", () => {
       Layer.provideMerge(Layer.succeed(ProviderService, providerService)),
       Layer.provideMerge(Layer.succeed(TerminalManager, terminalManager)),
       Layer.provideMerge(Layer.succeed(TerminalAgentService, terminalAgentService)),
-      Layer.provideMerge(
-        Layer.succeed(ExecutionAdapterCoordinator, executionAdapterCoordinator),
-      ),
+      Layer.provideMerge(Layer.succeed(ExecutionAdapterCoordinator, executionAdapterCoordinator)),
     );
     runtime = ManagedRuntime.make(layer);
     const reactor = await runtime.runPromise(Effect.service(ThreadDeletionReactor));

@@ -130,9 +130,7 @@ const make = Effect.gen(function* () {
         });
         return;
       }
-      yield* processor
-        .processRuntimeEvent(event)
-        .pipe(Effect.ensuring(claimed.success.release));
+      yield* processor.processRuntimeEvent(event).pipe(Effect.ensuring(claimed.success.release));
     });
   const processInput = (input: RuntimeIngestionInput) =>
     input.source === "runtime"
@@ -176,9 +174,7 @@ const make = Effect.gen(function* () {
     );
   });
   const publishTerminal: ProviderRuntimeIngestionShape["publishTerminal"] = (event) =>
-    worker.drain.pipe(
-      Effect.andThen(processInputSerially({ source: "runtime", event })),
-    );
+    worker.drain.pipe(Effect.andThen(processInputSerially({ source: "runtime", event })));
   return { start, drain: worker.drain, publishTerminal } satisfies ProviderRuntimeIngestionShape;
 });
 

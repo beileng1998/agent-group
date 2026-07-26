@@ -2,10 +2,7 @@ import { TERMINAL_AGENT_SNAPSHOT_MAX_BYTES } from "@agent-group/contracts";
 
 import { managedTerminalUtf8Bytes } from "./managedTerminalOutputPump";
 
-export type ManagedTerminalSnapshotDecision =
-  | "accept"
-  | "oversized"
-  | "blocked";
+export type ManagedTerminalSnapshotDecision = "accept" | "oversized" | "blocked";
 
 interface SnapshotEpoch {
   readonly revision: number;
@@ -20,9 +17,7 @@ function epochKey(epoch: SnapshotEpoch): string {
 export class ManagedTerminalSnapshotGuard {
   private blockedEpoch: string | null = null;
 
-  constructor(
-    private readonly maxBytes = TERMINAL_AGENT_SNAPSHOT_MAX_BYTES,
-  ) {}
+  constructor(private readonly maxBytes = TERMINAL_AGENT_SNAPSHOT_MAX_BYTES) {}
 
   evaluate(epoch: SnapshotEpoch, snapshotAnsi: string): ManagedTerminalSnapshotDecision {
     const key = epochKey(epoch);

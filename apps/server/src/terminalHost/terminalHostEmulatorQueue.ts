@@ -21,8 +21,7 @@ export function enqueueTerminalEmulatorTask(input: {
   const queuedBytes = input.queuedBytes ?? 0;
   if (
     queuedBytes > 0 &&
-    input.session.queuedEmulatorBytes + queuedBytes >
-      TERMINAL_HOST_EMULATOR_MAX_QUEUED_BYTES
+    input.session.queuedEmulatorBytes + queuedBytes > TERMINAL_HOST_EMULATOR_MAX_QUEUED_BYTES
   ) {
     input.session.emulatorError ??= new TerminalHostEmulatorQueueOverflowError();
     if (!input.session.ptyPaused) {
@@ -32,10 +31,7 @@ export function enqueueTerminalEmulatorTask(input: {
     return false;
   }
   input.session.queuedEmulatorBytes += queuedBytes;
-  if (
-    !input.session.ptyPaused &&
-    input.session.queuedEmulatorBytes >= EMULATOR_PAUSE_BYTES
-  ) {
+  if (!input.session.ptyPaused && input.session.queuedEmulatorBytes >= EMULATOR_PAUSE_BYTES) {
     input.session.ptyPaused = true;
     input.session.pty.pause();
   }
@@ -49,10 +45,7 @@ export function enqueueTerminalEmulatorTask(input: {
         0,
         input.session.queuedEmulatorBytes - queuedBytes,
       );
-      if (
-        input.session.ptyPaused &&
-        input.session.queuedEmulatorBytes <= EMULATOR_RESUME_BYTES
-      ) {
+      if (input.session.ptyPaused && input.session.queuedEmulatorBytes <= EMULATOR_RESUME_BYTES) {
         input.session.ptyPaused = false;
         input.session.pty.resume();
       }
@@ -74,9 +67,7 @@ export async function enqueueTerminalSnapshot(input: {
     snapshot = captureTerminalSnapshotWithinBudget({
       emulator: input.session.emulator,
       outputSequence,
-      ...(input.scrollbackRows !== undefined
-        ? { scrollbackRows: input.scrollbackRows }
-        : {}),
+      ...(input.scrollbackRows !== undefined ? { scrollbackRows: input.scrollbackRows } : {}),
       ...(input.maxBytes !== undefined ? { maxBytes: input.maxBytes } : {}),
     });
   });
@@ -88,9 +79,7 @@ export async function enqueueTerminalSnapshot(input: {
   );
   await snapshotTask;
   if (snapshot === undefined) {
-    throw new Error(
-      `Terminal host snapshot failed: ${input.session.sessionId}`,
-    );
+    throw new Error(`Terminal host snapshot failed: ${input.session.sessionId}`);
   }
   return snapshot;
 }

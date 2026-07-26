@@ -74,11 +74,7 @@ export class ManagedTerminalOutputPump {
     this.invalidate();
   }
 
-  private enqueueForEpoch(
-    data: string,
-    epoch: number,
-    onParsed: () => void,
-  ): boolean {
+  private enqueueForEpoch(data: string, epoch: number, onParsed: () => void): boolean {
     if (data.length === 0) {
       onParsed();
       return true;

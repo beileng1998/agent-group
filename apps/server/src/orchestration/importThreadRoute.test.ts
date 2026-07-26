@@ -16,10 +16,7 @@ import {
   type ExecutionAdapterAuthorityError,
   type ExecutionAdapterAuthorityShape,
 } from "./Services/ExecutionAdapterAuthority";
-import {
-  makeImportThreadHandler,
-  type ImportThreadHandlerOptions,
-} from "./importThreadRoute";
+import { makeImportThreadHandler, type ImportThreadHandlerOptions } from "./importThreadRoute";
 
 const threadId = ThreadId.makeUnsafe("thread-import-authority");
 const projectId = ProjectId.makeUnsafe("project-import-authority");

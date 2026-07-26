@@ -99,11 +99,7 @@ function providerString(value: unknown, field: string): string | undefined {
 }
 
 function pathString(value: unknown, field: string): string | undefined {
-  return optionalBoundedHookString(
-    value,
-    `Pi terminal ${field}`,
-    TERMINAL_HOOK_PATH_MAX_CHARS,
-  );
+  return optionalBoundedHookString(value, `Pi terminal ${field}`, TERMINAL_HOOK_PATH_MAX_CHARS);
 }
 
 function optionalFields(input: Record<string, unknown>) {
@@ -117,21 +113,13 @@ function optionalFields(input: Record<string, unknown>) {
 
 export function parsePiTerminalEvent(value: unknown): PiTerminalEvent {
   const input = record(value);
-  const eventName = optionalBoundedHookString(
-    input?.event_name,
-    "Pi terminal event name",
-    64,
-  );
+  const eventName = optionalBoundedHookString(input?.event_name, "Pi terminal event name", 64);
   const eventId = optionalBoundedHookString(
     input?.event_id,
     "Pi terminal event id",
     TERMINAL_HOOK_RUNTIME_ID_MAX_CHARS,
   );
-  if (
-    !input ||
-    !eventId ||
-    !PI_TERMINAL_EVENT_NAMES.includes(eventName as PiTerminalEventName)
-  ) {
+  if (!input || !eventId || !PI_TERMINAL_EVENT_NAMES.includes(eventName as PiTerminalEventName)) {
     throw new Error("Invalid Pi terminal event.");
   }
   const base = { event_id: eventId, ...optionalFields(input) };
@@ -144,14 +132,8 @@ export function parsePiTerminalEvent(value: unknown): PiTerminalEvent {
       }
       const model = providerString(input.model, "model");
       const modelProvider = providerString(input.model_provider, "model provider");
-      const thinkingLevel = providerString(
-        input.thinking_level,
-        "thinking level",
-      );
-      const permissionMode = providerString(
-        input.permission_mode,
-        "permission mode",
-      );
+      const thinkingLevel = providerString(input.thinking_level, "thinking level");
+      const permissionMode = providerString(input.permission_mode, "permission mode");
       return {
         ...base,
         event_name: eventName,
@@ -168,18 +150,13 @@ export function parsePiTerminalEvent(value: unknown): PiTerminalEvent {
         throw new Error("Invalid Pi prompt submit event.");
       }
       const source = providerString(input.source, "prompt source");
-      const streamingBehavior = providerString(
-        input.streaming_behavior,
-        "streaming behavior",
-      );
+      const streamingBehavior = providerString(input.streaming_behavior, "streaming behavior");
       return {
         ...base,
         event_name: eventName,
         prompt: input.prompt,
         ...(source ? { source } : {}),
-        ...(streamingBehavior
-          ? { streaming_behavior: streamingBehavior }
-          : {}),
+        ...(streamingBehavior ? { streaming_behavior: streamingBehavior } : {}),
       };
     }
     case "turn_stop": {
@@ -207,14 +184,8 @@ export function parsePiTerminalEvent(value: unknown): PiTerminalEvent {
     case "runtime_state": {
       const model = providerString(input.model, "model");
       const modelProvider = providerString(input.model_provider, "model provider");
-      const thinkingLevel = providerString(
-        input.thinking_level,
-        "thinking level",
-      );
-      const permissionMode = providerString(
-        input.permission_mode,
-        "permission mode",
-      );
+      const thinkingLevel = providerString(input.thinking_level, "thinking level");
+      const permissionMode = providerString(input.permission_mode, "permission mode");
       return {
         ...base,
         event_name: eventName,
@@ -239,17 +210,12 @@ export function parsePiTerminalEvent(value: unknown): PiTerminalEvent {
     case "session_shutdown": {
       const reason = providerString(input.reason, "shutdown reason");
       if (!reason) throw new Error("Invalid Pi session shutdown event.");
-      const targetSessionFile = pathString(
-        input.target_session_file,
-        "target session file",
-      );
+      const targetSessionFile = pathString(input.target_session_file, "target session file");
       return {
         ...base,
         event_name: eventName,
         reason,
-        ...(targetSessionFile
-          ? { target_session_file: targetSessionFile }
-          : {}),
+        ...(targetSessionFile ? { target_session_file: targetSessionFile } : {}),
       };
     }
     case "unmanaged_input":

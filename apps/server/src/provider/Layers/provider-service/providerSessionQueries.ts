@@ -71,9 +71,9 @@ export function makeProviderSessionQueries(input: ProviderServiceDependencies) {
       return isFile ? candidate : null;
     });
 
-  const getSessionContinuity: NonNullable<
-    ProviderServiceShape["getSessionContinuity"]
-  > = (request) =>
+  const getSessionContinuity: NonNullable<ProviderServiceShape["getSessionContinuity"]> = (
+    request,
+  ) =>
     directory.getBinding(request.threadId).pipe(
       Effect.map((bindingOption) => {
         const binding = Option.getOrUndefined(bindingOption);

@@ -25,9 +25,7 @@ export function makeTerminalAgentHandlers(dependencies: {
       ),
     [WS_METHODS.terminalAgentStart]: (input) =>
       dependencies.rpcEffect(
-        dependencies.runtimeStartup.enqueueCommand(
-          dependencies.terminalAgentService.start(input),
-        ),
+        dependencies.runtimeStartup.enqueueCommand(dependencies.terminalAgentService.start(input)),
         "Failed to start managed terminal",
       ),
     [WS_METHODS.terminalAgentRestart]: (input) =>
@@ -46,16 +44,12 @@ export function makeTerminalAgentHandlers(dependencies: {
       ),
     [WS_METHODS.terminalAgentWrite]: (input) =>
       dependencies.rpcEffect(
-        dependencies.runtimeStartup.enqueueCommand(
-          dependencies.terminalAgentService.write(input),
-        ),
+        dependencies.runtimeStartup.enqueueCommand(dependencies.terminalAgentService.write(input)),
         "Failed to write to managed terminal",
       ),
     [WS_METHODS.terminalAgentResize]: (input) =>
       dependencies.rpcEffect(
-        dependencies.runtimeStartup.enqueueCommand(
-          dependencies.terminalAgentService.resize(input),
-        ),
+        dependencies.runtimeStartup.enqueueCommand(dependencies.terminalAgentService.resize(input)),
         "Failed to resize managed terminal",
       ),
     [WS_METHODS.terminalAgentSubscribe]: (input) =>
@@ -63,17 +57,12 @@ export function makeTerminalAgentHandlers(dependencies: {
         Stream.unwrap(
           dependencies.runtimeStartup.enqueueCommand(
             Effect.sync(() =>
-              dependencies.terminalAgentService.subscribe(
-                input.threadId,
-                input.mode,
-              ),
+              dependencies.terminalAgentService.subscribe(input.threadId, input.mode),
             ),
           ),
         ),
       ).pipe(
-          Stream.mapError((cause) =>
-            toWsRpcError(cause, "Managed terminal event stream failed"),
-          ),
-        ),
+        Stream.mapError((cause) => toWsRpcError(cause, "Managed terminal event stream failed")),
+      ),
   } satisfies Partial<WsRpcHandlers>;
 }

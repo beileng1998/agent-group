@@ -43,18 +43,13 @@ export function requireLaunchValue(value: string, label: string): string {
 
 export function requireRuntimeId(value: string): string {
   requireLaunchValue(value, "Runtime instance id");
-  if (
-    value.length > 128 ||
-    !/^[A-Za-z0-9](?:[A-Za-z0-9._:-]*[A-Za-z0-9])?$/u.test(value)
-  ) {
+  if (value.length > 128 || !/^[A-Za-z0-9](?:[A-Za-z0-9._:-]*[A-Za-z0-9])?$/u.test(value)) {
     throw new Error("Runtime instance id is invalid.");
   }
   return value;
 }
 
-export async function ensurePrivateDirectory(
-  directory: string,
-): Promise<void> {
+export async function ensurePrivateDirectory(directory: string): Promise<void> {
   await fs.mkdir(directory, { recursive: true, mode: 0o700 });
   const stat = await fs.lstat(directory);
   if (!stat.isDirectory() || stat.isSymbolicLink()) {

@@ -13,10 +13,7 @@ import {
   TerminalAgentServiceError,
   type TerminalAgentServiceShape,
 } from "../terminalAgent/Services/TerminalAgentService";
-import {
-  makeServerRuntimeStartup,
-  type ServerRuntimeStartupShape,
-} from "../serverRuntimeStartup";
+import { makeServerRuntimeStartup, type ServerRuntimeStartupShape } from "../serverRuntimeStartup";
 import { toWsRpcError } from "../wsRpcError";
 import { makeTerminalAgentHandlers } from "./terminalAgentHandlers";
 
@@ -68,14 +65,11 @@ function makeHarness(options?: {
   const state = runtimeState(1);
   const service: TerminalAgentServiceShape = {
     get: (input) =>
-      options?.getError
-        ? Effect.fail(options.getError)
-        : record("get", input, state),
+      options?.getError ? Effect.fail(options.getError) : record("get", input, state),
     start: (input) => record("start", input, state),
     restart: (input) => record("restart", input, state),
     switchToChat: (input) => record("switchToChat", input, state),
-    stopCurrentAdapter: (input) =>
-      record("stopCurrentAdapter", input, "structured" as const),
+    stopCurrentAdapter: (input) => record("stopCurrentAdapter", input, "structured" as const),
     write: (input) => record("write", input, undefined),
     resize: (input) => record("resize", input, undefined),
     subscribe: (input, mode) => {
@@ -83,8 +77,8 @@ function makeHarness(options?: {
       return options?.stream
         ? options.stream
         : options?.streamError
-        ? Stream.fail(options.streamError)
-        : Stream.fromIterable(options?.events ?? []);
+          ? Stream.fail(options.streamError)
+          : Stream.fromIterable(options?.events ?? []);
     },
     teardownThread: () => Effect.void,
     recover: Effect.void,
@@ -152,12 +146,8 @@ describe("managed terminal RPC handlers", () => {
       Effect.runPromise(handlers[WS_METHODS.terminalAgentGet]({ threadId })),
       Effect.runPromise(handlers[WS_METHODS.terminalAgentStart](startInput)),
       Effect.runPromise(handlers[WS_METHODS.terminalAgentRestart](startInput)),
-      Effect.runPromise(
-        handlers[WS_METHODS.terminalAgentSwitchToChat]({ threadId }),
-      ),
-      Effect.runPromise(
-        handlers[WS_METHODS.terminalAgentWrite]({ ...fence, data: "hello" }),
-      ),
+      Effect.runPromise(handlers[WS_METHODS.terminalAgentSwitchToChat]({ threadId })),
+      Effect.runPromise(handlers[WS_METHODS.terminalAgentWrite]({ ...fence, data: "hello" })),
       Effect.runPromise(
         handlers[WS_METHODS.terminalAgentResize]({
           ...fence,

@@ -21,13 +21,13 @@ export function executionAdapterAuthorityStateEqual(
   right: ExecutionAdapterAuthorityState,
 ): boolean {
   const rightRecord = right as unknown as Record<string, unknown>;
-  return Object.keys(left).length === Object.keys(right).length &&
-    Object.entries(left).every(([key, value]) => Object.is(value, rightRecord[key]));
+  return (
+    Object.keys(left).length === Object.keys(right).length &&
+    Object.entries(left).every(([key, value]) => Object.is(value, rightRecord[key]))
+  );
 }
 
-export const makeStructuredAuthorityState = (
-  revision = 0,
-): StructuredAuthorityState => ({
+export const makeStructuredAuthorityState = (revision = 0): StructuredAuthorityState => ({
   adapter: "structured",
   revision,
   status: "ready",
@@ -69,10 +69,7 @@ export function completeTerminalStartState(
   if (
     next.processGroupIdentity !== null &&
     (next.processGroupIdentity.pgid !== next.pid ||
-      !terminalOwnerIdentityMatches(
-        next.ownerIdentity,
-        next.processGroupIdentity.leaderIdentity,
-      ))
+      !terminalOwnerIdentityMatches(next.ownerIdentity, next.processGroupIdentity.leaderIdentity))
   ) {
     return makeExecutionAdapterAuthorityError(
       "transition-in-progress",

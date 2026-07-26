@@ -30,9 +30,7 @@ export type { ManagedTerminalConnectionStatus };
 
 export interface ManagedAgentTerminalRuntimeCallbacks {
   readonly setViewportSize: (cols: number, rows: number) => void;
-  readonly onConnectionStatusChange: (
-    status: ManagedTerminalConnectionStatus,
-  ) => void;
+  readonly onConnectionStatusChange: (status: ManagedTerminalConnectionStatus) => void;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -90,10 +88,7 @@ export class ManagedAgentTerminalRuntime {
     );
   }
 
-  attach(
-    container: HTMLDivElement,
-    callbacks: ManagedAgentTerminalRuntimeCallbacks,
-  ) {
+  attach(container: HTMLDivElement, callbacks: ManagedAgentTerminalRuntimeCallbacks) {
     this.lastUsedAt = Date.now();
     if (this.container !== container) {
       this.detach();
@@ -160,12 +155,7 @@ export class ManagedAgentTerminalRuntime {
 
   private runFit(): void {
     const container = this.container;
-    if (
-      this.disposed ||
-      !container ||
-      container.clientWidth <= 1 ||
-      container.clientHeight <= 1
-    ) {
+    if (this.disposed || !container || container.clientWidth <= 1 || container.clientHeight <= 1) {
       return;
     }
     this.fitAddon.fit();

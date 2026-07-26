@@ -21,9 +21,7 @@ async function makeBridge(input: {
   readonly handlerTimeoutMs?: number;
   readonly limits: TerminalAgentBridgeResourceLimits;
 }): Promise<TerminalAgentBridgeServer> {
-  const stateDir = await fs.mkdtemp(
-    path.join(os.tmpdir(), "agent-group-bridge-budget-"),
-  );
+  const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "agent-group-bridge-budget-"));
   tempDirs.push(stateDir);
   const bridge = new TerminalAgentBridgeServer(
     stateDir,
@@ -56,9 +54,7 @@ function requestBridge(input: {
         headers: {
           authorization: `Bearer ${input.token}`,
           "content-type": "application/json",
-          ...(input.chunked
-            ? {}
-            : { "content-length": Buffer.byteLength(input.body) }),
+          ...(input.chunked ? {} : { "content-length": Buffer.byteLength(input.body) }),
         },
       },
       (incoming) => {
@@ -74,9 +70,7 @@ function requestBridge(input: {
 afterEach(async () => {
   await Promise.allSettled(bridges.splice(0).map((bridge) => bridge.close()));
   await Promise.all(
-    tempDirs.splice(0).map((directory) =>
-      fs.rm(directory, { recursive: true, force: true }),
-    ),
+    tempDirs.splice(0).map((directory) => fs.rm(directory, { recursive: true, force: true })),
   );
 });
 
@@ -131,15 +125,15 @@ describe("TerminalAgentBridgeServer pending request budgets", () => {
     });
     while (!started) await new Promise((resolve) => setTimeout(resolve, 1));
 
-    await expect(
-      requestBridge({ bridge, token: registration.token, body }),
-    ).resolves.toEqual({ status: 429 });
+    await expect(requestBridge({ bridge, token: registration.token, body })).resolves.toEqual({
+      status: 429,
+    });
     block = false;
     release();
     await expect(pending).resolves.toEqual({ status: 200 });
-    await expect(
-      requestBridge({ bridge, token: registration.token, body }),
-    ).resolves.toEqual({ status: 200 });
+    await expect(requestBridge({ bridge, token: registration.token, body })).resolves.toEqual({
+      status: 200,
+    });
     expect(handled).toBe(2);
   });
 
@@ -201,9 +195,9 @@ describe("TerminalAgentBridgeServer pending request budgets", () => {
       return {};
     });
 
-    await expect(
-      requestBridge({ bridge, token: registration.token, body: "{" }),
-    ).resolves.toEqual({ status: 400 });
+    await expect(requestBridge({ bridge, token: registration.token, body: "{" })).resolves.toEqual({
+      status: 400,
+    });
     await expect(
       requestBridge({
         bridge,
@@ -240,12 +234,12 @@ describe("TerminalAgentBridgeServer pending request budgets", () => {
     });
     const body = hookBody("runtime-1");
 
-    await expect(
-      requestBridge({ bridge, token: registration.token, body }),
-    ).resolves.toEqual({ status: 503 });
-    await expect(
-      requestBridge({ bridge, token: registration.token, body }),
-    ).resolves.toEqual({ status: 200 });
+    await expect(requestBridge({ bridge, token: registration.token, body })).resolves.toEqual({
+      status: 503,
+    });
+    await expect(requestBridge({ bridge, token: registration.token, body })).resolves.toEqual({
+      status: 200,
+    });
     expect(calls).toBe(2);
   });
 

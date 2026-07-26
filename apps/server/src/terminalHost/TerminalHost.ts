@@ -29,10 +29,7 @@ import {
   teardownTerminalSession,
   teardownTerminalSessions,
 } from "./terminalHostTeardown";
-import {
-  enqueueTerminalEmulatorTask,
-  enqueueTerminalSnapshot,
-} from "./terminalHostEmulatorQueue";
+import { enqueueTerminalEmulatorTask, enqueueTerminalSnapshot } from "./terminalHostEmulatorQueue";
 import { waitForTerminalSessionExit } from "./terminalHostExitWait";
 import { assertTerminalHostGeneration } from "./terminalHostGeneration";
 import { TerminalHostSnapshotTooLargeError } from "./terminalHostSnapshotBudget";
@@ -159,8 +156,7 @@ export class TerminalHost {
     const startupBuffer = new TerminalHostStartupBuffer(
       ptyProcess,
       (data) => this.handleData(session!, data),
-      ({ exitCode, signal }) =>
-        this.handleExit(session!, exitCode, signal ?? undefined),
+      ({ exitCode, signal }) => this.handleExit(session!, exitCode, signal ?? undefined),
     );
     try {
       session.disposePtyData = ptyProcess.onData(startupBuffer.onData);
@@ -176,9 +172,7 @@ export class TerminalHost {
     }
     try {
       session.processGroupIdentity =
-        this.platform === "win32"
-          ? null
-          : this.processGroupController.capture(ptyProcess.pid);
+        this.platform === "win32" ? null : this.processGroupController.capture(ptyProcess.pid);
       if (
         this.requireProcessGroupOwnership &&
         this.platform !== "win32" &&
@@ -276,12 +270,7 @@ export class TerminalHost {
     session.pty.write(data);
   }
 
-  resize(
-    sessionId: string,
-    cols: number,
-    rows: number,
-    generation: TerminalHostGeneration,
-  ): void {
+  resize(sessionId: string, cols: number, rows: number, generation: TerminalHostGeneration): void {
     const session = this.getAliveSession(sessionId);
     assertTerminalHostGeneration(session, generation);
     session.pty.resize(cols, rows);
@@ -482,9 +471,7 @@ export class TerminalHost {
     return enqueueTerminalSnapshot({
       session,
       ...opts,
-      ...(this.maxSnapshotBytes !== undefined
-        ? { maxBytes: this.maxSnapshotBytes }
-        : {}),
+      ...(this.maxSnapshotBytes !== undefined ? { maxBytes: this.maxSnapshotBytes } : {}),
     });
   }
 

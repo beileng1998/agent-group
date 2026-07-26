@@ -2,17 +2,12 @@ import { ORCHESTRATION_WS_METHODS, WsRpcError } from "@agent-group/contracts";
 import { Effect } from "effect";
 import { describe, expect, it, vi } from "vitest";
 
-import {
-  makeServerRuntimeStartup,
-  ServerRuntimeStartupError,
-} from "../serverRuntimeStartup";
+import { makeServerRuntimeStartup, ServerRuntimeStartupError } from "../serverRuntimeStartup";
 import { toWsRpcError } from "../wsRpcError";
 import { makeOrchestrationHandlers } from "./orchestrationHandlers";
 
-const rpcEffect = <A, E, R>(
-  effect: Effect.Effect<A, E, R>,
-  fallbackMessage: string,
-) => effect.pipe(Effect.mapError((cause) => toWsRpcError(cause, fallbackMessage)));
+const rpcEffect = <A, E, R>(effect: Effect.Effect<A, E, R>, fallbackMessage: string) =>
+  effect.pipe(Effect.mapError((cause) => toWsRpcError(cause, fallbackMessage)));
 
 describe("orchestration RPC startup admission", () => {
   it("queues state repair behind terminal recovery", async () => {
@@ -48,9 +43,7 @@ describe("orchestration RPC startup admission", () => {
       rpcEffect,
     });
 
-    const pending = Effect.runPromise(
-      handlers[ORCHESTRATION_WS_METHODS.repairState](),
-    );
+    const pending = Effect.runPromise(handlers[ORCHESTRATION_WS_METHODS.repairState]());
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(repairsExecuted).toBe(0);
 
@@ -63,9 +56,11 @@ describe("orchestration RPC startup admission", () => {
   it("maps startup failures through the existing RPC boundary", async () => {
     const runtimeStartup = await Effect.runPromise(makeServerRuntimeStartup);
     await Effect.runPromise(
-      runtimeStartup.failCommandReady(new ServerRuntimeStartupError({
-        message: "terminal recovery failed",
-      })),
+      runtimeStartup.failCommandReady(
+        new ServerRuntimeStartupError({
+          message: "terminal recovery failed",
+        }),
+      ),
     );
     const handlers = makeOrchestrationHandlers({
       checkpointDiffQuery: {} as never,

@@ -10,10 +10,7 @@ import { Effect } from "effect";
 import type { OrchestrationEngineShape } from "../orchestration/Services/OrchestrationEngine";
 import type { ExecutionAdapterCoordinatorShape } from "../orchestration/Services/ExecutionAdapterCoordinator";
 import type { ProviderRuntimeIngestionShape } from "../orchestration/Services/ProviderRuntimeIngestion";
-import type {
-  ActiveTerminalTurn,
-  TerminalAgentRuntimeRecord,
-} from "./terminalAgentRuntimeTypes";
+import type { ActiveTerminalTurn, TerminalAgentRuntimeRecord } from "./terminalAgentRuntimeTypes";
 import type { TerminalAgentProviderResumeCursor } from "./terminalAgentProtocol";
 
 export interface RuntimeEventDependencies {
@@ -28,11 +25,8 @@ export interface RuntimeEventDependencies {
   ) => Promise<void>;
 }
 
-export const terminalEventKey = (
-  runtime: TerminalAgentRuntimeRecord,
-  id: string,
-  tag: string,
-) => `terminal:${runtime.runtimeInstanceId}:${id}:${tag}`;
+export const terminalEventKey = (runtime: TerminalAgentRuntimeRecord, id: string, tag: string) =>
+  `terminal:${runtime.runtimeInstanceId}:${id}:${tag}`;
 
 export function assertTerminalHookNotAborted(signal: AbortSignal): void {
   if (signal.aborted) {
@@ -51,9 +45,7 @@ export function terminalProviderEventBase(
     threadId: runtime.threadId,
     createdAt: new Date().toISOString(),
     ...(turn ? { turnId: turn.turnId } : {}),
-    ...(turn?.providerTurnId
-      ? { providerRefs: { providerTurnId: turn.providerTurnId } }
-      : {}),
+    ...(turn?.providerTurnId ? { providerRefs: { providerTurnId: turn.providerTurnId } } : {}),
     terminalRuntimeFence: {
       revision: runtime.revision,
       generation: runtime.generation,
@@ -78,9 +70,7 @@ export async function assertCurrentTerminalRuntime(
 
 export async function updateTerminalRuntimeState(
   dependencies: RuntimeEventDependencies,
-  patch: Parameters<
-    ExecutionAdapterCoordinatorShape["updateTerminalState"]
-  >[0]["patch"],
+  patch: Parameters<ExecutionAdapterCoordinatorShape["updateTerminalState"]>[0]["patch"],
 ): Promise<void> {
   await Effect.runPromise(
     dependencies.coordinator.updateTerminalState({

@@ -40,9 +40,7 @@ describe("terminal agent observed model selection", () => {
       ...current,
       model: "claude-opus-4-7",
     });
-    expect(
-      terminalAgentModelSelectionFromObservation(current, { effort: "max" }),
-    ).toEqual({
+    expect(terminalAgentModelSelectionFromObservation(current, { effort: "max" })).toEqual({
       ...current,
       options: { ...current.options, effort: "max" },
     });
@@ -63,9 +61,7 @@ describe("terminal agent observed model selection", () => {
       ...current,
       model: "openai/gpt-5.1",
     });
-    expect(
-      terminalAgentModelSelectionFromObservation(current, { effort: "xhigh" }),
-    ).toEqual({
+    expect(terminalAgentModelSelectionFromObservation(current, { effort: "xhigh" })).toEqual({
       ...current,
       options: { thinkingLevel: "xhigh" },
     });

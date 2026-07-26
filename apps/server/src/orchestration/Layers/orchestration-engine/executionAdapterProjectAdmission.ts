@@ -34,9 +34,5 @@ export function withProjectStructuredAdmission<A, E, R>(input: {
       ),
     { concurrency: 1 },
   ).pipe(Effect.onError(releaseAcquired));
-  return Effect.acquireUseRelease(
-    acquireAll,
-    () => input.operation,
-    releaseAcquired,
-  );
+  return Effect.acquireUseRelease(acquireAll, () => input.operation, releaseAcquired);
 }

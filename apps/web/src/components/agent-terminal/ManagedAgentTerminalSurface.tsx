@@ -3,12 +3,7 @@ import "@xterm/xterm/css/xterm.css";
 import { TERMINAL_AGENT_SCROLLBACK_ROWS } from "@agent-group/shared/terminalAgent";
 import { useEffect, useRef, useState } from "react";
 
-import {
-  Loader2Icon,
-  RefreshCwIcon,
-  StopFilledIcon,
-  TriangleAlertIcon,
-} from "../../lib/icons";
+import { Loader2Icon, RefreshCwIcon, StopFilledIcon, TriangleAlertIcon } from "../../lib/icons";
 import { Button } from "../ui/button";
 import { DisclosureRegion } from "../ui/DisclosureRegion";
 import { toastManager } from "../ui/toast";
@@ -49,16 +44,12 @@ export function ManagedAgentTerminalSurface() {
   useEffect(() => {
     const mount = mountRef.current;
     if (!visible || !threadId || !setViewportSize || !mount) return;
-    const attached = managedAgentTerminalRuntimeRegistry.attach(
-      threadId,
-      mount,
-      {
-        setViewportSize,
-        onConnectionStatusChange: (status) => {
-          setConnection({ threadId, status });
-        },
+    const attached = managedAgentTerminalRuntimeRegistry.attach(threadId, mount, {
+      setViewportSize,
+      onConnectionStatusChange: (status) => {
+        setConnection({ threadId, status });
       },
-    );
+    });
     retryRef.current = attached.retry;
     setConnection({ threadId, status: attached.status });
     return () => {
@@ -70,16 +61,11 @@ export function ManagedAgentTerminalSurface() {
   if (!controller || !visible) return null;
   const state = controller.state;
   const active = controller.active && state?.authority === "terminal";
-  const status =
-    connection?.threadId === controller.threadId
-      ? connection.status
-      : "connecting";
+  const status = connection?.threadId === controller.threadId ? connection.status : "connecting";
   const restarting = controller.pendingAction === "restart";
   const stopping = controller.pendingAction === "stop";
   const error = state?.error ?? null;
-  const providerLabel = state
-    ? managedTerminalProviderLabel(state.provider)
-    : "Agent";
+  const providerLabel = state ? managedTerminalProviderLabel(state.provider) : "Agent";
   const runtimeStatus = active
     ? managedTerminalStatusLabel(state)
     : controller.pendingAction === "start"
@@ -93,24 +79,18 @@ export function ManagedAgentTerminalSurface() {
       aria-label={`${providerLabel} terminal`}
     >
       <div className="flex min-h-8 shrink-0 items-center gap-2 border-b border-border/70 px-3 py-1 text-xs text-muted-foreground">
-        <span className="shrink-0 font-medium text-foreground">
-          {providerLabel}
-        </span>
+        <span className="shrink-0 font-medium text-foreground">{providerLabel}</span>
         <span className="shrink-0" aria-live="polite">
           {runtimeStatus}
         </span>
-        {state?.model ? (
-          <span className="min-w-0 truncate">{state.model}</span>
-        ) : null}
+        {state?.model ? <span className="min-w-0 truncate">{state.model}</span> : null}
         <span
           className="hidden shrink-0 lg:inline"
           title="Older terminal output is omitted to keep restores fast."
         >
           Latest {TERMINAL_AGENT_SCROLLBACK_ROWS.toLocaleString()} lines
         </span>
-        <span className="ml-auto hidden shrink-0 sm:inline">
-          {connectionLabel(status)}
-        </span>
+        <span className="ml-auto hidden shrink-0 sm:inline">{connectionLabel(status)}</span>
         {active && canRestartManagedTerminal(state) ? (
           <Button
             size="xs"
@@ -202,11 +182,7 @@ export function ManagedAgentTerminalSurface() {
                       : `Restoring up to ${TERMINAL_AGENT_SCROLLBACK_ROWS.toLocaleString()} recent lines...`}
               </span>
               {active && status === "error" ? (
-                <Button
-                  size="xs"
-                  variant="outline"
-                  onClick={() => retryRef.current()}
-                >
+                <Button size="xs" variant="outline" onClick={() => retryRef.current()}>
                   Retry
                 </Button>
               ) : null}

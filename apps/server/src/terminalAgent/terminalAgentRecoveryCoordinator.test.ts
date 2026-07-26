@@ -1,7 +1,4 @@
-import {
-  DEFAULT_SERVER_SETTINGS,
-  ThreadId,
-} from "@agent-group/contracts";
+import { DEFAULT_SERVER_SETTINGS, ThreadId } from "@agent-group/contracts";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -36,10 +33,10 @@ function terminalState(index: number): TerminalAuthorityState {
 describe("managed terminal recovery coordinator", () => {
   it("bounds per-Thread recovery, runs a small parallel batch, and records failures", async () => {
     const states = new Map(
-      Array.from({ length: 6 }, (_, index) => [
-        ThreadId.makeUnsafe(`recovery-${index}`),
-        terminalState(index),
-      ] as const),
+      Array.from(
+        { length: 6 },
+        (_, index) => [ThreadId.makeUnsafe(`recovery-${index}`), terminalState(index)] as const,
+      ),
     );
     let active = 0;
     let maximumActive = 0;
@@ -80,10 +77,10 @@ describe("managed terminal recovery coordinator", () => {
 
   it("returns at the total recovery deadline even when queued work cannot settle", async () => {
     const states = new Map(
-      Array.from({ length: 20 }, (_, index) => [
-        ThreadId.makeUnsafe(`deadline-${index}`),
-        terminalState(index),
-      ] as const),
+      Array.from(
+        { length: 20 },
+        (_, index) => [ThreadId.makeUnsafe(`deadline-${index}`), terminalState(index)] as const,
+      ),
     );
     const startedAt = Date.now();
     const failed: string[] = [];

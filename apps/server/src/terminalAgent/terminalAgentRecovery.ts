@@ -28,16 +28,11 @@ export function activeTerminalRecoveryThreadIds(
   readModel: OrchestrationReadModel,
 ): ReadonlySet<ThreadId> {
   const activeProjects = new Set(
-    readModel.projects
-      .filter((project) => project.deletedAt === null)
-      .map((project) => project.id),
+    readModel.projects.filter((project) => project.deletedAt === null).map((project) => project.id),
   );
   return new Set(
     readModel.threads
-      .filter(
-        (thread) =>
-          thread.deletedAt === null && activeProjects.has(thread.projectId),
-      )
+      .filter((thread) => thread.deletedAt === null && activeProjects.has(thread.projectId))
       .map((thread) => thread.id),
   );
 }
@@ -57,9 +52,7 @@ export function recoverStructuredAuthority(input: {
       return;
     }
     if (!input.threadActive) {
-      yield* input.authority.beginThreadDeletion(input.threadId).pipe(
-        Effect.asVoid,
-      );
+      yield* input.authority.beginThreadDeletion(input.threadId).pipe(Effect.asVoid);
       return;
     }
     if (input.state.status === "restoring") {
@@ -93,10 +86,7 @@ export function recoverTerminalRuntime(input: {
     readonly rows: number;
   }) => Effect.Effect<unknown, TerminalAgentServiceError>;
   readonly ensurePreviousOwnerExited: (
-    owner: Pick<
-      TerminalAuthorityState,
-      "pid" | "ownerIdentity" | "processGroupIdentity"
-    >,
+    owner: Pick<TerminalAuthorityState, "pid" | "ownerIdentity" | "processGroupIdentity">,
   ) => Effect.Effect<void, TerminalAgentServiceError>;
   readonly retirePreviousRuntime: () => Effect.Effect<void>;
   readonly platform?: NodeJS.Platform;
@@ -110,9 +100,7 @@ export function recoverTerminalRuntime(input: {
       persistedProviderEnabled &&
       managedTerminalPlatformSupported(input.platform);
     const ensurePreviousOwnerExited = Effect.gen(function* () {
-      const checked = yield* Effect.result(
-        input.ensurePreviousOwnerExited(input.state),
-      );
+      const checked = yield* Effect.result(input.ensurePreviousOwnerExited(input.state));
       if (Result.isSuccess(checked)) return;
       const current = yield* input.coordinator.getState(input.threadId);
       if (current.adapter === "terminal") {
@@ -120,9 +108,7 @@ export function recoverTerminalRuntime(input: {
           .updateTerminalState({
             threadId: input.threadId,
             revision: current.revision,
-            ...(current.generation !== null
-              ? { generation: current.generation }
-              : {}),
+            ...(current.generation !== null ? { generation: current.generation } : {}),
             patch: {
               status: "error",
               activeTurnId: null,
@@ -148,8 +134,7 @@ export function recoverTerminalRuntime(input: {
       input.resolveTarget(input.threadId, input.settings, true),
     );
     const targetIsMissing =
-      targetResult._tag === "Failure" &&
-      targetResult.failure.reason === "thread-not-found";
+      targetResult._tag === "Failure" && targetResult.failure.reason === "thread-not-found";
     const targetMatchesPersistedProvider =
       targetResult._tag === "Success" &&
       Schema.is(TerminalAgentProvider)(input.state.provider) &&
@@ -164,9 +149,7 @@ export function recoverTerminalRuntime(input: {
       yield* input.coordinator.updateTerminalState({
         threadId: input.threadId,
         revision: input.state.revision,
-        ...(input.state.generation !== null
-          ? { generation: input.state.generation }
-          : {}),
+        ...(input.state.generation !== null ? { generation: input.state.generation } : {}),
         patch: {
           status: "stopped",
           pid: null,
@@ -198,10 +181,7 @@ export function recoverTerminalRuntime(input: {
     }
     let projectionFailed = false;
     if (input.state.activeTurnId !== null || input.state.status === "running") {
-      if (
-        input.state.activeTurnId !== null &&
-        input.state.generation !== null
-      ) {
+      if (input.state.activeTurnId !== null && input.state.generation !== null) {
         const projected = yield* Effect.result(
           input.ingestion.publishTerminal({
             type: "turn.aborted",
@@ -228,9 +208,7 @@ export function recoverTerminalRuntime(input: {
       yield* input.coordinator.updateTerminalState({
         threadId: input.threadId,
         revision: input.state.revision,
-        ...(input.state.generation !== null
-          ? { generation: input.state.generation }
-          : {}),
+        ...(input.state.generation !== null ? { generation: input.state.generation } : {}),
         patch: {
           status: "exited",
           activeTurnId: null,
@@ -246,16 +224,11 @@ export function recoverTerminalRuntime(input: {
           }).catch(() => null),
         );
       }
-    } else if (
-      input.state.status === "starting" ||
-      input.state.status === "checking"
-    ) {
+    } else if (input.state.status === "starting" || input.state.status === "checking") {
       yield* input.coordinator.updateTerminalState({
         threadId: input.threadId,
         revision: input.state.revision,
-        ...(input.state.generation !== null
-          ? { generation: input.state.generation }
-          : {}),
+        ...(input.state.generation !== null ? { generation: input.state.generation } : {}),
         patch: {
           status: "exited",
           activeTurnId: null,
@@ -289,17 +262,14 @@ export function recoverTerminalRuntime(input: {
       return;
     }
     const readModel = yield* input.engine.getReadModel();
-    const thread = readModel.threads.find(
-      (entry) => entry.id === input.threadId,
-    );
+    const thread = readModel.threads.find((entry) => entry.id === input.threadId);
     const restarted = yield* Effect.result(
       input.launch({
         target,
         settings: input.settings,
         operation: "restart",
         providerSessionId:
-          input.state.providerSessionId ??
-          (target.provider === "codex" ? null : randomUUID()),
+          input.state.providerSessionId ?? (target.provider === "codex" ? null : randomUUID()),
         resume: input.state.providerSessionId !== null,
         transcriptBootstrap:
           input.state.providerSessionId === null && thread
@@ -319,9 +289,7 @@ export function recoverTerminalRuntime(input: {
         .updateTerminalState({
           threadId: input.threadId,
           revision: current.revision,
-          ...(current.generation !== null
-            ? { generation: current.generation }
-            : {}),
+          ...(current.generation !== null ? { generation: current.generation } : {}),
           patch: {
             status: "error",
             activeTurnId: null,

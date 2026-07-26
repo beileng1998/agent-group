@@ -7,7 +7,6 @@ import { Effect, PubSub, Ref, Stream } from "effect";
 import * as Semaphore from "effect/Semaphore";
 
 import {
-  ExecutionAdapterAuthority,
   ExecutionAdapterAuthorityError,
   type ExecutionAdapterAuthorityChange,
   type ExecutionAdapterAuthorityShape,
@@ -50,19 +49,19 @@ export function makeExecutionAdapterAuthority(input: {
     const unavailableError = () =>
       authorityError(
         "authority-unavailable",
-        input.authorityUnavailableReason ??
-          "Execution adapter authority is unavailable.",
+        input.authorityUnavailableReason ?? "Execution adapter authority is unavailable.",
       );
     const getState = (threadId: ThreadId) =>
       input.authorityUnavailableReason
         ? Effect.die(unavailableError())
         : Ref.get(runtime).pipe(
-            Effect.map(
-              (current) => current.states.get(threadId) ?? structuredState(),
-            ),
+            Effect.map((current) => current.states.get(threadId) ?? structuredState()),
           );
     const listStates = Ref.get(runtime).pipe(
-      Effect.map((current) => new Map(current.states) as ReadonlyMap<ThreadId, ExecutionAdapterAuthorityState>),
+      Effect.map(
+        (current) =>
+          new Map(current.states) as ReadonlyMap<ThreadId, ExecutionAdapterAuthorityState>,
+      ),
     );
     const releaseClaim = (threadId: ThreadId, claimId: string) =>
       transactionLock.withPermits(1)(
@@ -95,58 +94,61 @@ export function makeExecutionAdapterAuthority(input: {
       input.authorityUnavailableReason
         ? Effect.fail(unavailableError())
         : transactionLock.withPermits(1)(
-        Effect.gen(function* () {
-          const current = yield* Ref.get(runtime);
-          const now = input.now().getTime();
-          const claims = pruneExecutionAdapterClaims(current.claims, now);
-          const state = current.states.get(threadId) ?? structuredState();
-          if (state.adapter !== "structured" || state.status !== "ready") {
-            return yield* Effect.fail(
-              authorityError(
-                state.adapter === "structured" ? "transition-in-progress" : "not-structured",
-                state.adapter === "structured"
-                  ? `Thread ${threadId} is changing execution-adapter state.`
-                  : `Thread ${threadId} is owned by the terminal execution adapter.`,
-              ),
-            );
-          }
-          const existing = claims.get(threadId)?.get(claimId);
-          if (requireExisting && (!existing || !existing.turnStart)) {
-            return yield* Effect.fail(
-              authorityError(
-                "claim-missing",
-                `Structured start claim ${claimId} is not reserved for thread ${threadId}.`,
-              ),
-            );
-          }
-          const byId = new Map(claims.get(threadId));
-          byId.set(claimId, existing
-            ? requireExisting || !turnStart
-              ? {
-                  ...existing,
-                  createdAt: now,
-                  holders: existing.holders + 1,
-                  leased: true,
-                }
-              : existing
-            : {
-                adapter: "structured",
-                createdAt: now,
-                holders: turnStart ? 0 : 1,
-                leased: !turnStart,
-                turnStart,
+            Effect.gen(function* () {
+              const current = yield* Ref.get(runtime);
+              const now = input.now().getTime();
+              const claims = pruneExecutionAdapterClaims(current.claims, now);
+              const state = current.states.get(threadId) ?? structuredState();
+              if (state.adapter !== "structured" || state.status !== "ready") {
+                return yield* Effect.fail(
+                  authorityError(
+                    state.adapter === "structured" ? "transition-in-progress" : "not-structured",
+                    state.adapter === "structured"
+                      ? `Thread ${threadId} is changing execution-adapter state.`
+                      : `Thread ${threadId} is owned by the terminal execution adapter.`,
+                  ),
+                );
+              }
+              const existing = claims.get(threadId)?.get(claimId);
+              if (requireExisting && (!existing || !existing.turnStart)) {
+                return yield* Effect.fail(
+                  authorityError(
+                    "claim-missing",
+                    `Structured start claim ${claimId} is not reserved for thread ${threadId}.`,
+                  ),
+                );
+              }
+              const byId = new Map(claims.get(threadId));
+              byId.set(
+                claimId,
+                existing
+                  ? requireExisting || !turnStart
+                    ? {
+                        ...existing,
+                        createdAt: now,
+                        holders: existing.holders + 1,
+                        leased: true,
+                      }
+                    : existing
+                  : {
+                      adapter: "structured",
+                      createdAt: now,
+                      holders: turnStart ? 0 : 1,
+                      leased: !turnStart,
+                      turnStart,
+                    },
+              );
+              yield* Ref.set(runtime, {
+                ...current,
+                claims: new Map(claims).set(threadId, byId),
               });
-          yield* Ref.set(runtime, {
-            ...current,
-            claims: new Map(claims).set(threadId, byId),
-          });
-          return {
-            threadId,
-            claimId,
-            release: releaseClaim(threadId, claimId),
-          } satisfies StructuredAdmissionClaim;
-        }),
-      );
+              return {
+                threadId,
+                claimId,
+                release: releaseClaim(threadId, claimId),
+              } satisfies StructuredAdmissionClaim;
+            }),
+          );
 
     const acquireTerminal: ExecutionAdapterAuthorityShape["acquireTerminal"] = (
       threadId,
@@ -157,65 +159,65 @@ export function makeExecutionAdapterAuthority(input: {
       input.authorityUnavailableReason
         ? Effect.fail(unavailableError())
         : transactionLock.withPermits(1)(
-        Effect.gen(function* () {
-          const current = yield* Ref.get(runtime);
-          const now = input.now().getTime();
-          const claims = pruneExecutionAdapterClaims(current.claims, now);
-          const state = current.states.get(threadId) ?? structuredState();
-          if (state.adapter !== "terminal") {
-            return yield* Effect.fail(
-              authorityError("not-terminal", `Thread ${threadId} is not terminal.`),
-            );
-          }
-          if (state.revision !== revision) {
-            return yield* Effect.fail(
-              authorityError("stale-revision", `Terminal revision ${revision} is stale.`),
-            );
-          }
-          if (state.generation !== generation) {
-            return yield* Effect.fail(
-              authorityError("stale-generation", "Terminal generation is stale."),
-            );
-          }
-          if (!terminalAuthorityAcceptsOperations(state.status)) {
-            return yield* Effect.fail(
-              authorityError(
-                "transition-in-progress",
-                `Terminal revision ${revision} does not accept operations while ${state.status}.`,
-              ),
-            );
-          }
-          const byId = new Map(claims.get(threadId));
-          const existing = byId.get(claimId);
-          byId.set(
-            claimId,
-            existing
-              ? {
-                  ...existing,
-                  createdAt: now,
-                  holders: existing.holders + 1,
-                }
-              : {
-                  adapter: "terminal",
-                  createdAt: now,
-                  holders: 1,
-                  leased: true,
-                  turnStart: false,
-                },
+            Effect.gen(function* () {
+              const current = yield* Ref.get(runtime);
+              const now = input.now().getTime();
+              const claims = pruneExecutionAdapterClaims(current.claims, now);
+              const state = current.states.get(threadId) ?? structuredState();
+              if (state.adapter !== "terminal") {
+                return yield* Effect.fail(
+                  authorityError("not-terminal", `Thread ${threadId} is not terminal.`),
+                );
+              }
+              if (state.revision !== revision) {
+                return yield* Effect.fail(
+                  authorityError("stale-revision", `Terminal revision ${revision} is stale.`),
+                );
+              }
+              if (state.generation !== generation) {
+                return yield* Effect.fail(
+                  authorityError("stale-generation", "Terminal generation is stale."),
+                );
+              }
+              if (!terminalAuthorityAcceptsOperations(state.status)) {
+                return yield* Effect.fail(
+                  authorityError(
+                    "transition-in-progress",
+                    `Terminal revision ${revision} does not accept operations while ${state.status}.`,
+                  ),
+                );
+              }
+              const byId = new Map(claims.get(threadId));
+              const existing = byId.get(claimId);
+              byId.set(
+                claimId,
+                existing
+                  ? {
+                      ...existing,
+                      createdAt: now,
+                      holders: existing.holders + 1,
+                    }
+                  : {
+                      adapter: "terminal",
+                      createdAt: now,
+                      holders: 1,
+                      leased: true,
+                      turnStart: false,
+                    },
+              );
+              yield* Ref.set(runtime, {
+                ...current,
+                claims: new Map(claims).set(threadId, byId),
+              });
+              return {
+                threadId,
+                claimId,
+                revision,
+                generation,
+                release: releaseClaim(threadId, claimId),
+              };
+            }),
           );
-          yield* Ref.set(runtime, {
-            ...current,
-            claims: new Map(claims).set(threadId, byId),
-          });
-          return {
-            threadId,
-            claimId,
-            revision,
-            generation,
-            release: releaseClaim(threadId, claimId),
-          };
-        }),
-      );
 
     const mutateState = <A extends ExecutionAdapterAuthorityState>(
       threadId: ThreadId,
@@ -227,40 +229,39 @@ export function makeExecutionAdapterAuthority(input: {
       input.authorityUnavailableReason
         ? Effect.fail(unavailableError())
         : transactionLock.withPermits(1)(
-        Effect.uninterruptible(
-          Effect.gen(function* () {
-            const current = yield* Ref.get(runtime);
-            const claims = pruneExecutionAdapterClaims(
-              current.claims,
-              input.now().getTime(),
-            );
-            const state = current.states.get(threadId) ?? structuredState();
-            const result = mutate(state, claims.get(threadId) ?? new Map());
-            if (result instanceof ExecutionAdapterAuthorityError) {
-              return yield* Effect.fail(result);
-            }
-            if (result === state) return result;
-            const states = new Map(current.states).set(threadId, result);
-            yield* input.persist(states).pipe(
-              Effect.mapError((cause) =>
-                authorityError(
-                  "persistence-failed",
-                  `Execution adapter authority could not be persisted: ${
-                    cause instanceof Error ? cause.message : String(cause)
-                  }`,
-                ),
-              ),
-            );
-            yield* Ref.set(runtime, { states, claims });
-            yield* PubSub.publish(changes, {
-              threadId,
-              state: result,
-              changedAt: input.now().toISOString(),
-            });
-            return result;
-          }),
-        ),
-      );
+            Effect.uninterruptible(
+              Effect.gen(function* () {
+                const current = yield* Ref.get(runtime);
+                const claims = pruneExecutionAdapterClaims(current.claims, input.now().getTime());
+                const state = current.states.get(threadId) ?? structuredState();
+                const result = mutate(state, claims.get(threadId) ?? new Map());
+                if (result instanceof ExecutionAdapterAuthorityError) {
+                  return yield* Effect.fail(result);
+                }
+                if (result === state) return result;
+                const states = new Map(current.states).set(threadId, result);
+                yield* input
+                  .persist(states)
+                  .pipe(
+                    Effect.mapError((cause) =>
+                      authorityError(
+                        "persistence-failed",
+                        `Execution adapter authority could not be persisted: ${
+                          cause instanceof Error ? cause.message : String(cause)
+                        }`,
+                      ),
+                    ),
+                  );
+                yield* Ref.set(runtime, { states, claims });
+                yield* PubSub.publish(changes, {
+                  threadId,
+                  state: result,
+                  changedAt: input.now().toISOString(),
+                });
+                return result;
+              }),
+            ),
+          );
 
     const reserveStructuredStart: ExecutionAdapterAuthorityShape["reserveStructuredStart"] = (
       threadId,
@@ -273,10 +274,7 @@ export function makeExecutionAdapterAuthority(input: {
         transactionLock.withPermits(1)(
           Ref.get(runtime).pipe(
             Effect.map((current) => {
-              const claims = pruneExecutionAdapterClaims(
-                current.claims,
-                input.now().getTime(),
-              );
+              const claims = pruneExecutionAdapterClaims(current.claims, input.now().getTime());
               return claims.get(threadId)?.size ?? 0;
             }),
           ),
@@ -333,10 +331,7 @@ export function makeExecutionAdapterAuthority(input: {
             `Thread ${next.threadId} has a terminal turn in flight.`,
           );
         }
-        if (
-          current.status === "starting" ||
-          current.status === "checking"
-        ) {
+        if (current.status === "starting" || current.status === "checking") {
           return authorityError(
             "transition-in-progress",
             `Thread ${next.threadId} is already changing terminal runtimes.`,
@@ -382,9 +377,7 @@ export function makeExecutionAdapterAuthority(input: {
       });
 
     const completeTerminalStart: ExecutionAdapterAuthorityShape["completeTerminalStart"] = (next) =>
-      mutateState(next.threadId, (current) =>
-        completeTerminalStartState(current, next),
-      );
+      mutateState(next.threadId, (current) => completeTerminalStartState(current, next));
 
     const updateTerminal: ExecutionAdapterAuthorityShape["updateTerminal"] = (next) =>
       mutateState(next.threadId, (current, claims) => {

@@ -47,9 +47,7 @@ export interface TerminalRuntimeLaunchDependencies {
     threadId: ThreadId,
     provider: TerminalAgentProvider,
   ) => Promise<unknown>;
-  readonly revalidateLaunchContext: (
-    threadId: ThreadId,
-  ) => Promise<{
+  readonly revalidateLaunchContext: (threadId: ThreadId) => Promise<{
     readonly target: ResolvedTerminalTarget;
     readonly settings: ServerSettings;
   }>;
@@ -155,11 +153,7 @@ async function launchTerminalRuntimeUnlocked(input: {
     engine: input.dependencies.engine,
     ingestion: input.dependencies.ingestion,
     adoptProviderResumeCursor: (cursor, providerSessionId) =>
-      input.dependencies.adoptProviderResumeCursor(
-        runtime,
-        cursor,
-        providerSessionId,
-      ),
+      input.dependencies.adoptProviderResumeCursor(runtime, cursor, providerSessionId),
   });
   const registration = await Effect.runPromise(
     input.dependencies.bridge.register(
@@ -171,10 +165,7 @@ async function launchTerminalRuntimeUnlocked(input: {
   runtime.resumeHook = registration.resume;
   runtime.unregisterHook = registration.unregister;
   const retireReplacedRuntimeDirectory = async () => {
-    if (
-      previousRuntime === undefined ||
-      previousRuntime.runtimeDir === runtime.runtimeDir
-    ) {
+    if (previousRuntime === undefined || previousRuntime.runtimeDir === runtime.runtimeDir) {
       return;
     }
     await retireTerminalRuntimeDirectory(
@@ -192,9 +183,7 @@ async function launchTerminalRuntimeUnlocked(input: {
   let switched: ExecutionAdapterSwitchResult | null = null;
   try {
     const prepare = async (sessions: ReadonlyArray<ProviderSession>) => {
-      const current = await input.dependencies.revalidateLaunchContext(
-        input.target.threadId,
-      );
+      const current = await input.dependencies.revalidateLaunchContext(input.target.threadId);
       assertTerminalLaunchContextUnchanged({
         expectedTarget: input.target,
         expectedSettings: input.settings,
@@ -208,11 +197,10 @@ async function launchTerminalRuntimeUnlocked(input: {
         operation: input.operation,
         providerSessionId: input.providerSessionId,
         resume: input.resume,
-        persistedResumeCursor:
-          await input.dependencies.readPersistedProviderResumeCursor(
-            input.target.threadId,
-            input.target.provider,
-          ),
+        persistedResumeCursor: await input.dependencies.readPersistedProviderResumeCursor(
+          input.target.threadId,
+          input.target.provider,
+        ),
         homeDir: input.dependencies.homeDir,
         codexHomePath: input.settings.providers.codex.homePath,
       });
@@ -230,9 +218,7 @@ async function launchTerminalRuntimeUnlocked(input: {
         settings: input.settings,
       });
       runtime.providerSessionId = continuity.providerSessionId;
-      runtime.transcriptBootstrap = continuity.resume
-        ? null
-        : input.transcriptBootstrap;
+      runtime.transcriptBootstrap = continuity.resume ? null : input.transcriptBootstrap;
       return {
         providerSessionId: continuity.providerSessionId,
         spawn: {
@@ -264,9 +250,7 @@ async function launchTerminalRuntimeUnlocked(input: {
                 threadId: input.target.threadId,
                 provider: input.target.provider,
                 runtimeInstanceId: input.runtimeInstanceId,
-                ...(await prepare(
-                  await input.dependencies.listProviderSessions(),
-                )),
+                ...(await prepare(await input.dependencies.listProviderSessions())),
               }),
             catch: (cause) => cause,
           }).pipe(Effect.flatten),
@@ -302,10 +286,7 @@ async function launchTerminalRuntimeUnlocked(input: {
         ),
       );
       launchAbortCompleted = Result.isSuccess(cleanup);
-      if (
-        Result.isFailure(cleanup) &&
-        cleanup.failure.reason === "host"
-      ) {
+      if (Result.isFailure(cleanup) && cleanup.failure.reason === "host") {
         // The authority/host inspection below retains the new bridge when
         // physical teardown could not be verified.
       }
@@ -314,17 +295,14 @@ async function launchTerminalRuntimeUnlocked(input: {
       input.dependencies.coordinator.getState(input.target.threadId),
     );
     const failedRuntimeOwnsAuthority =
-      authority.adapter === "terminal" &&
-      authority.runtimeInstanceId === input.runtimeInstanceId;
+      authority.adapter === "terminal" && authority.runtimeInstanceId === input.runtimeInstanceId;
     if (failedRuntimeOwnsAuthority) {
       await Effect.runPromise(
         input.dependencies.coordinator
           .updateTerminalState({
             threadId: input.target.threadId,
             revision: authority.revision,
-            ...(authority.generation !== null
-              ? { generation: authority.generation }
-              : {}),
+            ...(authority.generation !== null ? { generation: authority.generation } : {}),
             patch: {
               status: "error",
               error: `Agent Terminal launch failed: ${
@@ -343,9 +321,7 @@ async function launchTerminalRuntimeUnlocked(input: {
       }
       input.dependencies.records.set(input.target.threadId, runtime);
       activate(
-        !launchAbortCompleted &&
-          authority.adapter === "terminal" &&
-          authority.generation !== null,
+        !launchAbortCompleted && authority.adapter === "terminal" && authority.generation !== null,
       );
       previousRuntime?.unregisterHook();
       await retireReplacedRuntimeDirectory();
@@ -365,38 +341,34 @@ async function launchTerminalRuntimeUnlocked(input: {
     if (previousStillOwnsAuthority) {
       input.dependencies.records.set(input.target.threadId, previousRuntime);
       if (runtime.runtimeDir !== previousRuntime.runtimeDir) {
-        await retireTerminalRuntimeDirectory(
-          input.dependencies.stateDir,
-          runtime.runtimeDir,
-        ).catch((cleanupCause) => {
-          throw new AggregateError(
-            [cause, cleanupCause],
-            "Agent Terminal launch and runtime cleanup failed.",
-          );
-        });
+        await retireTerminalRuntimeDirectory(input.dependencies.stateDir, runtime.runtimeDir).catch(
+          (cleanupCause) => {
+            throw new AggregateError(
+              [cause, cleanupCause],
+              "Agent Terminal launch and runtime cleanup failed.",
+            );
+          },
+        );
       }
     } else {
       previousRuntime?.unregisterHook();
       if (input.dependencies.records.get(input.target.threadId) === runtime) {
         input.dependencies.records.delete(input.target.threadId);
       }
-      await retireTerminalRuntimeDirectory(
-        input.dependencies.stateDir,
-        runtime.runtimeDir,
-      ).catch((cleanupCause) => {
-        throw new AggregateError(
-          [cause, cleanupCause],
-          "Agent Terminal launch and runtime cleanup failed.",
-        );
-      });
+      await retireTerminalRuntimeDirectory(input.dependencies.stateDir, runtime.runtimeDir).catch(
+        (cleanupCause) => {
+          throw new AggregateError(
+            [cause, cleanupCause],
+            "Agent Terminal launch and runtime cleanup failed.",
+          );
+        },
+      );
     }
     throw cause;
   }
 }
 
-export const launchTerminalRuntime = (
-  input: Parameters<typeof launchTerminalRuntimeUnlocked>[0],
-) =>
+export const launchTerminalRuntime = (input: Parameters<typeof launchTerminalRuntimeUnlocked>[0]) =>
   Effect.runPromise(
     withProjectRuntimeGate(
       input.target.coordinates.groupId,

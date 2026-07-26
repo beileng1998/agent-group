@@ -2,11 +2,7 @@
 // Purpose: Classify orchestration commands that belong to structured runtime.
 // Layer: Orchestration command admission
 
-import type {
-  OrchestrationCommand,
-  ProjectId,
-  ThreadId,
-} from "@agent-group/contracts";
+import type { OrchestrationCommand, ProjectId, ThreadId } from "@agent-group/contracts";
 
 export type ExecutionAdapterCommandAdmission =
   | {

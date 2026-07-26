@@ -55,9 +55,7 @@ function boundedString(value: unknown, maxLength: number): string | undefined {
   return trimmed || undefined;
 }
 
-export function parseTerminalAgentBridgeRequest(
-  value: unknown,
-): TerminalAgentBridgeRequest {
+export function parseTerminalAgentBridgeRequest(value: unknown): TerminalAgentBridgeRequest {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("Invalid bridge request.");
   }
@@ -74,9 +72,7 @@ export function parseTerminalAgentBridgeRequest(
   };
 }
 
-export function declaredBodyBytes(
-  request: http.IncomingMessage,
-): number | undefined {
+export function declaredBodyBytes(request: http.IncomingMessage): number | undefined {
   const header = request.headers["content-length"];
   if (header === undefined) return undefined;
   if (!/^(0|[1-9]\d*)$/.test(header)) throw new Error("Invalid content length.");
@@ -87,9 +83,7 @@ export function declaredBodyBytes(
   return bytes;
 }
 
-export async function discardRequestBody(
-  request: http.IncomingMessage,
-): Promise<void> {
+export async function discardRequestBody(request: http.IncomingMessage): Promise<void> {
   if (request.complete) return;
   await new Promise<void>((resolve) => {
     const finish = () => resolve();

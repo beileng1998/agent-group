@@ -14,9 +14,7 @@ export const ExecutionAdapterAuthorityLive = Layer.effect(
   Effect.gen(function* () {
     const config = yield* ServerConfig;
     const filePath = executionAdapterAuthorityPath(config.stateDir);
-    const loaded = yield* Effect.promise(() =>
-      loadExecutionAdapterAuthority(filePath),
-    );
+    const loaded = yield* Effect.promise(() => loadExecutionAdapterAuthority(filePath));
     if (loaded.cause !== null) {
       yield* Effect.logError("execution adapter authority snapshot was quarantined", {
         cause: loaded.cause,
@@ -29,9 +27,7 @@ export const ExecutionAdapterAuthorityLive = Layer.effect(
         ? { authorityUnavailableReason: loaded.authorityUnavailableReason }
         : {}),
       persist: (states) =>
-        Effect.tryPromise(() =>
-          writeExecutionAdapterAuthority(filePath, new Map(states)),
-        ),
+        Effect.tryPromise(() => writeExecutionAdapterAuthority(filePath, new Map(states))),
       now: () => new Date(),
     });
   }),

@@ -35,8 +35,10 @@ export interface ClaudeHookInput {
   readonly raw: Readonly<Record<string, unknown>>;
 }
 
-export interface ClaudeHookBridgeRequest
-  extends Omit<TerminalAgentBridgeRequest, "input" | "mode"> {
+export interface ClaudeHookBridgeRequest extends Omit<
+  TerminalAgentBridgeRequest,
+  "input" | "mode"
+> {
   readonly input: unknown;
   readonly mode?: "status-line";
 }
@@ -57,9 +59,7 @@ function record(value: unknown): Record<string, unknown> | undefined {
     : undefined;
 }
 
-export function parseClaudeHookBridgeRequest(
-  value: unknown,
-): ClaudeHookBridgeRequest {
+export function parseClaudeHookBridgeRequest(value: unknown): ClaudeHookBridgeRequest {
   const request = record(value);
   const runtimeInstanceId = optionalBoundedHookString(
     request?.runtimeInstanceId,
@@ -81,9 +81,7 @@ export function parseClaudeHookBridgeRequest(
     runtimeInstanceId,
     input: request.input,
     ...(eventId ? { eventId } : {}),
-    ...(request.mode === "status-line"
-      ? { mode: "status-line" as const }
-      : {}),
+    ...(request.mode === "status-line" ? { mode: "status-line" as const } : {}),
   };
 }
 
@@ -104,10 +102,7 @@ export function parseClaudeHookInput(
   const sessionId = providerString(input.session_id, "session id");
   const source = providerString(input.source, "source");
   const model = providerString(input.model, "model");
-  const permissionMode = providerString(
-    input.permission_mode,
-    "permission mode",
-  );
+  const permissionMode = providerString(input.permission_mode, "permission mode");
   const agentId = providerString(input.agent_id, "agent id");
   const agentType = providerString(input.agent_type, "agent type");
   const error = providerString(input.error, "error");
@@ -129,12 +124,8 @@ export function parseClaudeHookInput(
     ...(error ? { error } : {}),
     ...(errorDetails ? { error_details: errorDetails } : {}),
     ...(reason ? { reason } : {}),
-    ...(Array.isArray(input.background_tasks)
-      ? { background_tasks: input.background_tasks }
-      : {}),
-    ...(Array.isArray(input.session_crons)
-      ? { session_crons: input.session_crons }
-      : {}),
+    ...(Array.isArray(input.background_tasks) ? { background_tasks: input.background_tasks } : {}),
+    ...(Array.isArray(input.session_crons) ? { session_crons: input.session_crons } : {}),
     ...(effortLevel ? { effort: { level: effortLevel } } : {}),
     raw: input,
   };
@@ -147,14 +138,8 @@ export function parseClaudeStatusLine(input: ClaudeHookInput): {
 } {
   const model = record(input.raw.model);
   const modelId = providerString(model?.id, "status model");
-  const effortLevel = providerString(
-    record(input.raw.effort)?.level,
-    "status effort",
-  );
-  const permissionMode = providerString(
-    input.raw.permission_mode,
-    "status permission mode",
-  );
+  const effortLevel = providerString(record(input.raw.effort)?.level, "status effort");
+  const permissionMode = providerString(input.raw.permission_mode, "status permission mode");
   return {
     ...(modelId ? { model: modelId } : {}),
     ...(effortLevel ? { effort: effortLevel } : {}),

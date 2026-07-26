@@ -41,9 +41,7 @@ export function appSettingsPatchToServerSettingsPatch(
     serverPatch.enableProviderUpdateChecks = Boolean(patch.enableProviderUpdateChecks);
   }
   if (hasOwn(patch, "enableManagedAgentTerminal")) {
-    serverPatch.enableManagedAgentTerminal = Boolean(
-      patch.enableManagedAgentTerminal,
-    );
+    serverPatch.enableManagedAgentTerminal = Boolean(patch.enableManagedAgentTerminal);
   }
   if (patch.defaultThreadEnvMode === "local" || patch.defaultThreadEnvMode === "worktree") {
     serverPatch.defaultThreadEnvMode = patch.defaultThreadEnvMode;

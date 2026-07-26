@@ -1,7 +1,4 @@
-import type {
-  TerminalAgentAttachedEvent,
-  TerminalAgentEvent,
-} from "@agent-group/contracts";
+import type { TerminalAgentAttachedEvent, TerminalAgentEvent } from "@agent-group/contracts";
 import type { Terminal, IDisposable } from "@xterm/xterm";
 
 import { readNativeApi } from "../../nativeApi";
@@ -17,11 +14,7 @@ import {
 import { ManagedTerminalSnapshotGuard } from "./managedTerminalSnapshotGuard";
 import { isTerminalQueryReply } from "./terminalQueryReply";
 
-export type ManagedTerminalConnectionStatus =
-  | "connecting"
-  | "ready"
-  | "reconnecting"
-  | "error";
+export type ManagedTerminalConnectionStatus = "connecting" | "ready" | "reconnecting" | "error";
 
 type AttachmentFence = {
   revision: number;
@@ -45,30 +38,22 @@ export class ManagedAgentTerminalTransport {
   constructor(
     private readonly threadId: string,
     private readonly terminal: Terminal,
-    private readonly onStatusChange: (
-      status: ManagedTerminalConnectionStatus,
-    ) => void,
+    private readonly onStatusChange: (status: ManagedTerminalConnectionStatus) => void,
     private readonly onReady: () => void,
   ) {
-    this.inputQueue = new ManagedTerminalInputQueue(
-      (fence, data) => {
-        const api = readNativeApi();
-        if (!api?.terminalAgent) {
-          return Promise.reject(new Error("Managed Agent Terminal is unavailable."));
-        }
-        return api.terminalAgent.write({
-          threadId: this.threadId,
-          revision: fence.revision,
-          generation: fence.generation,
-          data,
-        });
-      },
-      this.requestSnapshotResync,
-    );
-    this.outputPump = new ManagedTerminalOutputPump(
-      terminal,
-      this.requestSnapshotResync,
-    );
+    this.inputQueue = new ManagedTerminalInputQueue((fence, data) => {
+      const api = readNativeApi();
+      if (!api?.terminalAgent) {
+        return Promise.reject(new Error("Managed Agent Terminal is unavailable."));
+      }
+      return api.terminalAgent.write({
+        threadId: this.threadId,
+        revision: fence.revision,
+        generation: fence.generation,
+        data,
+      });
+    }, this.requestSnapshotResync);
+    this.outputPump = new ManagedTerminalOutputPump(terminal, this.requestSnapshotResync);
     this.installInput();
     this.subscribe();
   }
@@ -99,10 +84,7 @@ export class ManagedAgentTerminalTransport {
         rows,
       })
       .catch(() => {
-        if (
-          this.lastSentSize?.cols === cols &&
-          this.lastSentSize.rows === rows
-        ) {
+        if (this.lastSentSize?.cols === cols && this.lastSentSize.rows === rows) {
           this.lastSentSize = null;
         }
       });
@@ -160,18 +142,13 @@ export class ManagedAgentTerminalTransport {
         type: "error",
         title: "Terminal stream unavailable",
         description:
-          error instanceof Error
-            ? error.message
-            : "The terminal stream could not be opened.",
+          error instanceof Error ? error.message : "The terminal stream could not be opened.",
       });
     }
   }
 
   private readonly handleEvent = (event: TerminalAgentEvent) => {
-    if (
-      this.disposed ||
-      managedTerminalEventThreadId(event) !== this.threadId
-    ) {
+    if (this.disposed || managedTerminalEventThreadId(event) !== this.threadId) {
       return;
     }
     if (event.type === "state") {
@@ -194,10 +171,7 @@ export class ManagedAgentTerminalTransport {
       });
       if (decision === "resync") {
         this.requestSnapshotResync();
-      } else if (
-        decision === "write" &&
-        this.outputPump.enqueue(event.data, () => undefined)
-      ) {
+      } else if (decision === "write" && this.outputPump.enqueue(event.data, () => undefined)) {
         fence.acceptedOutputSequence = event.seq;
       }
       return;
@@ -231,23 +205,19 @@ export class ManagedAgentTerminalTransport {
       state.status === "exited" ||
       state.status === "unsupported" ||
       (this.fence &&
-        (state.revision !== this.fence.revision ||
-          state.generation !== this.fence.generation))
+        (state.revision !== this.fence.revision || state.generation !== this.fence.generation))
     ) {
       this.fence = null;
       this.inputQueue.setFence(null);
       this.outputPump.invalidate();
       this.setStatus(
-        state.status === "exited" || state.status === "unsupported"
-          ? "error"
-          : "connecting",
+        state.status === "exited" || state.status === "unsupported" ? "error" : "connecting",
       );
     }
   }
 
   private attachSnapshot(event: TerminalAgentAttachedEvent): void {
-    const restoredAnsi =
-      `\u001bc${buildManagedTerminalSnapshotAnsi(event.snapshot)}`;
+    const restoredAnsi = `\u001bc${buildManagedTerminalSnapshotAnsi(event.snapshot)}`;
     const decision = this.snapshotGuard.evaluate(
       { revision: event.revision, generation: event.generation },
       restoredAnsi,

@@ -1,8 +1,4 @@
-import {
-  type CommandId,
-  type OrchestrationCommand,
-  type ThreadId,
-} from "@agent-group/contracts";
+import { type CommandId, type OrchestrationCommand, type ThreadId } from "@agent-group/contracts";
 import { Effect, Exit } from "effect";
 
 import type { OrchestrationEngineShape } from "../Services/OrchestrationEngine.ts";
@@ -56,9 +52,7 @@ export function makeProviderTurnQueueDrain(input: {
         commandId: input.serverCommandId("dispatch-queued-turn"),
         threadId,
         messageId: payload.messageId,
-        ...(payload.modelSelection !== undefined
-          ? { modelSelection: payload.modelSelection }
-          : {}),
+        ...(payload.modelSelection !== undefined ? { modelSelection: payload.modelSelection } : {}),
         ...(payload.providerOptions !== undefined
           ? { providerOptions: payload.providerOptions }
           : {}),
@@ -84,10 +78,6 @@ export function makeProviderTurnQueueDrain(input: {
               }),
         ),
       );
-    }).pipe(
-      Effect.ensuring(
-        Effect.sync(() => input.turnQueue.finishDrain(threadId)),
-      ),
-    );
+    }).pipe(Effect.ensuring(Effect.sync(() => input.turnQueue.finishDrain(threadId))));
   });
 }

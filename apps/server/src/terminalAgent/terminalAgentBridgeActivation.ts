@@ -12,10 +12,7 @@ function interruptedError(): Error {
   return new Error("Agent Terminal hook request was interrupted.");
 }
 
-function awaitActivation(
-  activation: Promise<boolean>,
-  signal: AbortSignal,
-): Promise<boolean> {
+function awaitActivation(activation: Promise<boolean>, signal: AbortSignal): Promise<boolean> {
   if (signal.aborted) return Promise.reject(interruptedError());
   return new Promise<boolean>((resolve, reject) => {
     const abort = () => {

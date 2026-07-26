@@ -9,16 +9,9 @@ import { abortTerminalTurnForTeardown } from "./terminalAgentTeardown";
 export function monitorTerminalAgentExits(input: {
   readonly coordinator: ExecutionAdapterCoordinatorShape;
   readonly records: Map<ThreadId, TerminalAgentRuntimeRecord>;
-  readonly eventDependencies: (
-    runtime: TerminalAgentRuntimeRecord,
-  ) => RuntimeEventDependencies;
-  readonly retireRuntime: (
-    runtime: TerminalAgentRuntimeRecord,
-  ) => Effect.Effect<void>;
-  readonly serialize: (
-    threadId: ThreadId,
-    operation: Effect.Effect<void>,
-  ) => Effect.Effect<void>;
+  readonly eventDependencies: (runtime: TerminalAgentRuntimeRecord) => RuntimeEventDependencies;
+  readonly retireRuntime: (runtime: TerminalAgentRuntimeRecord) => Effect.Effect<void>;
+  readonly serialize: (threadId: ThreadId, operation: Effect.Effect<void>) => Effect.Effect<void>;
 }) {
   return Stream.runForEach(input.coordinator.streamChanges, (change) =>
     input.serialize(
@@ -28,10 +21,7 @@ export function monitorTerminalAgentExits(input: {
         if (!runtime) return;
         if (change.state.adapter === "structured") {
           const current = yield* input.coordinator.getState(change.threadId);
-          if (
-            current.adapter !== "structured" ||
-            input.records.get(change.threadId) !== runtime
-          ) {
+          if (current.adapter !== "structured" || input.records.get(change.threadId) !== runtime) {
             return;
           }
           runtime.unregisterHook();

@@ -6,20 +6,11 @@ import {
 } from "@agent-group/contracts";
 import { ChildProcessSpawner } from "effect/unstable/process";
 
-import {
-  claudeTerminalRuntimeDir,
-  prepareClaudeTerminalLaunch,
-} from "./claudeTerminalDriver";
+import { claudeTerminalRuntimeDir, prepareClaudeTerminalLaunch } from "./claudeTerminalDriver";
 import { probeClaudeTerminal } from "./claudeTerminalProbe";
-import {
-  codexTerminalRuntimeDir,
-  prepareCodexTerminalLaunch,
-} from "./codexTerminalDriver";
+import { codexTerminalRuntimeDir, prepareCodexTerminalLaunch } from "./codexTerminalDriver";
 import { probeCodexTerminal } from "./codexTerminalProbe";
-import {
-  piTerminalRuntimeDir,
-  preparePiTerminalLaunch,
-} from "./piTerminalDriver";
+import { piTerminalRuntimeDir, preparePiTerminalLaunch } from "./piTerminalDriver";
 import { probePiTerminal } from "./piTerminalProbe";
 import {
   managedTerminalProviderDescriptor,
@@ -27,10 +18,7 @@ import {
   type TerminalAgentProviderResumeCursor,
 } from "./terminalAgentProtocol";
 
-type ManagedModelSelection = Extract<
-  ModelSelection,
-  { provider: TerminalAgentProvider }
->;
+type ManagedModelSelection = Extract<ModelSelection, { provider: TerminalAgentProvider }>;
 
 function assertProviderMatches(
   provider: TerminalAgentProvider,
@@ -51,10 +39,7 @@ export function terminalAgentRuntimeDir(input: {
     case "codex":
       return codexTerminalRuntimeDir(input.stateDir, input.threadId);
     case "claudeAgent":
-      return claudeTerminalRuntimeDir(
-        input.stateDir,
-        input.runtimeInstanceId,
-      );
+      return claudeTerminalRuntimeDir(input.stateDir, input.runtimeInstanceId);
     case "pi":
       return piTerminalRuntimeDir(input.stateDir, input.runtimeInstanceId);
   }
@@ -88,11 +73,7 @@ export function probeTerminalAgent(input: {
     case "claudeAgent":
       return probeClaudeTerminal(executable, input.childProcessSpawner);
     case "pi":
-      return probePiTerminal(
-        executable,
-        input.modelSelection,
-        input.childProcessSpawner,
-      );
+      return probePiTerminal(executable, input.modelSelection, input.childProcessSpawner);
   }
 }
 
@@ -130,8 +111,7 @@ export async function prepareTerminalAgentLaunch(input: {
           : {}),
         ...(input.settings.providers.codex.homePath.trim()
           ? {
-              codexHomePath:
-                input.settings.providers.codex.homePath.trim(),
+              codexHomePath: input.settings.providers.codex.homePath.trim(),
             }
           : {}),
       });
@@ -154,8 +134,7 @@ export async function prepareTerminalAgentLaunch(input: {
       const resumeSessionPath =
         typeof input.providerResumeCursor === "string"
           ? input.providerResumeCursor.trim() || undefined
-          : input.providerResumeCursor &&
-              "path" in input.providerResumeCursor
+          : input.providerResumeCursor && "path" in input.providerResumeCursor
             ? input.providerResumeCursor.path
             : undefined;
       if (!resumeSessionPath && !input.providerSessionId) {
@@ -165,12 +144,8 @@ export async function prepareTerminalAgentLaunch(input: {
         stateDir: input.stateDir,
         workspaceRoot: input.workspaceRoot,
         runtimeInstanceId: input.runtimeInstanceId,
-        ...(input.providerSessionId
-          ? { providerSessionId: input.providerSessionId }
-          : {}),
-        ...(resumeSessionPath
-          ? { resumeSessionPath }
-          : {}),
+        ...(input.providerSessionId ? { providerSessionId: input.providerSessionId } : {}),
+        ...(resumeSessionPath ? { resumeSessionPath } : {}),
         hookEndpoint: input.hookEndpoint,
         hookToken: input.hookToken,
         executable,

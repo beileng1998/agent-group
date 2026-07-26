@@ -2,10 +2,7 @@ import { Effect, Option } from "effect";
 import { ChildProcessSpawner } from "effect/unstable/process";
 
 import { buildCodexProcessEnv } from "../codexProcessEnv";
-import {
-  compareCodexCliVersions,
-  parseCodexCliVersion,
-} from "../provider/codexCliVersion";
+import { compareCodexCliVersions, parseCodexCliVersion } from "../provider/codexCliVersion";
 import { parseAuthStatusFromOutput } from "../provider/Layers/provider-health/providerAuthParsing";
 import { runCodexCommand } from "../provider/Layers/provider-health/providerCommandRunner";
 import type { TerminalAgentCapabilitySnapshot } from "./terminalAgentProtocol";
@@ -50,25 +47,14 @@ export function inspectCodexTerminalProbe(input: {
 }): TerminalAgentCapabilitySnapshot {
   const versionOutput = output(input.version);
   const version = parseCodexCliVersion(versionOutput);
-  if (
-    input.version.code !== 0 ||
-    !version ||
-    !/\bcodex(?:-cli)?\b/iu.test(versionOutput)
-  ) {
+  if (input.version.code !== 0 || !version || !/\bcodex(?:-cli)?\b/iu.test(versionOutput)) {
     throw new Error("The configured executable is not a supported Codex CLI.");
   }
-  if (
-    compareCodexCliVersions(version, CODEX_TERMINAL_BASELINE_VERSION) < 0
-  ) {
-    throw new Error(
-      `Codex Terminal requires CLI ${CODEX_TERMINAL_BASELINE_VERSION} or newer.`,
-    );
+  if (compareCodexCliVersions(version, CODEX_TERMINAL_BASELINE_VERSION) < 0) {
+    throw new Error(`Codex Terminal requires CLI ${CODEX_TERMINAL_BASELINE_VERSION} or newer.`);
   }
 
-  const missingRootOption = missingCliOption(
-    output(input.help),
-    REQUIRED_ROOT_OPTIONS,
-  );
+  const missingRootOption = missingCliOption(output(input.help), REQUIRED_ROOT_OPTIONS);
   if (input.help.code !== 0 || missingRootOption) {
     throw new Error(
       missingRootOption
@@ -76,10 +62,7 @@ export function inspectCodexTerminalProbe(input: {
         : "Codex CLI capability discovery failed.",
     );
   }
-  const missingResumeOption = missingCliOption(
-    output(input.resumeHelp),
-    REQUIRED_ROOT_OPTIONS,
-  );
+  const missingResumeOption = missingCliOption(output(input.resumeHelp), REQUIRED_ROOT_OPTIONS);
   if (
     input.resumeHelp.code !== 0 ||
     !/\bcodex resume\b/iu.test(output(input.resumeHelp)) ||
@@ -93,10 +76,7 @@ export function inspectCodexTerminalProbe(input: {
   }
 
   const featureOutput = output(input.features);
-  if (
-    input.features.code !== 0 ||
-    !/^hooks\s+\S+\s+true\s*$/imu.test(featureOutput)
-  ) {
+  if (input.features.code !== 0 || !/^hooks\s+\S+\s+true\s*$/imu.test(featureOutput)) {
     throw new Error("Codex hooks are unavailable or disabled.");
   }
 
@@ -123,15 +103,11 @@ export function probeCodexTerminal(
   });
   const run = (args: ReadonlyArray<string>) =>
     runCodexCommand(args, executable, env).pipe(
-      Effect.provideService(
-        ChildProcessSpawner.ChildProcessSpawner,
-        childProcessSpawner,
-      ),
+      Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, childProcessSpawner),
       Effect.timeoutOption("5 seconds"),
       Effect.flatMap(
         Option.match({
-          onNone: () =>
-            Effect.fail(new Error("Codex CLI capability probe timed out.")),
+          onNone: () => Effect.fail(new Error("Codex CLI capability probe timed out.")),
           onSome: Effect.succeed,
         }),
       ),
@@ -150,9 +126,7 @@ export function probeCodexTerminal(
     return yield* Effect.try({
       try: () => inspectCodexTerminalProbe(results),
       catch: (cause) =>
-        cause instanceof Error
-          ? cause
-          : new Error("Codex CLI capability probe failed."),
+        cause instanceof Error ? cause : new Error("Codex CLI capability probe failed."),
     });
   });
 }

@@ -25,10 +25,9 @@ describe("TerminalAgentBridgeLive", () => {
               expect(fs.existsSync(endpoint)).toBe(false);
             }
 
-            const registration = yield* bridge.register(
-              "runtime-lazy-start",
-              async () => ({ ok: true }),
-            );
+            const registration = yield* bridge.register("runtime-lazy-start", async () => ({
+              ok: true,
+            }));
             if (process.platform !== "win32") {
               expect(fs.existsSync(endpoint)).toBe(true);
             }

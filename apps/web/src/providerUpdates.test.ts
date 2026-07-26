@@ -58,6 +58,7 @@ function serverSettings(overrides: Partial<ServerSettings["providers"]> = {}): S
   return {
     enableAssistantStreaming: false,
     enableProviderUpdateChecks: true,
+    enableManagedAgentTerminal: false,
     defaultThreadEnvMode: "local",
     addProjectBaseDirectory: "",
     textGenerationModelSelection: { provider: "codex", model: "gpt-5.4-mini" },

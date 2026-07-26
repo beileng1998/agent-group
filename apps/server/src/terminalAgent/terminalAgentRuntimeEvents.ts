@@ -8,15 +8,9 @@ import type {
   TerminalAgentBridgeHandler,
   TerminalAgentBridgePromise,
 } from "./terminalAgentBridgeOperation";
-import type {
-  TerminalAgentEvent,
-  TerminalAgentHookResponse,
-} from "./terminalAgentProtocol";
+import type { TerminalAgentEvent, TerminalAgentHookResponse } from "./terminalAgentProtocol";
 import { observeTerminalAgentModel } from "./terminalAgentModelObservation";
-import {
-  acceptTerminalPrompt,
-  handleTerminalPrompt,
-} from "./terminalAgentPromptEvents";
+import { acceptTerminalPrompt, handleTerminalPrompt } from "./terminalAgentPromptEvents";
 import {
   assertTerminalHookNotAborted,
   observeTerminalMessage,
@@ -26,9 +20,7 @@ import {
   terminalProviderEventBase,
   updateTerminalRuntimeState,
 } from "./terminalAgentRuntimeEventSupport";
-import {
-  retireTerminalTurnContexts,
-} from "./terminalAgentTurnCleanup";
+import { retireTerminalTurnContexts } from "./terminalAgentTurnCleanup";
 import type { TerminalAgentRuntimeRecord } from "./terminalAgentRuntimeTypes";
 
 export type { RuntimeEventDependencies };
@@ -80,7 +72,7 @@ async function settleTurn(
           ...terminalProviderEventBase(dependencies.runtime, id, turn),
           type: "turn.aborted",
           payload: { reason },
-      },
+        },
   );
   if (signal) assertTerminalHookNotAborted(signal);
   if (turn.tracksAgentGroupContext) {
@@ -174,15 +166,7 @@ async function handleEvent(
       );
       return {};
     case "turn_failure":
-      await settleTurn(
-        dependencies,
-        id,
-        false,
-        undefined,
-        event.message,
-        true,
-        signal,
-      );
+      await settleTurn(dependencies, id, false, undefined, event.message, true, signal);
       return {};
     case "runtime_state":
       return {
@@ -190,15 +174,7 @@ async function handleEvent(
       };
     case "session_compact":
       if (!event.willRetry) {
-        await settleTurn(
-          dependencies,
-          id,
-          false,
-          undefined,
-          event.reason,
-          true,
-          signal,
-        );
+        await settleTurn(dependencies, id, false, undefined, event.reason, true, signal);
       }
       return dependencies.runtime.activeTurn
         ? { additionalContext: dependencies.runtime.activeTurn.deliveredContext }
@@ -222,15 +198,7 @@ async function handleEvent(
       dependencies.runtime.handshakeReceived = false;
       return {};
     case "unmanaged_input":
-      await settleTurn(
-        dependencies,
-        id,
-        false,
-        undefined,
-        event.message,
-        true,
-        signal,
-      );
+      await settleTurn(dependencies, id, false, undefined, event.message, true, signal);
       await updateTerminalRuntimeState(dependencies, {
         status: "context-blocked",
         activeTurnId: null,
@@ -254,12 +222,7 @@ export function makeTerminalAgentBridgeHandler(
           request.input && typeof request.input === "object"
             ? (request.input as Record<string, unknown>)
             : {};
-        return await acceptTerminalPrompt(
-          dependencies,
-          id,
-          input.prompt,
-          activeSignal,
-        );
+        return await acceptTerminalPrompt(dependencies, id, input.prompt, activeSignal);
       }
       const event = parseTerminalAgentBridgeEvent(dependencies.runtime, request);
       const eventId = event.eventId ?? id;
@@ -267,12 +230,7 @@ export function makeTerminalAgentBridgeHandler(
       if (cached) return cached;
       let response: TerminalAgentHookResponse;
       try {
-        response = await handleEvent(
-          dependencies,
-          event,
-          eventId,
-          activeSignal,
-        );
+        response = await handleEvent(dependencies, event, eventId, activeSignal);
       } catch (cause) {
         if (event.type === "session_start" && !activeSignal.aborted) {
           await updateTerminalRuntimeState(dependencies, {

@@ -97,9 +97,7 @@ export interface NativeApiWorkspaceDomains {
     get: (input: TerminalAgentGetInput) => Promise<TerminalAgentRuntimeState>;
     write: (input: TerminalAgentWriteInput) => Promise<void>;
     resize: (input: TerminalAgentResizeInput) => Promise<void>;
-    switchToChat: (
-      input: TerminalAgentSwitchToChatInput,
-    ) => Promise<TerminalAgentRuntimeState>;
+    switchToChat: (input: TerminalAgentSwitchToChatInput) => Promise<TerminalAgentRuntimeState>;
     restart: (input: TerminalAgentRestartInput) => Promise<TerminalAgentRuntimeState>;
     subscribe: (
       input: TerminalAgentSubscribeInput,

@@ -1,24 +1,16 @@
-import {
-  type ServerSettings,
-  TerminalAgentProvider,
-  type ThreadId,
-} from "@agent-group/contracts";
+import { type ServerSettings, TerminalAgentProvider, type ThreadId } from "@agent-group/contracts";
 import { Effect, Schema } from "effect";
 
 import type { OrchestrationEngineShape } from "../orchestration/Services/OrchestrationEngine";
-import {
-  TerminalAgentServiceError,
-} from "./Services/TerminalAgentService";
+import { TerminalAgentServiceError } from "./Services/TerminalAgentService";
 import type {
   ManagedTerminalModelSelection,
   ResolvedTerminalTarget,
 } from "./terminalAgentRuntimeTypes";
 import { managedTerminalPlatformSupported } from "./terminalAgentServiceErrors";
 
-const failure = (
-  reason: TerminalAgentServiceError["reason"],
-  message: string,
-) => new TerminalAgentServiceError({ reason, message });
+const failure = (reason: TerminalAgentServiceError["reason"], message: string) =>
+  new TerminalAgentServiceError({ reason, message });
 
 export function resolveTerminalTarget(input: {
   readonly engine: OrchestrationEngineShape;
@@ -29,22 +21,14 @@ export function resolveTerminalTarget(input: {
 }): Effect.Effect<ResolvedTerminalTarget, TerminalAgentServiceError> {
   return input.engine.getReadModel().pipe(
     Effect.flatMap((readModel) => {
-      if (
-        !input.allowDisabled &&
-        !managedTerminalPlatformSupported(input.platform)
-      ) {
+      if (!input.allowDisabled && !managedTerminalPlatformSupported(input.platform)) {
         return Effect.fail(
-          failure(
-            "unsupported-provider",
-            "Managed Agent Terminal is unavailable on Windows.",
-          ),
+          failure("unsupported-provider", "Managed Agent Terminal is unavailable on Windows."),
         );
       }
       const thread = readModel.threads.find((entry) => entry.id === input.threadId);
       if (!thread || thread.deletedAt !== null) {
-        return Effect.fail(
-          failure("thread-not-found", `Thread ${input.threadId} was not found.`),
-        );
+        return Effect.fail(failure("thread-not-found", `Thread ${input.threadId} was not found.`));
       }
       const project = readModel.projects.find((entry) => entry.id === thread.projectId);
       if (!project || project.deletedAt !== null) {
@@ -55,8 +39,7 @@ export function resolveTerminalTarget(input: {
       const modelSelection = thread.modelSelection;
       if (
         !Schema.is(TerminalAgentProvider)(modelSelection.provider) ||
-        (!input.allowDisabled &&
-          !input.settings.providers[modelSelection.provider].enabled)
+        (!input.allowDisabled && !input.settings.providers[modelSelection.provider].enabled)
       ) {
         return Effect.fail(
           failure(

@@ -7,10 +7,7 @@ import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { preparePiTerminalLaunch } from "./piTerminalDriver";
-import {
-  parsePiTerminalEvent,
-  type PiTerminalBridgeResponse,
-} from "./piTerminalProtocol";
+import { parsePiTerminalEvent, type PiTerminalBridgeResponse } from "./piTerminalProtocol";
 
 type Handler = (...args: any[]) => unknown;
 
@@ -79,9 +76,7 @@ describe("Pi managed terminal extension", () => {
   afterEach(async () => {
     await Promise.all(servers.splice(0).map(close));
     await Promise.all(
-      tempDirs.splice(0).map((directory) =>
-        fs.rm(directory, { recursive: true, force: true }),
-      ),
+      tempDirs.splice(0).map((directory) => fs.rm(directory, { recursive: true, force: true })),
     );
     for (const name of [
       "AGENT_GROUP_HOOK_ENDPOINT",
@@ -96,9 +91,7 @@ describe("Pi managed terminal extension", () => {
   });
 
   it("injects context and fails every unmanaged path closed", async () => {
-    const stateDir = await fs.mkdtemp(
-      path.join(os.tmpdir(), "agent-group-pi-extension-"),
-    );
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "agent-group-pi-extension-"));
     tempDirs.push(stateDir);
     const endpoint = path.join(stateDir, "bridge.sock");
     const seen: Array<Record<string, unknown>> = [];
@@ -187,22 +180,10 @@ describe("Pi managed terminal extension", () => {
 
     await invoke(handlers, "session_start", { reason: "startup" }, context);
     expect(
-      await invoke(
-        handlers,
-        "input",
-        { text: "Ship it.", source: "interactive" },
-        context,
-      ),
+      await invoke(handlers, "input", { text: "Ship it.", source: "interactive" }, context),
     ).toEqual({ action: "continue" });
     expect(seen.some((payload) => payload.mode === "prompt-accepted")).toBe(false);
-    expect(
-      await invoke(
-        handlers,
-        "before_agent_start",
-        { prompt: "Ship it." },
-        context,
-      ),
-    ).toEqual({
+    expect(await invoke(handlers, "before_agent_start", { prompt: "Ship it." }, context)).toEqual({
       message: {
         customType: "agent-group-context",
         content: "Managed context.",
@@ -234,20 +215,10 @@ describe("Pi managed terminal extension", () => {
     await invoke(handlers, "agent_settled", {}, context);
 
     expect(
-      await invoke(
-        handlers,
-        "input",
-        { text: "empty", source: "interactive" },
-        context,
-      ),
+      await invoke(handlers, "input", { text: "empty", source: "interactive" }, context),
     ).toEqual({ action: "handled" });
     expect(
-      await invoke(
-        handlers,
-        "input",
-        { text: "blocked", source: "interactive" },
-        context,
-      ),
+      await invoke(handlers, "input", { text: "blocked", source: "interactive" }, context),
     ).toEqual({ action: "handled" });
     rejectAck = true;
     expect(
@@ -258,12 +229,7 @@ describe("Pi managed terminal extension", () => {
         context,
       ),
     ).toEqual({ action: "continue" });
-    await invoke(
-      handlers,
-      "before_agent_start",
-      { prompt: "Ack must succeed." },
-      context,
-    );
+    await invoke(handlers, "before_agent_start", { prompt: "Ack must succeed." }, context);
     expect(
       await invoke(
         handlers,
@@ -275,9 +241,9 @@ describe("Pi managed terminal extension", () => {
     expect(aborted).toBe(1);
     expect(shutdown).toBe(1);
     const recoveryPath = path.join(launch.runtimeDir, "recovery-prompt.json");
-    const failedRecovery = JSON.parse(
-      await fs.readFile(recoveryPath, "utf8"),
-    ) as { readonly eventId: string };
+    const failedRecovery = JSON.parse(await fs.readFile(recoveryPath, "utf8")) as {
+      readonly eventId: string;
+    };
     expect((await fs.stat(recoveryPath)).mode & 0o777).toBe(0o600);
     rejectAck = false;
     expect(
@@ -288,12 +254,7 @@ describe("Pi managed terminal extension", () => {
         context,
       ),
     ).toEqual({ action: "continue" });
-    await invoke(
-      handlers,
-      "before_agent_start",
-      { prompt: "Ack must succeed." },
-      context,
-    );
+    await invoke(handlers, "before_agent_start", { prompt: "Ack must succeed." }, context);
     await invoke(
       handlers,
       "before_provider_request",
@@ -331,19 +292,14 @@ describe("Pi managed terminal extension", () => {
         context,
       ),
     ).toEqual({});
-    expect(
-      seen.filter((payload) => payload.mode === "prompt-accepted").length,
-    ).toBe(acceptedBeforeMissingPayload);
+    expect(seen.filter((payload) => payload.mode === "prompt-accepted").length).toBe(
+      acceptedBeforeMissingPayload,
+    );
     expect(aborted).toBe(2);
     expect(shutdown).toBe(2);
 
     expect(
-      await invoke(
-        handlers,
-        "before_agent_start",
-        { prompt: "Bypass input hook." },
-        context,
-      ),
+      await invoke(handlers, "before_agent_start", { prompt: "Bypass input hook." }, context),
     ).toEqual({
       systemPrompt: "Stop. Managed context is unavailable.",
     });
@@ -410,9 +366,7 @@ describe("Pi managed terminal extension", () => {
   });
 
   it("blocks input when the bridge is offline", async () => {
-    const stateDir = await fs.mkdtemp(
-      path.join(os.tmpdir(), "agent-group-pi-offline-"),
-    );
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "agent-group-pi-offline-"));
     tempDirs.push(stateDir);
     const launch = await preparePiTerminalLaunch({
       stateDir,
@@ -447,12 +401,7 @@ describe("Pi managed terminal extension", () => {
       },
     };
     expect(
-      await invoke(
-        handlers,
-        "input",
-        { text: "Offline.", source: "interactive" },
-        context,
-      ),
+      await invoke(handlers, "input", { text: "Offline.", source: "interactive" }, context),
     ).toEqual({ action: "handled" });
     expect(notifications).toContain("Agent Group context unavailable.");
   });

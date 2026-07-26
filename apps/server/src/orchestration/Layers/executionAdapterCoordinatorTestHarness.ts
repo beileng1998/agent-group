@@ -1,7 +1,4 @@
-import {
-  ThreadId,
-  type ProviderSession,
-} from "@agent-group/contracts";
+import { ThreadId, type ProviderSession } from "@agent-group/contracts";
 import { Cause, Effect, Exit } from "effect";
 
 import type { TerminalHostExit } from "../../terminalHost/TerminalHost";
@@ -39,9 +36,7 @@ export function executionAdapterFailureReason(
 ): string | undefined {
   if (!Exit.isFailure(exit)) return undefined;
   const failure = Cause.findErrorOption(exit.cause);
-  return failure._tag === "Some"
-    ? (failure.value as ExecutionAdapterError).reason
-    : undefined;
+  return failure._tag === "Some" ? (failure.value as ExecutionAdapterError).reason : undefined;
 }
 
 function makeFakeHost() {
@@ -65,9 +60,7 @@ function makeFakeHost() {
   const host: TerminalHostServiceShape = {
     createOrAttach: () =>
       state.spawnFails
-        ? Effect.fail(
-            new TerminalHostError({ reason: "spawn-failed", message: "spawn failed" }),
-          )
+        ? Effect.fail(new TerminalHostError({ reason: "spawn-failed", message: "spawn failed" }))
         : Effect.sync(() => {
             state.alive = true;
             return attached;
@@ -96,9 +89,7 @@ function makeFakeHost() {
       }),
     kill: () =>
       state.killFails
-        ? Effect.fail(
-            new TerminalHostError({ reason: "teardown-failed", message: "kill failed" }),
-          )
+        ? Effect.fail(new TerminalHostError({ reason: "teardown-failed", message: "kill failed" }))
         : Effect.sync(() => {
             state.alive = false;
             state.killed = true;
@@ -112,10 +103,7 @@ function makeFakeHost() {
 
 export async function makeExecutionAdapterCoordinatorTestHarness(input?: {
   readonly runtime?: ProviderSession;
-  readonly findStructuredRuntime?: () => Effect.Effect<
-    ProviderSession | undefined,
-    unknown
-  >;
+  readonly findStructuredRuntime?: () => Effect.Effect<ProviderSession | undefined, unknown>;
   readonly suspendedRuntime?: ProviderSession;
   readonly spawnFails?: boolean;
   readonly killFails?: boolean;
@@ -144,8 +132,7 @@ export async function makeExecutionAdapterCoordinatorTestHarness(input?: {
           commandFingerprint: "0".repeat(64),
         };
       },
-      findStructuredRuntime:
-        input?.findStructuredRuntime ?? (() => Effect.succeed(input?.runtime)),
+      findStructuredRuntime: input?.findStructuredRuntime ?? (() => Effect.succeed(input?.runtime)),
       suspendStructuredRuntime: (session) =>
         Effect.sync(() => {
           calls.suspended += 1;

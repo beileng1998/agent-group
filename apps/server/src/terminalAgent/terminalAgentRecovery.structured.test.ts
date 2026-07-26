@@ -13,10 +13,7 @@ describe("managed terminal recovery", () => {
     const authority = await Effect.runPromise(
       makeExecutionAdapterAuthority({
         initialStates: new Map([
-          [
-            threadId,
-            { adapter: "structured", revision: 4, status: "restoring" },
-          ],
+          [threadId, { adapter: "structured", revision: 4, status: "restoring" }],
         ]),
         persist: () => Effect.void,
         now: () => new Date("2026-07-25T00:00:00.000Z"),
@@ -89,10 +86,7 @@ describe("managed terminal recovery", () => {
     const authority = await Effect.runPromise(
       makeExecutionAdapterAuthority({
         initialStates: new Map([
-          [
-            threadId,
-            { adapter: "structured", revision: 4, status: "restoring" },
-          ],
+          [threadId, { adapter: "structured", revision: 4, status: "restoring" }],
         ]),
         persist: () => Effect.void,
         now: () => new Date("2026-07-25T00:00:00.000Z"),
@@ -108,9 +102,7 @@ describe("managed terminal recovery", () => {
       }),
     );
 
-    expect(
-      (await Effect.runPromise(authority.listStates)).get(threadId),
-    ).toMatchObject({
+    expect((await Effect.runPromise(authority.listStates)).get(threadId)).toMatchObject({
       adapter: "structured",
       revision: 5,
       status: "deleting",

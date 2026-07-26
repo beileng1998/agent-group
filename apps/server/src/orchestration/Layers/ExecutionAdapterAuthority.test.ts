@@ -234,9 +234,7 @@ describe("ExecutionAdapterAuthority", () => {
         persist: () =>
           Effect.suspend(() => {
             attempts += 1;
-            return attempts === 1
-              ? Effect.fail(new Error("transient disk failure"))
-              : Effect.void;
+            return attempts === 1 ? Effect.fail(new Error("transient disk failure")) : Effect.void;
           }),
         now: () => new Date("2026-07-25T00:00:00.000Z"),
       }),
@@ -249,14 +247,13 @@ describe("ExecutionAdapterAuthority", () => {
       startedAt: "2026-07-25T00:00:00.000Z",
     };
 
-    expect(
-      failureReason(
-        await Effect.runPromiseExit(authority.beginTerminalSwitch(request)),
-      ),
-    ).toBe("persistence-failed");
-    await expect(
-      Effect.runPromise(authority.beginTerminalSwitch(request)),
-    ).resolves.toMatchObject({ adapter: "terminal", revision: 1 });
+    expect(failureReason(await Effect.runPromiseExit(authority.beginTerminalSwitch(request)))).toBe(
+      "persistence-failed",
+    );
+    await expect(Effect.runPromise(authority.beginTerminalSwitch(request))).resolves.toMatchObject({
+      adapter: "terminal",
+      revision: 1,
+    });
     expect(attempts).toBe(2);
   });
 
@@ -274,9 +271,7 @@ describe("ExecutionAdapterAuthority", () => {
     const restoring = await Effect.runPromise(
       authority.completeStructuredSwitch(threadId, terminal.revision),
     );
-    await Effect.runPromise(
-      authority.completeStructuredRestore(threadId, restoring.revision),
-    );
+    await Effect.runPromise(authority.completeStructuredRestore(threadId, restoring.revision));
     await Effect.runPromise(authority.beginThreadDeletion(threadId));
 
     await Effect.runPromise(authority.forgetThread(threadId));
@@ -286,16 +281,16 @@ describe("ExecutionAdapterAuthority", () => {
 
   it("refuses to forget ready authority or a tombstone with active leases", async () => {
     const authority = await makeAuthority();
-    expect(
-      failureReason(await Effect.runPromiseExit(authority.forgetThread(threadId))),
-    ).toBe("transition-in-progress");
+    expect(failureReason(await Effect.runPromiseExit(authority.forgetThread(threadId)))).toBe(
+      "transition-in-progress",
+    );
     const claim = await Effect.runPromise(
       authority.acquireStructured(threadId, "structured:delete"),
     );
     await Effect.runPromise(authority.beginThreadDeletion(threadId));
-    expect(
-      failureReason(await Effect.runPromiseExit(authority.forgetThread(threadId))),
-    ).toBe("structured-operation-active");
+    expect(failureReason(await Effect.runPromiseExit(authority.forgetThread(threadId)))).toBe(
+      "structured-operation-active",
+    );
     await Effect.runPromise(claim.release);
     await expect(Effect.runPromise(authority.forgetThread(threadId))).resolves.toBeUndefined();
   });
@@ -310,35 +305,36 @@ describe("execution adapter authority persistence", () => {
         filePath,
         JSON.stringify({
           version: 1,
-          states: [{
-            threadId,
-            state: {
-              adapter: "terminal",
-              revision: 3,
-              provider: "codex",
-              status: "ready",
-              runtimeInstanceId: "runtime-v1",
-              generation: "generation-v1",
-              pid: 42,
-              providerSessionId: null,
-              activeTurnId: null,
-              startedAt: "2026-07-25T00:00:00.000Z",
-              exitCode: null,
-              exitSignal: null,
-              error: null,
+          states: [
+            {
+              threadId,
+              state: {
+                adapter: "terminal",
+                revision: 3,
+                provider: "codex",
+                status: "ready",
+                runtimeInstanceId: "runtime-v1",
+                generation: "generation-v1",
+                pid: 42,
+                providerSessionId: null,
+                activeTurnId: null,
+                startedAt: "2026-07-25T00:00:00.000Z",
+                exitCode: null,
+                exitSignal: null,
+                error: null,
+              },
             },
-          }],
+          ],
         }),
         { mode: 0o600 },
       );
 
-      expect((await readExecutionAdapterAuthority(filePath)).get(threadId))
-        .toMatchObject({
-          adapter: "terminal",
-          pid: 42,
-          ownerIdentity: null,
-          processGroupIdentity: null,
-        });
+      expect((await readExecutionAdapterAuthority(filePath)).get(threadId)).toMatchObject({
+        adapter: "terminal",
+        pid: 42,
+        ownerIdentity: null,
+        processGroupIdentity: null,
+      });
     } finally {
       await fs.rm(directory, { recursive: true, force: true });
     }
@@ -379,57 +375,59 @@ describe("execution adapter authority persistence", () => {
   it.each([
     ["corrupt", "{not-json"],
     ["unsupported", JSON.stringify({ version: 99, states: [] })],
-  ])("quarantines a %s snapshot and fails every authority operation closed", async (_label, body) => {
-    const directory = await fs.mkdtemp(path.join(os.tmpdir(), "agent-group-authority-bad-"));
-    const filePath = path.join(directory, "terminal-agent", "execution-adapters.json");
-    try {
-      await fs.mkdir(path.dirname(filePath), { recursive: true });
-      await fs.writeFile(filePath, body, { mode: 0o600 });
-      const loaded = await loadExecutionAdapterAuthority(filePath);
-      expect(loaded.states.size).toBe(0);
-      expect(loaded.authorityUnavailableReason).toMatch(/unavailable/i);
-      expect(loaded.quarantinePath).not.toBeNull();
-      await expect(fs.readFile(loaded.quarantinePath!, "utf8")).resolves.toBe(body);
-      const restarted = await loadExecutionAdapterAuthority(filePath);
-      expect(restarted.states.size).toBe(0);
-      expect(restarted.authorityUnavailableReason).toMatch(/unavailable/i);
+  ])(
+    "quarantines a %s snapshot and fails every authority operation closed",
+    async (_label, body) => {
+      const directory = await fs.mkdtemp(path.join(os.tmpdir(), "agent-group-authority-bad-"));
+      const filePath = path.join(directory, "terminal-agent", "execution-adapters.json");
+      try {
+        await fs.mkdir(path.dirname(filePath), { recursive: true });
+        await fs.writeFile(filePath, body, { mode: 0o600 });
+        const loaded = await loadExecutionAdapterAuthority(filePath);
+        expect(loaded.states.size).toBe(0);
+        expect(loaded.authorityUnavailableReason).toMatch(/unavailable/i);
+        expect(loaded.quarantinePath).not.toBeNull();
+        await expect(fs.readFile(loaded.quarantinePath!, "utf8")).resolves.toBe(body);
+        const restarted = await loadExecutionAdapterAuthority(filePath);
+        expect(restarted.states.size).toBe(0);
+        expect(restarted.authorityUnavailableReason).toMatch(/unavailable/i);
 
-      const authority = await Effect.runPromise(
-        makeExecutionAdapterAuthority({
-          initialStates: loaded.states,
-          persist: () => Effect.void,
-          now: () => new Date("2026-07-25T00:00:00.000Z"),
-          authorityUnavailableReason: loaded.authorityUnavailableReason!,
-        }),
-      );
-      expect(authority.safetyModeReason).toBe(loaded.authorityUnavailableReason);
-      expect(await Effect.runPromise(authority.listStates)).toEqual(new Map());
+        const authority = await Effect.runPromise(
+          makeExecutionAdapterAuthority({
+            initialStates: loaded.states,
+            persist: () => Effect.void,
+            now: () => new Date("2026-07-25T00:00:00.000Z"),
+            authorityUnavailableReason: loaded.authorityUnavailableReason!,
+          }),
+        );
+        expect(authority.safetyModeReason).toBe(loaded.authorityUnavailableReason);
+        expect(await Effect.runPromise(authority.listStates)).toEqual(new Map());
 
-      const operations = [
-        authority.getState(threadId),
-        authority.acquireStructured(threadId, "structured"),
-        authority.reserveStructuredStart(threadId, "turn:start"),
-        authority.claimStructuredStart(threadId, "turn:start"),
-        authority.acquireTerminal(threadId, 0, "generation-1", "terminal"),
-        authority.beginTerminalSwitch({
-          threadId,
-          provider: "codex",
-          runtimeInstanceId: "runtime-1",
-          providerSessionId: null,
-          startedAt: "2026-07-25T00:00:00.000Z",
-        }),
-        authority.forgetThread(threadId),
-      ];
-      for (const [index, operation] of operations.entries()) {
-        expect(
-          failureReason(await Effect.runPromiseExit(operation)),
-          `operation ${index}`,
-        ).toBe("authority-unavailable");
+        const operations = [
+          authority.getState(threadId),
+          authority.acquireStructured(threadId, "structured"),
+          authority.reserveStructuredStart(threadId, "turn:start"),
+          authority.claimStructuredStart(threadId, "turn:start"),
+          authority.acquireTerminal(threadId, 0, "generation-1", "terminal"),
+          authority.beginTerminalSwitch({
+            threadId,
+            provider: "codex",
+            runtimeInstanceId: "runtime-1",
+            providerSessionId: null,
+            startedAt: "2026-07-25T00:00:00.000Z",
+          }),
+          authority.forgetThread(threadId),
+        ];
+        for (const [index, operation] of operations.entries()) {
+          expect(failureReason(await Effect.runPromiseExit(operation)), `operation ${index}`).toBe(
+            "authority-unavailable",
+          );
+        }
+      } finally {
+        await fs.rm(directory, { recursive: true, force: true });
       }
-    } finally {
-      await fs.rm(directory, { recursive: true, force: true });
-    }
-  });
+    },
+  );
 
   it("round-trips a permission-restricted snapshot", async () => {
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), "agent-group-authority-"));
@@ -464,8 +462,9 @@ describe("execution adapter authority persistence", () => {
       await writeExecutionAdapterAuthority(filePath, expected, {
         syncDirectory: async (directoryPath) => {
           expect(directoryPath).toBe(path.dirname(filePath));
-          expect((await readExecutionAdapterAuthority(filePath)).get(threadId))
-            .toEqual(expected.get(threadId));
+          expect((await readExecutionAdapterAuthority(filePath)).get(threadId)).toEqual(
+            expected.get(threadId),
+          );
           synced = true;
         },
       });

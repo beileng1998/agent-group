@@ -97,9 +97,7 @@ describe("thread.terminal-model.observe", () => {
       },
     });
     if (!event) throw new Error("Expected a terminal model metadata event.");
-    const projected = await Effect.runPromise(
-      projectEvent(readModel, { ...event, sequence: 2 }),
-    );
+    const projected = await Effect.runPromise(projectEvent(readModel, { ...event, sequence: 2 }));
     expect(projected.threads[0]?.modelSelection).toEqual({
       provider: "codex",
       model: "gpt-5.3-codex",

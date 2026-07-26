@@ -283,20 +283,15 @@ export function makeProviderInteractionHandlers<
           });
           return;
         }
-        const ownsProviderSession =
-          providerThread !== null && providerThread.id === thread.id;
-        if (
-          thread.session &&
-          thread.session.status !== "stopped" &&
-          ownsProviderSession
-        ) {
+        const ownsProviderSession = providerThread !== null && providerThread.id === thread.id;
+        if (thread.session && thread.session.status !== "stopped" && ownsProviderSession) {
           yield* dependencies.providerService.stopSession({
             threadId: providerThread.id,
           });
         }
       }),
     );
-    yield* (owner === "terminal" ? setStoppedSession : structuredProjection);
+    yield* owner === "terminal" ? setStoppedSession : structuredProjection;
   });
 
   return {

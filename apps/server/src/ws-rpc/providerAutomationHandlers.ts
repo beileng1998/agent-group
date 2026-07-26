@@ -112,16 +112,12 @@ export function makeProviderAutomationHandlers(dependencies: {
       ),
     [WS_METHODS.automationRunNow]: (input) =>
       dependencies.rpcEffect(
-        dependencies.runtimeStartup.enqueueCommand(
-          dependencies.automationService.runNow(input),
-        ),
+        dependencies.runtimeStartup.enqueueCommand(dependencies.automationService.runNow(input)),
         "Failed to run automation",
       ),
     [WS_METHODS.automationCancelRun]: (input) =>
       dependencies.rpcEffect(
-        dependencies.runtimeStartup.enqueueCommand(
-          dependencies.automationService.cancelRun(input),
-        ),
+        dependencies.runtimeStartup.enqueueCommand(dependencies.automationService.cancelRun(input)),
         "Failed to cancel automation run",
       ),
     [WS_METHODS.automationMarkRunRead]: (input) =>

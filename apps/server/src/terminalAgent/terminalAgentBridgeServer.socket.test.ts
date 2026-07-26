@@ -11,9 +11,7 @@ const bridges: TerminalAgentBridgeServer[] = [];
 const tempDirs: string[] = [];
 
 async function makeStateDir(): Promise<string> {
-  const stateDir = await fs.mkdtemp(
-    path.join(os.tmpdir(), "agent-group-bridge-socket-"),
-  );
+  const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "agent-group-bridge-socket-"));
   tempDirs.push(stateDir);
   return stateDir;
 }
@@ -43,65 +41,64 @@ afterEach(async () => {
     await bridge.close();
   }
   await Promise.all(
-    tempDirs.splice(0).map((directory) =>
-      fs.rm(directory, { recursive: true, force: true }),
-    ),
+    tempDirs.splice(0).map((directory) => fs.rm(directory, { recursive: true, force: true })),
   );
 });
 
-describe.skipIf(
-  process.platform === "win32",
-)("TerminalAgentBridgeServer Unix socket ownership", () => {
-  it("refuses to unlink a reachable bridge endpoint", async () => {
-    const stateDir = await makeStateDir();
-    const first = makeBridge(stateDir);
-    const second = makeBridge(stateDir);
-    await first.start();
-    const before = await fs.lstat(first.endpoint);
+describe.skipIf(process.platform === "win32")(
+  "TerminalAgentBridgeServer Unix socket ownership",
+  () => {
+    it("refuses to unlink a reachable bridge endpoint", async () => {
+      const stateDir = await makeStateDir();
+      const first = makeBridge(stateDir);
+      const second = makeBridge(stateDir);
+      await first.start();
+      const before = await fs.lstat(first.endpoint);
 
-    await expect(second.start()).rejects.toThrow(
-      "Managed terminal bridge endpoint is already active.",
-    );
+      await expect(second.start()).rejects.toThrow(
+        "Managed terminal bridge endpoint is already active.",
+      );
 
-    const after = await fs.lstat(first.endpoint);
-    expect({ dev: after.dev, ino: after.ino }).toEqual({
-      dev: before.dev,
-      ino: before.ino,
+      const after = await fs.lstat(first.endpoint);
+      expect({ dev: after.dev, ino: after.ino }).toEqual({
+        dev: before.dev,
+        ino: before.ino,
+      });
+      await expect(requestStatus(first.endpoint)).resolves.toBe(404);
     });
-    await expect(requestStatus(first.endpoint)).resolves.toBe(404);
-  });
 
-  it("does not unlink a replacement socket when the old owner closes", async () => {
-    const stateDir = await makeStateDir();
-    const oldOwner = makeBridge(stateDir);
-    await oldOwner.start();
-    const oldIdentity = await fs.lstat(oldOwner.endpoint);
+    it("does not unlink a replacement socket when the old owner closes", async () => {
+      const stateDir = await makeStateDir();
+      const oldOwner = makeBridge(stateDir);
+      await oldOwner.start();
+      const oldIdentity = await fs.lstat(oldOwner.endpoint);
 
-    await fs.rm(oldOwner.endpoint);
-    const replacement = makeBridge(stateDir);
-    await replacement.start();
-    const replacementIdentity = await fs.lstat(replacement.endpoint);
-    expect(replacementIdentity.ino).not.toBe(oldIdentity.ino);
+      await fs.rm(oldOwner.endpoint);
+      const replacement = makeBridge(stateDir);
+      await replacement.start();
+      const replacementIdentity = await fs.lstat(replacement.endpoint);
+      expect(replacementIdentity.ino).not.toBe(oldIdentity.ino);
 
-    await oldOwner.close();
+      await oldOwner.close();
 
-    const afterClose = await fs.lstat(replacement.endpoint);
-    expect({ dev: afterClose.dev, ino: afterClose.ino }).toEqual({
-      dev: replacementIdentity.dev,
-      ino: replacementIdentity.ino,
+      const afterClose = await fs.lstat(replacement.endpoint);
+      expect({ dev: afterClose.dev, ino: afterClose.ino }).toEqual({
+        dev: replacementIdentity.dev,
+        ino: replacementIdentity.ino,
+      });
+      await expect(requestStatus(replacement.endpoint)).resolves.toBe(404);
     });
-    await expect(requestStatus(replacement.endpoint)).resolves.toBe(404);
-  });
 
-  it("removes the endpoint when the owning bridge closes", async () => {
-    const stateDir = await makeStateDir();
-    const bridge = makeBridge(stateDir);
-    await bridge.start();
+    it("removes the endpoint when the owning bridge closes", async () => {
+      const stateDir = await makeStateDir();
+      const bridge = makeBridge(stateDir);
+      await bridge.start();
 
-    await bridge.close();
+      await bridge.close();
 
-    await expect(fs.lstat(bridge.endpoint)).rejects.toMatchObject({
-      code: "ENOENT",
+      await expect(fs.lstat(bridge.endpoint)).rejects.toMatchObject({
+        code: "ENOENT",
+      });
     });
-  });
-});
+  },
+);

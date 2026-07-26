@@ -237,9 +237,7 @@ export class WsTransport {
     input: TerminalAgentSubscribeInput,
     listener: Parameters<WsTerminalAgentSubscriptions["subscribe"]>[1],
   ): () => void {
-    return this.disposed
-      ? () => {}
-      : this.terminalAgentSubscriptions.subscribe(input, listener);
+    return this.disposed ? () => {} : this.terminalAgentSubscriptions.subscribe(input, listener);
   }
 
   dispose() {

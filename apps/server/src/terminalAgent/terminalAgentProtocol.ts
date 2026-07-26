@@ -18,10 +18,7 @@ export interface ManagedTerminalProviderDescriptor {
   readonly executable: "codex" | "claude" | "pi";
 }
 
-const PROVIDER_DESCRIPTORS: Record<
-  ManagedTerminalProvider,
-  ManagedTerminalProviderDescriptor
-> = {
+const PROVIDER_DESCRIPTORS: Record<ManagedTerminalProvider, ManagedTerminalProviderDescriptor> = {
   codex: {
     provider: "codex",
     label: "Codex",
@@ -48,8 +45,7 @@ export function managedTerminalProviderDescriptor(
   return PROVIDER_DESCRIPTORS[provider];
 }
 
-export type TerminalAgentCapabilitySnapshot =
-  ContractTerminalAgentCapabilitySnapshot;
+export type TerminalAgentCapabilitySnapshot = ContractTerminalAgentCapabilitySnapshot;
 
 export interface TerminalAgentRuntimeModel {
   readonly model?: string;

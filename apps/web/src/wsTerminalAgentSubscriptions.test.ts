@@ -1,8 +1,4 @@
-import {
-  type TerminalAgentEvent,
-  type ThreadId,
-  WS_METHODS,
-} from "@agent-group/contracts";
+import { type TerminalAgentEvent, type ThreadId, WS_METHODS } from "@agent-group/contracts";
 import { describe, expect, it, vi } from "vitest";
 
 import { WsTerminalAgentSubscriptions } from "./wsTerminalAgentSubscriptions";
@@ -71,13 +67,9 @@ describe("WsTerminalAgentSubscriptions", () => {
     expect(secondListener).toHaveBeenCalledTimes(1);
 
     unsubscribeFirst();
-    expect(stopStream).toHaveBeenCalledWith(
-      "terminal.agent:thread-terminal-stream:1",
-    );
+    expect(stopStream).toHaveBeenCalledWith("terminal.agent:thread-terminal-stream:1");
     unsubscribeSecond();
-    expect(stopStream).toHaveBeenCalledWith(
-      "terminal.agent:thread-terminal-stream:2",
-    );
+    expect(stopStream).toHaveBeenCalledWith("terminal.agent:thread-terminal-stream:2");
   });
 
   it("starts a fresh snapshot stream for a view mounted after output began", async () => {
@@ -90,10 +82,7 @@ describe("WsTerminalAgentSubscriptions", () => {
     const firstListener = vi.fn();
     const lateListener = vi.fn();
 
-    subscriptions.subscribe(
-      { threadId: "thread-terminal-stream" as ThreadId },
-      firstListener,
-    );
+    subscriptions.subscribe({ threadId: "thread-terminal-stream" as ThreadId }, firstListener);
     await Promise.resolve();
     const firstStreamListener = startStream.mock.calls[0]?.[3] as
       | ((event: TerminalAgentEvent) => void)
@@ -108,10 +97,7 @@ describe("WsTerminalAgentSubscriptions", () => {
       data: "live",
     });
 
-    subscriptions.subscribe(
-      { threadId: "thread-terminal-stream" as ThreadId },
-      lateListener,
-    );
+    subscriptions.subscribe({ threadId: "thread-terminal-stream" as ThreadId }, lateListener);
     await Promise.resolve();
 
     expect(startStream).toHaveBeenCalledTimes(2);
@@ -135,17 +121,12 @@ describe("WsTerminalAgentSubscriptions", () => {
     });
     const listener = vi.fn();
 
-    subscriptions.subscribe(
-      { threadId: "thread-terminal-stream" as ThreadId },
-      listener,
-    );
+    subscriptions.subscribe({ threadId: "thread-terminal-stream" as ThreadId }, listener);
     await Promise.resolve();
     subscriptions.restore(replacementSession);
 
     expect(startStream).toHaveBeenCalledTimes(2);
-    expect(stopStream).toHaveBeenCalledWith(
-      "terminal.agent:thread-terminal-stream:1",
-    );
+    expect(stopStream).toHaveBeenCalledWith("terminal.agent:thread-terminal-stream:1");
     const staleListener = startStream.mock.calls[0]?.[3] as
       | ((event: TerminalAgentEvent) => void)
       | undefined;
@@ -172,10 +153,7 @@ describe("WsTerminalAgentSubscriptions", () => {
       stopStream: vi.fn(),
     });
 
-    subscriptions.subscribe(
-      { threadId: "thread-terminal-stream" as ThreadId },
-      vi.fn(),
-    );
+    subscriptions.subscribe({ threadId: "thread-terminal-stream" as ThreadId }, vi.fn());
     subscriptions.restore(replacementSession);
     resolveInitialSession?.(session("stale-initial"));
     await Promise.resolve();
@@ -216,16 +194,11 @@ describe("WsTerminalAgentSubscriptions", () => {
       startStream: vi.fn(),
       stopStream,
     });
-    subscriptions.subscribe(
-      { threadId: "thread-terminal-stream" as ThreadId },
-      vi.fn(),
-    );
+    subscriptions.subscribe({ threadId: "thread-terminal-stream" as ThreadId }, vi.fn());
     await Promise.resolve();
 
     subscriptions.clear();
 
-    expect(stopStream).toHaveBeenCalledWith(
-      "terminal.agent:thread-terminal-stream:1",
-    );
+    expect(stopStream).toHaveBeenCalledWith("terminal.agent:thread-terminal-stream:1");
   });
 });

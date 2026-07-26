@@ -2,11 +2,7 @@
 // Purpose: The only facade allowed to mutate structured/terminal runtimes.
 // Layer: Server orchestration service contract
 
-import type {
-  ProviderKind,
-  ProviderSession,
-  ThreadId,
-} from "@agent-group/contracts";
+import type { ProviderKind, ProviderSession, ThreadId } from "@agent-group/contracts";
 import { Schema, ServiceMap } from "effect";
 import type { Effect, Stream } from "effect";
 
@@ -110,9 +106,7 @@ export interface ExecutionAdapterCoordinatorShape {
     readonly spawn: ExecutionAdapterSpawnSpec;
   }) => Effect.Effect<ExecutionAdapterSwitchResult, ExecutionAdapterError>;
   /** Stop the PTY while retaining terminal authority and its visible exit state. */
-  readonly stopTerminal: (
-    threadId: ThreadId,
-  ) => Effect.Effect<void, ExecutionAdapterError>;
+  readonly stopTerminal: (threadId: ThreadId) => Effect.Effect<void, ExecutionAdapterError>;
   /** Compensate a failed launch while preserving the live Thread. */
   readonly abortTerminalLaunch: (input: {
     readonly threadId: ThreadId;
@@ -130,9 +124,7 @@ export interface ExecutionAdapterCoordinatorShape {
     readonly beforeTerminalStop: () => Effect.Effect<void, unknown>;
     readonly stopStructured: () => Effect.Effect<void, unknown>;
   }) => Effect.Effect<ExecutionAdapterOwner, ExecutionAdapterError>;
-  readonly switchToStructured: (
-    threadId: ThreadId,
-  ) => Effect.Effect<void, ExecutionAdapterError>;
+  readonly switchToStructured: (threadId: ThreadId) => Effect.Effect<void, ExecutionAdapterError>;
   readonly attachClient: (input: {
     readonly threadId: ThreadId;
     readonly revision: number;
@@ -163,9 +155,7 @@ export interface ExecutionAdapterCoordinatorShape {
     readonly patch: TerminalAuthorityPatch;
   }) => Effect.Effect<TerminalAuthorityState, ExecutionAdapterError>;
   /** Deletion must observe failure so data purge can be deferred and retried. */
-  readonly teardownThread: (
-    threadId: ThreadId,
-  ) => Effect.Effect<void, ExecutionAdapterError>;
+  readonly teardownThread: (threadId: ThreadId) => Effect.Effect<void, ExecutionAdapterError>;
   /** Forget the durable deletion tombstone only after every cleanup succeeds. */
   readonly finalizeThreadDeletion: (
     threadId: ThreadId,

@@ -1,17 +1,9 @@
-import {
-  CommandId,
-  EventId,
-  ThreadId,
-  type OrchestrationThread,
-} from "@agent-group/contracts";
+import { CommandId, EventId, ThreadId, type OrchestrationThread } from "@agent-group/contracts";
 import { Effect, Exit } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { makeExecutionAdapterAuthority } from "./ExecutionAdapterAuthority";
-import {
-  makeProviderIntentRouter,
-  type ProviderIntentEvent,
-} from "./providerIntentRouter";
+import { makeProviderIntentRouter, type ProviderIntentEvent } from "./providerIntentRouter";
 import { ProviderSessionSelectionState } from "./providerSessionSelectionState";
 
 const threadId = ThreadId.makeUnsafe("thread-terminal-model-router");
@@ -24,8 +16,7 @@ describe("provider intent terminal model observation", () => {
     const unused = () => Effect.void;
     const router = makeProviderIntentRouter({
       selectionState,
-      resolveThread: () =>
-        Effect.succeed(undefined as OrchestrationThread | undefined),
+      resolveThread: () => Effect.succeed(undefined as OrchestrationThread | undefined),
       ensureSessionForThread: unused,
       acquireStructured: () => {
         structuredAcquisitions += 1;
@@ -67,9 +58,7 @@ describe("provider intent terminal model observation", () => {
     await Effect.runPromise(router(event));
 
     expect(structuredAcquisitions).toBe(0);
-    expect(selectionState.getModelSelection(threadId)).toEqual(
-      event.payload.modelSelection,
-    );
+    expect(selectionState.getModelSelection(threadId)).toEqual(event.payload.modelSelection);
   });
 
   it("rejects queued structured side effects after terminal authority takes over", async () => {
@@ -87,8 +76,7 @@ describe("provider intent terminal model observation", () => {
     const unused = () => Effect.void;
     const router = makeProviderIntentRouter({
       selectionState: new ProviderSessionSelectionState(),
-      resolveThread: () =>
-        Effect.succeed(undefined as OrchestrationThread | undefined),
+      resolveThread: () => Effect.succeed(undefined as OrchestrationThread | undefined),
       ensureSessionForThread: unused,
       acquireStructured: authority.acquireStructured,
       hasLiveProviderTurn: () => Effect.succeed(false),
@@ -134,9 +122,7 @@ describe("provider intent terminal model observation", () => {
         startedAt: now,
       }),
     );
-    const exits = await Promise.all(
-      queued.map((operation) => Effect.runPromiseExit(operation)),
-    );
+    const exits = await Promise.all(queued.map((operation) => Effect.runPromiseExit(operation)));
 
     expect(exits.every(Exit.isFailure)).toBe(true);
     expect(executed).toEqual([]);

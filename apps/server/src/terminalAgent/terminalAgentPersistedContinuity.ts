@@ -9,10 +9,6 @@ export async function readPersistedProviderResumeCursor(
   provider: TerminalAgentProvider,
 ): Promise<unknown> {
   if (!providerService.getSessionContinuity) return null;
-  const continuity = await Effect.runPromise(
-    providerService.getSessionContinuity({ threadId }),
-  );
-  return continuity?.provider === provider
-    ? continuity.resumeCursor
-    : null;
+  const continuity = await Effect.runPromise(providerService.getSessionContinuity({ threadId }));
+  return continuity?.provider === provider ? continuity.resumeCursor : null;
 }

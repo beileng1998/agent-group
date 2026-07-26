@@ -34,12 +34,8 @@ export const suspendProviderRuntime = (
         .startSession(stoppedSession.threadId, {
           threadId: stoppedSession.threadId,
           provider: stoppedSession.provider,
-          ...(stoppedSession.cwd !== undefined
-            ? { cwd: stoppedSession.cwd }
-            : {}),
-          ...(stoppedModelSelection !== undefined
-            ? { modelSelection: stoppedModelSelection }
-            : {}),
+          ...(stoppedSession.cwd !== undefined ? { cwd: stoppedSession.cwd } : {}),
+          ...(stoppedModelSelection !== undefined ? { modelSelection: stoppedModelSelection } : {}),
           ...(stoppedSession.resumeCursor !== undefined
             ? { resumeCursor: stoppedSession.resumeCursor }
             : {}),

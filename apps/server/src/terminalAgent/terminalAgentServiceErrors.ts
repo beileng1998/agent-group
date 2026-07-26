@@ -1,9 +1,7 @@
 import type { ServerSettings } from "@agent-group/contracts";
 import { Effect } from "effect";
 
-import {
-  TerminalAgentServiceError,
-} from "./Services/TerminalAgentService";
+import { TerminalAgentServiceError } from "./Services/TerminalAgentService";
 
 export const terminalAgentServiceError = (
   reason: TerminalAgentServiceError["reason"],

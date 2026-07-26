@@ -210,9 +210,7 @@ export function makeProviderSessionStopOperations(input: {
           yield* input.withBindingWriteLock(
             request.threadId,
             Effect.gen(function* () {
-              const binding = Option.getOrUndefined(
-                yield* directory.getBinding(request.threadId),
-              );
+              const binding = Option.getOrUndefined(yield* directory.getBinding(request.threadId));
               yield* directory.upsert({
                 threadId: request.threadId,
                 provider: request.provider,

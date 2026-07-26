@@ -47,9 +47,7 @@ export function makeTerminalProviderCursorAdopter(
                         runtime.providerSessionId !== null &&
                         runtime.providerSessionId !== validated.sessionId
                       ) {
-                        throw new Error(
-                          "Pi session id does not match the launched runtime.",
-                        );
+                        throw new Error("Pi session id does not match the launched runtime.");
                       }
                       return validated;
                     },

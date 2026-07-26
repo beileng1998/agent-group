@@ -4,8 +4,6 @@ export function missingCliOption(
 ): string | undefined {
   return options.find((option) => {
     const escaped = option.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-    return !new RegExp(`(?:^|\\s)${escaped}(?=\\s|,|=|$)`, "mu").test(
-      helpText,
-    );
+    return !new RegExp(`(?:^|\\s)${escaped}(?=\\s|,|=|$)`, "mu").test(helpText);
   });
 }

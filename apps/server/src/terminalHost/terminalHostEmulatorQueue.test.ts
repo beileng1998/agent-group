@@ -28,9 +28,9 @@ describe("terminal host emulator queue", () => {
 
     try {
       await emulator.write("visible");
-      await expect(
-        enqueueTerminalSnapshot({ session, maxBytes: 1 }),
-      ).rejects.toThrow(/UTF-8 byte limit/);
+      await expect(enqueueTerminalSnapshot({ session, maxBytes: 1 })).rejects.toThrow(
+        /UTF-8 byte limit/,
+      );
 
       enqueueTerminalEmulatorTask({
         session,
@@ -39,9 +39,7 @@ describe("terminal host emulator queue", () => {
       await session.emulatorQueue;
 
       expect(session.emulatorError).toBeNull();
-      expect(emulator.getSnapshot({ outputSequence: 2 }).snapshotAnsi).toContain(
-        "visible-after",
-      );
+      expect(emulator.getSnapshot({ outputSequence: 2 }).snapshotAnsi).toContain("visible-after");
     } finally {
       emulator.dispose();
     }
@@ -68,12 +66,8 @@ describe("terminal host emulator queue", () => {
     });
 
     expect(accepted).toBe(false);
-    expect(session.queuedEmulatorBytes).toBe(
-      TERMINAL_HOST_EMULATOR_MAX_QUEUED_BYTES - 1,
-    );
-    expect(session.emulatorError).toBeInstanceOf(
-      TerminalHostEmulatorQueueOverflowError,
-    );
+    expect(session.queuedEmulatorBytes).toBe(TERMINAL_HOST_EMULATOR_MAX_QUEUED_BYTES - 1);
+    expect(session.emulatorError).toBeInstanceOf(TerminalHostEmulatorQueueOverflowError);
     expect(pause).toHaveBeenCalledOnce();
     expect(task).not.toHaveBeenCalled();
   });

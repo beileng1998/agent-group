@@ -78,9 +78,7 @@ describe("terminal snapshot byte budget", () => {
       scrollback: 20,
     });
     try {
-      await emulator.write(
-        Array.from({ length: 12 }, (_, index) => `line-${index}\r\n`).join(""),
-      );
+      await emulator.write(Array.from({ length: 12 }, (_, index) => `line-${index}\r\n`).join(""));
       const visibleOnly = emulator.getSnapshot({
         outputSequence: 1,
         scrollbackRows: 0,
@@ -106,8 +104,7 @@ describe("terminal snapshot byte budget", () => {
 
   it("fails with a stable error when the visible viewport alone exceeds the budget", () => {
     const emulator = {
-      getSnapshot: (input: { scrollbackRows?: number }) =>
-        snapshot(input.scrollbackRows ?? 8),
+      getSnapshot: (input: { scrollbackRows?: number }) => snapshot(input.scrollbackRows ?? 8),
     } as HeadlessEmulator;
 
     expect(() =>

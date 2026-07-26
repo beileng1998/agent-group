@@ -67,11 +67,7 @@ describe("managed terminal subscription", () => {
       getState: () => Effect.succeed(state),
       streamChanges: Stream.empty,
       attachClient: (input: {
-        onOutput: (output: {
-          seq: number;
-          data: string;
-          generation: string;
-        }) => void;
+        onOutput: (output: { seq: number; data: string; generation: string }) => void;
       }) =>
         Effect.sync(() => {
           input.onOutput({
@@ -98,11 +94,7 @@ describe("managed terminal subscription", () => {
       }).pipe(Stream.take(3), Stream.runCollect),
     );
 
-    expect([...events].map((event) => event.type)).toEqual([
-      "attached",
-      "output",
-      "state",
-    ]);
+    expect([...events].map((event) => event.type)).toEqual(["attached", "output", "state"]);
     expect([...events][1]).toMatchObject({
       type: "output",
       seq: 2,
@@ -130,8 +122,7 @@ describe("managed terminal subscription", () => {
           calls.push("get");
           return state;
         }),
-      attachClient: () =>
-        Effect.succeed(attachResult("generation-after-subscribe")),
+      attachClient: () => Effect.succeed(attachResult("generation-after-subscribe")),
     } as unknown as ExecutionAdapterCoordinatorShape;
 
     const events = await Effect.runPromise(
@@ -174,10 +165,7 @@ describe("managed terminal subscription", () => {
         const coordinator = {
           streamChanges: Stream.fromQueue(changes),
           getState: () => Effect.sync(() => state),
-          attachClient: (input: {
-            revision: number;
-            generation: string;
-          }) =>
+          attachClient: (input: { revision: number; generation: string }) =>
             Effect.gen(function* () {
               attachedEpochs.push({
                 revision: input.revision,
@@ -293,11 +281,7 @@ describe("managed terminal subscription", () => {
       getState: () => Effect.succeed(state),
       streamChanges: Stream.empty,
       attachClient: (input: {
-        onOutput: (output: {
-          seq: number;
-          data: string;
-          generation: string;
-        }) => void;
+        onOutput: (output: { seq: number; data: string; generation: string }) => void;
       }) =>
         Effect.sync(() => {
           input.onOutput({
@@ -329,16 +313,8 @@ describe("managed terminal subscription", () => {
       getState: () => Effect.succeed(state),
       streamChanges: Stream.empty,
       attachClient: (input: {
-        onOutput: (output: {
-          seq: number;
-          data: string;
-          generation: string;
-        }) => void;
-        onExit: (exit: {
-          exitCode: number;
-          signal: number | null;
-          generation: string;
-        }) => void;
+        onOutput: (output: { seq: number; data: string; generation: string }) => void;
+        onExit: (exit: { exitCode: number; signal: number | null; generation: string }) => void;
       }) =>
         Effect.sync(() => {
           queueMicrotask(() => {
@@ -382,11 +358,7 @@ describe("managed terminal subscription", () => {
       getState: () => Effect.succeed(state),
       streamChanges: Stream.empty,
       attachClient: (input: {
-        onOutput: (output: {
-          seq: number;
-          data: string;
-          generation: string;
-        }) => void;
+        onOutput: (output: { seq: number; data: string; generation: string }) => void;
       }) =>
         Effect.sync(() => {
           queueMicrotask(() => {
@@ -415,9 +387,7 @@ describe("managed terminal subscription", () => {
   });
 
   it("does not retry an oversized snapshot for the same runtime epoch", async () => {
-    const changes = await Effect.runPromise(
-      Queue.unbounded<ExecutionAdapterChange>(),
-    );
+    const changes = await Effect.runPromise(Queue.unbounded<ExecutionAdapterChange>());
     let state: ExecutionAdapterState = terminalState(12, "generation-12");
     const attachClient = vi.fn(() =>
       Effect.fail({

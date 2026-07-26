@@ -1,7 +1,4 @@
-import type {
-  TerminalHostGeneration,
-  TerminalHostSession,
-} from "./TerminalHostTypes";
+import type { TerminalHostGeneration, TerminalHostSession } from "./TerminalHostTypes";
 import { TerminalHostStaleGenerationError } from "./TerminalHostTypes";
 
 export function assertTerminalHostGeneration(

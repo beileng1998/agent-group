@@ -1,9 +1,4 @@
-import {
-  CommandId,
-  EventId,
-  ThreadId,
-  type OrchestrationEvent,
-} from "@agent-group/contracts";
+import { CommandId, EventId, ThreadId, type OrchestrationEvent } from "@agent-group/contracts";
 import { Effect, Exit } from "effect";
 import { describe, expect, it, vi } from "vitest";
 
@@ -47,10 +42,7 @@ describe("checkpoint restore authority", () => {
         scope: "thread",
         createdAt: now,
       },
-    } satisfies Extract<
-      OrchestrationEvent,
-      { type: "thread.checkpoint-revert-requested" }
-    >;
+    } satisfies Extract<OrchestrationEvent, { type: "thread.checkpoint-revert-requested" }>;
     const queuedRestore = restore(event);
 
     await Effect.runPromise(

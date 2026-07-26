@@ -68,7 +68,12 @@ it.layer(PtyTestLayer)("TerminalHost natural exit integration", (it) => {
           host.onExit("natural-exit-child", (event) => resolve(event.exitCode));
         });
         yield* Effect.promise(() =>
-          waitFor(() => fs.stat(childPidPath).then(() => true, () => false)),
+          waitFor(() =>
+            fs.stat(childPidPath).then(
+              () => true,
+              () => false,
+            ),
+          ),
         );
         childPid = Number(yield* Effect.promise(() => fs.readFile(childPidPath, "utf8")));
         expect(childPid).toBeGreaterThan(0);

@@ -31,12 +31,11 @@ export async function validatePiTerminalSessionFile(input: {
     throw new Error("Pi resume session path must be absolute.");
   }
   const sessionDir = piTerminalSessionDir(input.stateDir);
-  const [canonicalSessionDir, canonicalWorkspaceRoot, candidateStat] =
-    await Promise.all([
-      fs.realpath(sessionDir),
-      fs.realpath(input.workspaceRoot),
-      fs.lstat(input.sessionPath),
-    ]);
+  const [canonicalSessionDir, canonicalWorkspaceRoot, candidateStat] = await Promise.all([
+    fs.realpath(sessionDir),
+    fs.realpath(input.workspaceRoot),
+    fs.lstat(input.sessionPath),
+  ]);
   if (!candidateStat.isFile() || candidateStat.isSymbolicLink()) {
     throw new Error("Pi resume session path must be a regular file.");
   }
@@ -59,10 +58,7 @@ export async function validatePiTerminalSessionFile(input: {
   } catch {
     throw new Error("Pi resume session file has an invalid header.");
   }
-  const record =
-    header && typeof header === "object"
-      ? (header as Record<string, unknown>)
-      : null;
+  const record = header && typeof header === "object" ? (header as Record<string, unknown>) : null;
   if (
     record?.type !== "session" ||
     typeof record.id !== "string" ||
@@ -71,10 +67,7 @@ export async function validatePiTerminalSessionFile(input: {
   ) {
     throw new Error("Pi resume session file has an invalid header.");
   }
-  if (
-    input.expectedSessionId !== undefined &&
-    record.id !== input.expectedSessionId
-  ) {
+  if (input.expectedSessionId !== undefined && record.id !== input.expectedSessionId) {
     throw new Error("Pi resume session id does not match the managed session.");
   }
   const canonicalSessionCwd = await fs.realpath(record.cwd);

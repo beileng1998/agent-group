@@ -1,7 +1,4 @@
-import {
-  type ProviderSession,
-  ThreadId,
-} from "@agent-group/contracts";
+import { type ProviderSession, ThreadId } from "@agent-group/contracts";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -46,39 +43,27 @@ describe("terminal launch continuity", () => {
   });
 
   it.each([
-    [
-      "codex",
-      { threadId: "codex-thread" },
-      "codex-thread",
-      { threadId: "codex-thread" },
-    ],
-    [
-      "claudeAgent",
-      { resume: "claude-session" },
-      "claude-session",
-      { resume: "claude-session" },
-    ],
-  ] as const)("prefers a persisted %s cursor when entering Terminal", (
-    provider,
-    resumeCursor,
-    expectedSessionId,
-    expectedCursor,
-  ) => {
-    expect(
-      resolveTerminalLaunchContinuity({
-        sessions: [session(provider, resumeCursor)],
-        threadId,
-        provider,
-        operation: "start",
-        providerSessionId: "fresh-session",
-        resume: false,
-      }),
-    ).toEqual({
-      providerSessionId: expectedSessionId,
-      providerResumeCursor: expectedCursor,
-      resume: true,
-    });
-  });
+    ["codex", { threadId: "codex-thread" }, "codex-thread", { threadId: "codex-thread" }],
+    ["claudeAgent", { resume: "claude-session" }, "claude-session", { resume: "claude-session" }],
+  ] as const)(
+    "prefers a persisted %s cursor when entering Terminal",
+    (provider, resumeCursor, expectedSessionId, expectedCursor) => {
+      expect(
+        resolveTerminalLaunchContinuity({
+          sessions: [session(provider, resumeCursor)],
+          threadId,
+          provider,
+          operation: "start",
+          providerSessionId: "fresh-session",
+          resume: false,
+        }),
+      ).toEqual({
+        providerSessionId: expectedSessionId,
+        providerResumeCursor: expectedCursor,
+        resume: true,
+      });
+    },
+  );
 
   it("uses Pi's file cursor for entry and stable session id for restart", () => {
     const sessions = [session("pi", "/managed/pi/session.jsonl")];
@@ -131,9 +116,7 @@ describe("terminal launch continuity", () => {
   });
 
   it("resumes only Claude transcripts that still exist", async () => {
-    const claudeConfigDir = await mkdtemp(
-      path.join(os.tmpdir(), "terminal-claude-continuity-"),
-    );
+    const claudeConfigDir = await mkdtemp(path.join(os.tmpdir(), "terminal-claude-continuity-"));
     const claudeSessionId = "a171ee2a-dc3b-4c3e-a874-8f8f6498d966";
     const claudeTranscript = path.join(
       claudeConfigDir,
@@ -182,9 +165,7 @@ describe("terminal launch continuity", () => {
   });
 
   it("falls back when a durable Codex cursor has no native transcript", async () => {
-    const codexHome = await mkdtemp(
-      path.join(os.tmpdir(), "terminal-codex-continuity-"),
-    );
+    const codexHome = await mkdtemp(path.join(os.tmpdir(), "terminal-codex-continuity-"));
     await expect(
       resolveAvailableTerminalLaunchContinuity({
         sessions: [],

@@ -29,27 +29,21 @@ export function reconcileTerminalExit(input: {
         .updateTerminal({
           threadId: input.threadId,
           revision: input.revision,
-          ...(state.generation !== null
-            ? { generation: input.generation }
-            : {}),
+          ...(state.generation !== null ? { generation: input.generation } : {}),
           requireNoClaims: true,
           patch: {
             status: "exited",
             exitCode: input.exitCode,
             exitSignal: input.signal ?? null,
             error:
-              input.exitCode === 0
-                ? null
-                : `Terminal process exited with code ${input.exitCode}.`,
+              input.exitCode === 0 ? null : `Terminal process exited with code ${input.exitCode}.`,
           },
         })
         .pipe(Effect.asVoid);
     }),
     Effect.catch((cause) => {
       if (cause.reason === "structured-operation-active") {
-        return Effect.sleep("10 millis").pipe(
-          Effect.andThen(reconcileTerminalExit(input)),
-        );
+        return Effect.sleep("10 millis").pipe(Effect.andThen(reconcileTerminalExit(input)));
       }
       if (cause.reason === "persistence-failed" && persistenceAttempt < 3) {
         return Effect.sleep(`${25 * 2 ** persistenceAttempt} millis`).pipe(

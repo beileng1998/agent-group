@@ -1,4 +1,5 @@
 import {
+  ThreadId,
   type TerminalAgentEvent,
   type TerminalAgentSubscribeInput,
   WS_METHODS,
@@ -32,10 +33,7 @@ export class WsTerminalAgentSubscriptions {
     },
   ) {}
 
-  subscribe(
-    input: TerminalAgentSubscribeInput,
-    listener: TerminalAgentListener,
-  ): () => void {
+  subscribe(input: TerminalAgentSubscribeInput, listener: TerminalAgentListener): () => void {
     const key = `${this.streamKey(input.threadId)}:${++this.nextSubscriptionId}`;
     const subscription = { key, input, listener, streamEpoch: 0 };
     this.subscriptions.set(key, subscription);
@@ -62,10 +60,7 @@ export class WsTerminalAgentSubscriptions {
     this.subscriptions.clear();
   }
 
-  private start(
-    subscription: TerminalAgentSubscription,
-    restoredSession?: WsSessionHandle,
-  ): void {
+  private start(subscription: TerminalAgentSubscription, restoredSession?: WsSessionHandle): void {
     const streamEpoch = ++subscription.streamEpoch;
     const startWithSession = (session: WsSessionHandle) => {
       if (
@@ -77,7 +72,10 @@ export class WsTerminalAgentSubscriptions {
       this.runtime.startStream(
         session,
         subscription.key,
-        session.client[WS_METHODS.terminalAgentSubscribe](subscription.input),
+        session.client[WS_METHODS.terminalAgentSubscribe]({
+          ...subscription.input,
+          threadId: ThreadId.makeUnsafe(subscription.input.threadId),
+        }),
         (event) => {
           if (
             this.subscriptions.get(subscription.key) !== subscription ||
@@ -97,7 +95,10 @@ export class WsTerminalAgentSubscriptions {
     if (restoredSession) {
       startWithSession(restoredSession);
     } else {
-      void this.runtime.getSession().then(startWithSession).catch(() => undefined);
+      void this.runtime
+        .getSession()
+        .then(startWithSession)
+        .catch(() => undefined);
     }
   }
 

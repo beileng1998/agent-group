@@ -3,10 +3,7 @@ import { Effect, Result } from "effect";
 
 import type { ExecutionAdapterCoordinatorShape } from "../orchestration/Services/ExecutionAdapterCoordinator";
 import { pauseTerminalRuntime } from "./terminalAgentRuntimeQuiesce";
-import {
-  terminalAgentCauseMessage,
-  terminalAgentServiceError,
-} from "./terminalAgentServiceErrors";
+import { terminalAgentCauseMessage, terminalAgentServiceError } from "./terminalAgentServiceErrors";
 import type { TerminalAgentRuntimeRecord } from "./terminalAgentRuntimeTypes";
 
 export function makeTerminalAgentCurrentAdapterStop(input: {
@@ -20,9 +17,7 @@ export function makeTerminalAgentCurrentAdapterStop(input: {
     runtime: TerminalAgentRuntimeRecord,
     reason: string,
   ) => Effect.Effect<void, unknown>;
-  readonly retireRuntime: (
-    runtime: TerminalAgentRuntimeRecord,
-  ) => Effect.Effect<void>;
+  readonly retireRuntime: (runtime: TerminalAgentRuntimeRecord) => Effect.Effect<void>;
 }) {
   return Effect.fn(function* (
     threadId: ThreadId,

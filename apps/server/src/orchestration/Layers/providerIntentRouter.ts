@@ -136,10 +136,7 @@ export function makeProviderIntentRouter<Environment>(dependencies: {
           const modelSelection = event.payload.modelSelection;
           if (modelSelection === undefined) return;
           if (event.metadata.adapterKey === "terminal") {
-            dependencies.selectionState.setModelSelection(
-              event.payload.threadId,
-              modelSelection,
-            );
+            dependencies.selectionState.setModelSelection(event.payload.threadId, modelSelection);
             return;
           }
           yield* withStructuredLease(
@@ -167,18 +164,11 @@ export function makeProviderIntentRouter<Environment>(dependencies: {
               const cachedProviderOptions = dependencies.selectionState.getProviderOptions(
                 event.payload.threadId,
               );
-              yield* dependencies.ensureSessionForThread(
-                event.payload.threadId,
-                event.occurredAt,
-                {
-                  modelSelection,
-                  ...(cachedProviderOptions ? { providerOptions: cachedProviderOptions } : {}),
-                },
-              );
-              dependencies.selectionState.setModelSelection(
-                event.payload.threadId,
+              yield* dependencies.ensureSessionForThread(event.payload.threadId, event.occurredAt, {
                 modelSelection,
-              );
+                ...(cachedProviderOptions ? { providerOptions: cachedProviderOptions } : {}),
+              });
+              dependencies.selectionState.setModelSelection(event.payload.threadId, modelSelection);
             }),
           );
           return;
@@ -193,15 +183,11 @@ export function makeProviderIntentRouter<Environment>(dependencies: {
               const cachedProviderOptions = dependencies.selectionState.getProviderOptions(
                 event.payload.threadId,
               );
-              yield* dependencies.ensureSessionForThread(
-                event.payload.threadId,
-                event.occurredAt,
-                {
-                  ...(cachedProviderOptions ? { providerOptions: cachedProviderOptions } : {}),
-                  modelSelection: thread.modelSelection,
-                  runtimeMode: event.payload.runtimeMode,
-                },
-              );
+              yield* dependencies.ensureSessionForThread(event.payload.threadId, event.occurredAt, {
+                ...(cachedProviderOptions ? { providerOptions: cachedProviderOptions } : {}),
+                modelSelection: thread.modelSelection,
+                runtimeMode: event.payload.runtimeMode,
+              });
             }),
           );
           return;

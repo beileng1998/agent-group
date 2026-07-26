@@ -73,12 +73,11 @@ const make = Effect.gen(function* () {
   });
   const operationLocks = yield* makeTerminalAgentOperationLocks;
   const getSettings = () => Effect.runPromise(settingsService.getSettings);
-  const adoptProviderResumeCursor =
-    makeTerminalProviderCursorAdopter(
-      providerService,
-      coordinator,
-      config.stateDir,
-    );
+  const adoptProviderResumeCursor = makeTerminalProviderCursorAdopter(
+    providerService,
+    coordinator,
+    config.stateDir,
+  );
   const onRecoveryFailure = makeTerminalRecoveryFailureHandler(coordinator);
   const launchDependencies: TerminalRuntimeLaunchDependencies = {
     stateDir: config.stateDir,
@@ -94,9 +93,7 @@ const make = Effect.gen(function* () {
       readPersistedProviderResumeCursor(providerService, threadId, provider),
     revalidateLaunchContext: async (threadId) => {
       const settings = await getSettings();
-      const target = await Effect.runPromise(
-        resolveTerminalTarget({ engine, settings, threadId }),
-      );
+      const target = await Effect.runPromise(resolveTerminalTarget({ engine, settings, threadId }));
       return { target, settings };
     },
     adoptProviderResumeCursor,
@@ -115,11 +112,7 @@ const make = Effect.gen(function* () {
       adoptProviderResumeCursor(runtime, cursor, providerSessionId),
   });
 
-  const resolveTarget = (
-    threadId: ThreadId,
-    settings: ServerSettings,
-    allowDisabled = false,
-  ) =>
+  const resolveTarget = (threadId: ThreadId, settings: ServerSettings, allowDisabled = false) =>
     resolveTerminalTarget({
       engine,
       settings,
@@ -196,10 +189,7 @@ const make = Effect.gen(function* () {
             cause,
           ),
       );
-      return toState(
-        input.target,
-        yield* coordinator.getState(input.target.threadId),
-      );
+      return toState(input.target, yield* coordinator.getState(input.target.threadId));
     });
 
   const start: TerminalAgentServiceShape["start"] = (request) =>
@@ -225,12 +215,9 @@ const make = Effect.gen(function* () {
           target,
           settings,
           operation: "start",
-          providerSessionId:
-            target.provider === "codex" ? null : randomUUID(),
+          providerSessionId: target.provider === "codex" ? null : randomUUID(),
           resume: false,
-          transcriptBootstrap: thread
-            ? visibleTranscriptBootstrap(thread.messages)
-            : null,
+          transcriptBootstrap: thread ? visibleTranscriptBootstrap(thread.messages) : null,
           cols: request.cols,
           rows: request.rows,
         });
@@ -271,26 +258,24 @@ const make = Effect.gen(function* () {
         const readModel = yield* engine.getReadModel();
         const thread = readModel.threads.find((entry) => entry.id === request.threadId);
         const providerSessionId =
-          authority.providerSessionId ??
-          (target.provider === "codex" ? null : randomUUID());
-        const attempted = yield* Effect.result(launch({
-          target,
-          settings,
-          operation: "restart",
-          providerSessionId,
-          resume: authority.providerSessionId !== null,
-          transcriptBootstrap:
-            authority.providerSessionId === null && thread
-              ? visibleTranscriptBootstrap(thread.messages)
-              : null,
-          cols: request.cols,
-          rows: request.rows,
-        }));
+          authority.providerSessionId ?? (target.provider === "codex" ? null : randomUUID());
+        const attempted = yield* Effect.result(
+          launch({
+            target,
+            settings,
+            operation: "restart",
+            providerSessionId,
+            resume: authority.providerSessionId !== null,
+            transcriptBootstrap:
+              authority.providerSessionId === null && thread
+                ? visibleTranscriptBootstrap(thread.messages)
+                : null,
+            cols: request.cols,
+            rows: request.rows,
+          }),
+        );
         if (Result.isSuccess(attempted)) {
-          yield* persistedRecovery.retirePreviousRuntime(
-            request.threadId,
-            authority,
-          );
+          yield* persistedRecovery.retirePreviousRuntime(request.threadId, authority);
           return attempted.success;
         }
         if (previous) {
@@ -331,11 +316,13 @@ const make = Effect.gen(function* () {
           yield* abortForTeardown(runtime, "Switched to structured Chat.");
         }
         const switched = yield* Effect.result(
-          coordinator.switchToStructured(threadId).pipe(
-            Effect.mapError((cause) =>
-              serviceError("adapter", `Failed to switch to Chat: ${cause.message}`, cause),
+          coordinator
+            .switchToStructured(threadId)
+            .pipe(
+              Effect.mapError((cause) =>
+                serviceError("adapter", `Failed to switch to Chat: ${cause.message}`, cause),
+              ),
             ),
-          ),
         );
         if (Result.isFailure(switched)) {
           runtime?.resumeHook();
@@ -352,40 +339,37 @@ const make = Effect.gen(function* () {
     coordinator,
     records,
     ensureDetachedOwnerExited: (threadId, runtime) =>
-      coordinator.getState(threadId).pipe(
-        Effect.flatMap((state) =>
-          persistedRecovery.ensureDetachedOwnerExited(state, runtime),
+      coordinator
+        .getState(threadId)
+        .pipe(
+          Effect.flatMap((state) => persistedRecovery.ensureDetachedOwnerExited(state, runtime)),
         ),
-      ),
     abortForTeardown,
     retireRuntime,
   });
   const stopCurrentAdapter: TerminalAgentServiceShape["stopCurrentAdapter"] = (
     threadId,
     stopStructured,
-  ) =>
-    operationLocks.withThread(
-      threadId,
-      stopCurrentAdapterImpl(threadId, stopStructured),
-    );
+  ) => operationLocks.withThread(threadId, stopCurrentAdapterImpl(threadId, stopStructured));
 
   const write: TerminalAgentServiceShape["write"] = (request) =>
-    coordinator.write(request).pipe(
-      Effect.mapError((cause) =>
-        serviceError("stale-runtime", `Terminal input was rejected: ${cause.message}`, cause),
-      ),
-    );
+    coordinator
+      .write(request)
+      .pipe(
+        Effect.mapError((cause) =>
+          serviceError("stale-runtime", `Terminal input was rejected: ${cause.message}`, cause),
+        ),
+      );
   const resize: TerminalAgentServiceShape["resize"] = (request) =>
-    coordinator.resize(request).pipe(
-      Effect.mapError((cause) =>
-        serviceError("stale-runtime", `Terminal resize was rejected: ${cause.message}`, cause),
-      ),
-    );
+    coordinator
+      .resize(request)
+      .pipe(
+        Effect.mapError((cause) =>
+          serviceError("stale-runtime", `Terminal resize was rejected: ${cause.message}`, cause),
+        ),
+      );
 
-  const subscribe: TerminalAgentServiceShape["subscribe"] = (
-    threadId,
-    mode = "terminal",
-  ) =>
+  const subscribe: TerminalAgentServiceShape["subscribe"] = (threadId, mode = "terminal") =>
     Stream.unwrap(
       settingsService.getSettings.pipe(
         Effect.mapError((cause) =>
@@ -420,15 +404,17 @@ const make = Effect.gen(function* () {
           yield* abortForTeardown(runtime, "Thread deleted.");
         }
         const tornDown = yield* Effect.result(
-          coordinator.teardownThread(threadId).pipe(
-            Effect.mapError((cause) =>
-              serviceError(
-                "adapter",
-                `Failed to teardown Agent Terminal: ${cause.message}`,
-                cause,
+          coordinator
+            .teardownThread(threadId)
+            .pipe(
+              Effect.mapError((cause) =>
+                serviceError(
+                  "adapter",
+                  `Failed to teardown Agent Terminal: ${cause.message}`,
+                  cause,
+                ),
               ),
             ),
-          ),
         );
         if (Result.isFailure(tornDown)) {
           runtime?.resumeHook();
@@ -441,9 +427,7 @@ const make = Effect.gen(function* () {
     );
 
   const recover: TerminalAgentServiceShape["recover"] = Effect.gen(function* () {
-    const activeThreads = activeTerminalRecoveryThreadIds(
-      yield* engine.getReadModel(),
-    );
+    const activeThreads = activeTerminalRecoveryThreadIds(yield* engine.getReadModel());
     yield* recoverTerminalAgentAuthorities({
       getSettings: settingsService.getSettings,
       listStates: authorityService.listStates,
@@ -459,8 +443,7 @@ const make = Effect.gen(function* () {
           resolveTarget,
           launch,
           ensurePreviousOwnerExited: persistedRecovery.ensureOwnerExited,
-          retirePreviousRuntime: () =>
-            persistedRecovery.retirePreviousRuntime(threadId, state),
+          retirePreviousRuntime: () => persistedRecovery.retirePreviousRuntime(threadId, state),
         }),
       recoverStructured: (threadId, state) =>
         recoverStructuredAuthority({
@@ -478,8 +461,7 @@ const make = Effect.gen(function* () {
       records,
       eventDependencies: runtimeEventDependencies,
       retireRuntime,
-      serialize: (threadId, operation) =>
-        operationLocks.withThread(threadId, operation),
+      serialize: (threadId, operation) => operationLocks.withThread(threadId, operation),
     }),
   );
   return {

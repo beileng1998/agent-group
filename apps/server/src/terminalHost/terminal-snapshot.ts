@@ -4,19 +4,19 @@
 // sequence at capture time so attach clients can dedupe older bytes and detect
 // a forward gap that requires a fresh snapshot.
 
-import type { TerminalModes } from './terminal-modes'
+import type { TerminalModes } from "./terminal-modes";
 
 export type TerminalSnapshot = {
-  snapshotAnsi: string
+  snapshotAnsi: string;
   /** Parser tail is already counted by the snapshot sequence and must restore last. */
-  pendingEscapeTailAnsi?: string
+  pendingEscapeTailAnsi?: string;
   /** Normal buffer captured separately while snapshotAnsi holds an alternate buffer. */
-  scrollbackAnsi: string
-  rehydrateSequences: string
-  modes: TerminalModes
-  cols: number
-  rows: number
-  scrollbackLines: number
+  scrollbackAnsi: string;
+  rehydrateSequences: string;
+  modes: TerminalModes;
+  cols: number;
+  rows: number;
+  scrollbackLines: number;
   /** Monotonic sequence at capture; clients dedupe older bytes and resync on gaps. */
-  outputSequence: number
-}
+  outputSequence: number;
+};

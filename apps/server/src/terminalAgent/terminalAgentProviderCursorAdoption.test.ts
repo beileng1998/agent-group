@@ -13,9 +13,7 @@ import type { TerminalAgentRuntimeRecord } from "./terminalAgentRuntimeTypes";
 
 describe("terminal provider cursor adoption", () => {
   it("adopts only a managed Pi file whose header id matches the runtime", async () => {
-    const stateDir = await fs.mkdtemp(
-      path.join(os.tmpdir(), "agent-group-pi-cursor-"),
-    );
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "agent-group-pi-cursor-"));
     const sessionDir = piTerminalSessionDir(stateDir);
     await fs.mkdir(sessionDir, { recursive: true });
     const sessionPath = path.join(sessionDir, "session.jsonl");
@@ -33,8 +31,7 @@ describe("terminal provider cursor adoption", () => {
     const adopt = makeTerminalProviderCursorAdopter(
       { adoptSessionResumeCursor } as unknown as ProviderServiceShape,
       {
-        acquireTerminalOperation: () =>
-          Effect.succeed({ release: Effect.void }),
+        acquireTerminalOperation: () => Effect.succeed({ release: Effect.void }),
       } as unknown as ExecutionAdapterCoordinatorShape,
       stateDir,
     );
@@ -61,9 +58,9 @@ describe("terminal provider cursor adoption", () => {
       );
 
       await writeHeader("attacker-session");
-      await expect(
-        adopt(runtime, sessionPath, "expected-session"),
-      ).rejects.toThrow("id does not match");
+      await expect(adopt(runtime, sessionPath, "expected-session")).rejects.toThrow(
+        "id does not match",
+      );
       expect(adoptSessionResumeCursor).toHaveBeenCalledTimes(1);
     } finally {
       await fs.rm(stateDir, { recursive: true, force: true });
@@ -111,11 +108,7 @@ describe("terminal provider cursor adoption", () => {
       generation: "generation-cursor",
     } as TerminalAgentRuntimeRecord;
 
-    const adopting = adopt(
-      runtime,
-      { threadId: "provider-cursor" },
-      "provider-cursor",
-    );
+    const adopting = adopt(runtime, { threadId: "provider-cursor" }, "provider-cursor");
     await writeEntered;
     expect(releases).toBe(0);
     expect(acquireTerminalOperation).toHaveBeenCalledWith({

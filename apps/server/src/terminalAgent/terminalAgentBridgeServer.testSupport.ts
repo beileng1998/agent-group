@@ -73,18 +73,13 @@ export function requestBridge(input: {
   });
 }
 
-export function hookBody(
-  runtimeInstanceId: string,
-  input: unknown = {},
-): string {
+export function hookBody(runtimeInstanceId: string, input: unknown = {}): string {
   return JSON.stringify({ runtimeInstanceId, input });
 }
 
 export async function cleanupBridges(): Promise<void> {
   await Promise.allSettled(bridges.splice(0).map((bridge) => bridge.close()));
   await Promise.all(
-    tempDirs.splice(0).map((directory) =>
-      fs.rm(directory, { recursive: true, force: true }),
-    ),
+    tempDirs.splice(0).map((directory) => fs.rm(directory, { recursive: true, force: true })),
   );
 }

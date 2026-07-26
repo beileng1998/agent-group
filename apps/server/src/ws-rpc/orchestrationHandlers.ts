@@ -89,9 +89,7 @@ export function makeOrchestrationHandlers(dependencies: {
       dependencies.rpcEffect(dependencies.highlightsQuery.list(input), "Failed to load highlights"),
     [ORCHESTRATION_WS_METHODS.repairState]: () =>
       dependencies.rpcEffect(
-        dependencies.runtimeStartup.enqueueCommand(
-          dependencies.orchestrationEngine.repairState(),
-        ),
+        dependencies.runtimeStartup.enqueueCommand(dependencies.orchestrationEngine.repairState()),
         "Failed to repair orchestration state",
       ),
     [ORCHESTRATION_WS_METHODS.getTurnDiff]: (input) =>

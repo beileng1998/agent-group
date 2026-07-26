@@ -154,10 +154,7 @@ const tagRequestBody = <const Tag extends string, const Fields extends Schema.St
     { unsafePreserveChecks: true },
   );
 
-const tagStrictRequestBody = <
-  const Tag extends string,
-  const Fields extends Schema.Struct.Fields,
->(
+const tagStrictRequestBody = <const Tag extends string, const Fields extends Schema.Struct.Fields>(
   tag: Tag,
   schema: Schema.Struct<Fields>,
 ) =>

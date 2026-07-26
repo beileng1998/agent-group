@@ -121,10 +121,7 @@ const makeOrchestrationEngine = Effect.gen(function* () {
       ).pipe(Effect.mapError(mapAdmissionError));
     }
     if (admission.kind === "project-gated-operation") {
-      return withProjectRuntimeGate(
-        admission.projectId,
-        dispatchCommand(command),
-      );
+      return withProjectRuntimeGate(admission.projectId, dispatchCommand(command));
     }
     if (admission.kind === "turn-start") {
       return executionAdapterAuthority

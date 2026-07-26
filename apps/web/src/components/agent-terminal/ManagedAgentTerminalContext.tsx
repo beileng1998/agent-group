@@ -10,11 +10,7 @@ import {
 } from "react";
 
 export type ManagedAgentTerminalSurface = "chat" | "terminal";
-export type ManagedAgentTerminalAction =
-  | "start"
-  | "switch-to-chat"
-  | "restart"
-  | "stop";
+export type ManagedAgentTerminalAction = "start" | "switch-to-chat" | "restart" | "stop";
 
 export interface ManagedAgentTerminalController {
   readonly threadId: ThreadId;
@@ -39,8 +35,7 @@ export type ManagedAgentTerminalCoreController = Omit<
   "surface" | "showSurface"
 >;
 
-const ManagedAgentTerminalContext =
-  createContext<ManagedAgentTerminalController | null>(null);
+const ManagedAgentTerminalContext = createContext<ManagedAgentTerminalController | null>(null);
 
 export function ManagedAgentTerminalProvider(props: {
   readonly value: ManagedAgentTerminalController;
@@ -90,10 +85,7 @@ export function ManagedAgentTerminalControllerProvider(props: {
     const intent = ++presentationIntentRef.current;
     setSelection({ threadId, surface: "chat" });
     await controller.start();
-    if (
-      presentationIntentRef.current !== intent ||
-      controllerRef.current.threadId !== threadId
-    ) {
+    if (presentationIntentRef.current !== intent || controllerRef.current.threadId !== threadId) {
       return;
     }
     setSelection({ threadId, surface: "terminal" });
@@ -104,9 +96,7 @@ export function ManagedAgentTerminalControllerProvider(props: {
   );
 
   return (
-    <ManagedAgentTerminalProvider value={value}>
-      {props.children}
-    </ManagedAgentTerminalProvider>
+    <ManagedAgentTerminalProvider value={value}>{props.children}</ManagedAgentTerminalProvider>
   );
 }
 

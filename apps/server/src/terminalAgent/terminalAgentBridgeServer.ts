@@ -232,11 +232,7 @@ export class TerminalAgentBridgeServer {
       }
       return;
     }
-    const budget = reserveRequestBudget(
-      runtime,
-      declaredBytes ?? 0,
-      this.resourceLimits,
-    );
+    const budget = reserveRequestBudget(runtime, declaredBytes ?? 0, this.resourceLimits);
     if (!budget) {
       request.resume();
       sendJson(response, 429, { error: "Hook bridge overloaded." });
@@ -318,12 +314,7 @@ export class TerminalAgentBridgeServer {
               throw new Error("Stale or interrupted runtime request.");
             }
             const result = await operation.result;
-            if (
-              runtime.closed ||
-              runtime.paused ||
-              cancelRequested ||
-              controller.signal.aborted
-            ) {
+            if (runtime.closed || runtime.paused || cancelRequested || controller.signal.aborted) {
               throw new Error("Stale or interrupted runtime request.");
             }
             return result;

@@ -66,9 +66,7 @@ describe("ExecutionAdapterCoordinator terminal lifecycle", () => {
     });
     expect(
       failureReason(
-        await Effect.runPromiseExit(
-          authority.acquireStructured(threadId, "after-restart-abort"),
-        ),
+        await Effect.runPromiseExit(authority.acquireStructured(threadId, "after-restart-abort")),
       ),
     ).toBe("not-structured");
   });
@@ -203,9 +201,9 @@ describe("ExecutionAdapterCoordinator terminal lifecycle", () => {
     );
     await writeStarted;
 
-    expect(
-      failureReason(await Effect.runPromiseExit(coordinator.stopTerminal(threadId))),
-    ).toBe("turn-in-flight");
+    expect(failureReason(await Effect.runPromiseExit(coordinator.stopTerminal(threadId)))).toBe(
+      "turn-in-flight",
+    );
     releaseWrite?.();
     await Effect.runPromise(Fiber.join(writing));
     await expect(Effect.runPromise(coordinator.stopTerminal(threadId))).resolves.toBeUndefined();
@@ -232,9 +230,7 @@ describe("ExecutionAdapterCoordinator terminal lifecycle", () => {
     );
 
     expect(
-      failureReason(
-        await Effect.runPromiseExit(coordinator.switchToStructured(threadId)),
-      ),
+      failureReason(await Effect.runPromiseExit(coordinator.switchToStructured(threadId))),
     ).toBe("turn-in-flight");
     await Effect.runPromise(claim.release);
     await expect(

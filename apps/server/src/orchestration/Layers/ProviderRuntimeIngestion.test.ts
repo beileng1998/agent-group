@@ -377,9 +377,7 @@ describe("ProviderRuntimeIngestion", () => {
     );
     await waitForThread(
       harness.engine,
-      (thread) =>
-        thread.session?.status === "running" &&
-        thread.session.activeTurnId === turnId,
+      (thread) => thread.session?.status === "running" && thread.session.activeTurnId === turnId,
     );
 
     harness.emit({
@@ -396,9 +394,7 @@ describe("ProviderRuntimeIngestion", () => {
     expect(thread?.session?.status).toBe("running");
     expect(thread?.session?.activeTurnId).toBe(turnId);
     expect(
-      await Effect.runPromise(
-        harness.executionAdapterAuthority.getState(threadId),
-      ),
+      await Effect.runPromise(harness.executionAdapterAuthority.getState(threadId)),
     ).toMatchObject({
       adapter: "terminal",
       revision: terminal.revision,

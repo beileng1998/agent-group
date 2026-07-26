@@ -11,12 +11,9 @@ import type { TerminalAgentRuntimeRecord } from "./terminalAgentRuntimeTypes";
 import type { ResolvedTerminalTarget } from "./terminalAgentRuntimeTypes";
 
 const TRANSCRIPT_BOOTSTRAP_MAX_CHARS = 120_000;
-const TRANSCRIPT_BOOTSTRAP_OMITTED_PREFIX =
-  "[Earlier transcript omitted]\n\n";
+const TRANSCRIPT_BOOTSTRAP_OMITTED_PREFIX = "[Earlier transcript omitted]\n\n";
 
-function isVisibleTranscriptMessage(
-  message: OrchestrationMessage,
-): boolean {
+function isVisibleTranscriptMessage(message: OrchestrationMessage): boolean {
   return (
     !message.streaming &&
     (message.role === "user" || message.role === "assistant") &&
@@ -24,10 +21,7 @@ function isVisibleTranscriptMessage(
   );
 }
 
-function suffixOfParts(
-  parts: ReadonlyArray<string>,
-  maximumChars: number,
-): string {
+function suffixOfParts(parts: ReadonlyArray<string>, maximumChars: number): string {
   let remaining = maximumChars;
   const suffix: string[] = [];
   for (let index = parts.length - 1; index >= 0 && remaining > 0; index -= 1) {
@@ -47,11 +41,7 @@ export function terminalProviderResumeCursor(
     if (typeof resumeCursor === "string" && resumeCursor.trim()) {
       return resumeCursor.trim();
     }
-    if (
-      resumeCursor &&
-      typeof resumeCursor === "object" &&
-      !Array.isArray(resumeCursor)
-    ) {
+    if (resumeCursor && typeof resumeCursor === "object" && !Array.isArray(resumeCursor)) {
       const cursor = resumeCursor as Record<string, unknown>;
       if (
         typeof cursor.path === "string" &&
@@ -67,11 +57,7 @@ export function terminalProviderResumeCursor(
     }
     return null;
   }
-  if (
-    !resumeCursor ||
-    typeof resumeCursor !== "object" ||
-    Array.isArray(resumeCursor)
-  ) {
+  if (!resumeCursor || typeof resumeCursor !== "object" || Array.isArray(resumeCursor)) {
     return null;
   }
   const cursor = resumeCursor as Record<string, unknown>;
@@ -123,21 +109,14 @@ export function visibleTranscriptBootstrap(
       remaining -= chunkLength;
       continue;
     }
-    retained.push(
-      suffixOfParts(
-        [heading, message.text, separator],
-        remaining,
-      ),
-    );
+    retained.push(suffixOfParts([heading, message.text, separator], remaining));
     omitted = true;
     break;
   }
 
   if (retained.length === 0) return null;
   const visible = retained.reverse().join("");
-  return omitted
-    ? `${TRANSCRIPT_BOOTSTRAP_OMITTED_PREFIX}${visible}`
-    : visible;
+  return omitted ? `${TRANSCRIPT_BOOTSTRAP_OMITTED_PREFIX}${visible}` : visible;
 }
 
 export function terminalAgentRuntimeState(input: {

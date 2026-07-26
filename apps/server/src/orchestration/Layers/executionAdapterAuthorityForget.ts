@@ -28,10 +28,7 @@ export function makeExecutionAdapterAuthorityForget(input: {
           Effect.uninterruptible(
             Effect.gen(function* () {
               const current = yield* Ref.get(input.runtime);
-              const claims = pruneExecutionAdapterClaims(
-                current.claims,
-                input.now().getTime(),
-              );
+              const claims = pruneExecutionAdapterClaims(current.claims, input.now().getTime());
               const state = current.states.get(threadId);
               if (state?.adapter !== "structured" || state.status !== "deleting") {
                 return yield* Effect.fail(
@@ -51,14 +48,16 @@ export function makeExecutionAdapterAuthorityForget(input: {
               }
               const states = new Map(current.states);
               states.delete(threadId);
-              yield* input.persist(states).pipe(
-                Effect.mapError(() =>
-                  authorityError(
-                    "persistence-failed",
-                    "Execution adapter authority could not forget the deleted Thread.",
+              yield* input
+                .persist(states)
+                .pipe(
+                  Effect.mapError(() =>
+                    authorityError(
+                      "persistence-failed",
+                      "Execution adapter authority could not forget the deleted Thread.",
+                    ),
                   ),
-                ),
-              );
+                );
               const nextClaims = new Map(claims);
               nextClaims.delete(threadId);
               yield* Ref.set(input.runtime, { states, claims: nextClaims });

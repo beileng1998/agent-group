@@ -75,10 +75,7 @@ describe("terminal spawn process-group durability", () => {
     );
 
     const durableStarting = persisted.find(
-      (state) =>
-        state.adapter === "terminal" &&
-        state.status === "starting" &&
-        state.pid === 42,
+      (state) => state.adapter === "terminal" && state.status === "starting" && state.pid === 42,
     );
     expect(durableStarting).toMatchObject({
       ownerIdentity,

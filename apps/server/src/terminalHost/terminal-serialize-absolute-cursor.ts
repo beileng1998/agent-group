@@ -12,36 +12,36 @@
 // cursor position carried across the restore compose it here too.
 
 type SerializeCursorTerminal = {
-  cols: number
-  rows: number
-  buffer: { active: { cursorX: number; cursorY: number } }
-}
+  cols: number;
+  rows: number;
+  buffer: { active: { cursorX: number; cursorY: number } };
+};
 
 type BufferSerializer<TOpts> = {
-  serialize: (opts?: TOpts) => string
-}
+  serialize: (opts?: TOpts) => string;
+};
 
 export function serializeWithAbsoluteCursor<TOpts>(
   serializer: BufferSerializer<TOpts>,
   terminal: SerializeCursorTerminal,
-  opts?: TOpts
+  opts?: TOpts,
 ): string {
-  const serialized = serializer.serialize(opts)
+  const serialized = serializer.serialize(opts);
   // Why skip empty snapshots: several callers treat '' as "nothing to
   // restore" (e.g. shutdown layout capture drops empty buffers); a bare CUP
   // would turn every idle pane into a persisted snapshot.
   if (serialized.length === 0) {
-    return serialized
+    return serialized;
   }
-  const { cursorX, cursorY } = terminal.buffer.active
+  const { cursorX, cursorY } = terminal.buffer.active;
   // Why skip wrap-pending sources (cursorX == cols): plain replay already
   // reproduces that state exactly, while CUP would clamp to the last column
   // and clear the pending-wrap flag, changing how the next byte renders.
   if (cursorX < 0 || cursorX >= terminal.cols || cursorY < 0 || cursorY >= terminal.rows) {
-    return serialized
+    return serialized;
   }
   // cursorY is viewport-relative (0 at the buffer's base row), which is the
   // same coordinate space CUP addresses after replay; scrollback length
   // differences between source and destination do not shift it.
-  return `${serialized}\x1b[${cursorY + 1};${cursorX + 1}H`
+  return `${serialized}\x1b[${cursorY + 1};${cursorX + 1}H`;
 }

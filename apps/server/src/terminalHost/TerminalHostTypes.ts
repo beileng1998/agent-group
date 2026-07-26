@@ -3,10 +3,7 @@
 // Layer: Server terminal host contract
 
 import type { PtyProcess, PtySpawnInput } from "../terminal/Services/PTY";
-import type {
-  CapturedProcessTree,
-  ProcessTreeKiller,
-} from "../terminal/processTreeKiller";
+import type { CapturedProcessTree, ProcessTreeKiller } from "../terminal/processTreeKiller";
 import type {
   TerminalProcessGroupController,
   TerminalProcessGroupIdentity,

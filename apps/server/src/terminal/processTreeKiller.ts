@@ -301,9 +301,7 @@ export function createProcessTreeKiller(
       if (captured.length === 0) {
         return { verified: true, survivors: [] };
       }
-      const currentIdentities = deps.readCurrentIdentities(
-        captured.map((process) => process.pid),
-      );
+      const currentIdentities = deps.readCurrentIdentities(captured.map((process) => process.pid));
       if (currentIdentities === null) {
         return { verified: false, survivors: captured };
       }

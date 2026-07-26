@@ -66,12 +66,9 @@ export function ChatWorkspaceSurface({ model }: { model: ChatWorkspaceSurfaceMod
   const terminalThreadId = terminal.drawerProps.threadId;
   const managedAgentTerminal = useManagedAgentTerminal();
   const managedTerminalActive = managedAgentTerminal?.active === true;
-  const managedTerminalVisible =
-    managedAgentTerminal?.surface === "terminal";
-  const managedTerminalOwnsWorkspace =
-    managedTerminalActive || managedTerminalVisible;
-  const showManagedTerminalBanner =
-    managedTerminalActive && !managedTerminalVisible;
+  const managedTerminalVisible = managedAgentTerminal?.surface === "terminal";
+  const managedTerminalOwnsWorkspace = managedTerminalActive || managedTerminalVisible;
+  const showManagedTerminalBanner = managedTerminalActive && !managedTerminalVisible;
   const terminalState = managedAgentTerminal?.state ?? null;
   const canReturnControl =
     canSwitchManagedTerminalToChat(terminalState) &&
@@ -110,9 +107,7 @@ export function ChatWorkspaceSurface({ model }: { model: ChatWorkspaceSurfaceMod
                 className="flex shrink-0 items-center gap-2 border-b border-border/70 bg-[var(--color-background-button-secondary)] px-3 py-2 text-xs text-[var(--color-text-foreground-secondary)]"
               >
                 <TerminalIcon className="size-3.5 shrink-0" />
-                <span className="min-w-0 flex-1 truncate">
-                  {returnControlReason}
-                </span>
+                <span className="min-w-0 flex-1 truncate">{returnControlReason}</span>
                 <Button
                   size="xs"
                   variant="outline"
@@ -146,16 +141,10 @@ export function ChatWorkspaceSurface({ model }: { model: ChatWorkspaceSurfaceMod
               aria-hidden={!managedTerminalVisible}
               className={cn(
                 "absolute inset-0 flex min-h-0 min-w-0 flex-col",
-                managedTerminalVisible
-                  ? "z-[2]"
-                  : "pointer-events-none invisible z-0",
+                managedTerminalVisible ? "z-[2]" : "pointer-events-none invisible z-0",
               )}
             >
-              <Suspense
-                fallback={
-                  <PanelStateMessage>Loading Terminal...</PanelStateMessage>
-                }
-              >
+              <Suspense fallback={<PanelStateMessage>Loading Terminal...</PanelStateMessage>}>
                 <ManagedAgentTerminalSurface />
               </Suspense>
             </div>

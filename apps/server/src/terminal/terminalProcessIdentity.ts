@@ -72,16 +72,12 @@ function fallbackPidPresence(pid: number): CapturedProcessInspection {
 
 function inspectPosixProcess(pid: number): CapturedProcessInspection {
   try {
-    const result = spawnSync(
-      "ps",
-      ["-p", String(pid), "-o", "pid=,lstart=,command="],
-      {
-        encoding: "utf8",
-        env: { ...process.env, LC_ALL: "C" },
-        maxBuffer: PROCESS_INSPECTION_MAX_BUFFER_BYTES,
-        timeout: PROCESS_INSPECTION_TIMEOUT_MS,
-      },
-    );
+    const result = spawnSync("ps", ["-p", String(pid), "-o", "pid=,lstart=,command="], {
+      encoding: "utf8",
+      env: { ...process.env, LC_ALL: "C" },
+      maxBuffer: PROCESS_INSPECTION_MAX_BUFFER_BYTES,
+      timeout: PROCESS_INSPECTION_TIMEOUT_MS,
+    });
     const identities = processIdentitySnapshotFromPsResult(result);
     if (identities === null) return fallbackPidPresence(pid);
     const identity = identities.get(pid);
@@ -167,9 +163,7 @@ export function inspectTerminalOwner(
   const platform = options.platform ?? process.platform;
   const inspected =
     options.inspectProcess?.(pid) ??
-    (platform === "win32"
-      ? inspectWindowsProcess(pid)
-      : inspectPosixProcess(pid));
+    (platform === "win32" ? inspectWindowsProcess(pid) : inspectPosixProcess(pid));
   if (inspected.presence === "absent") {
     return { presence: "absent", detail: null };
   }

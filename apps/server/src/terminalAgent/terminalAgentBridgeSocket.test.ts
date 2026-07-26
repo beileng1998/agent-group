@@ -16,13 +16,9 @@ const endpoints: string[] = [];
 afterEach(async () => {
   await Promise.allSettled(bridges.splice(0).map((bridge) => bridge.close()));
   await Promise.all(
-    directories.splice(0).map((directory) =>
-      fs.rm(directory, { recursive: true, force: true }),
-    ),
+    directories.splice(0).map((directory) => fs.rm(directory, { recursive: true, force: true })),
   );
-  await Promise.all(
-    endpoints.splice(0).map((endpoint) => fs.rm(endpoint, { force: true })),
-  );
+  await Promise.all(endpoints.splice(0).map((endpoint) => fs.rm(endpoint, { force: true })));
 });
 
 describe("TerminalAgentBridgeServer Unix socket ownership", () => {
@@ -46,22 +42,19 @@ describe("TerminalAgentBridgeServer Unix socket ownership", () => {
     },
   );
 
-  it.runIf(process.platform !== "win32")(
-    "refuses to replace a non-socket endpoint",
-    async () => {
-      const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "agent-group-bridge-file-"));
-      directories.push(stateDir);
-      const bridge = new TerminalAgentBridgeServer(stateDir);
-      bridges.push(bridge);
-      endpoints.push(bridge.endpoint);
-      await fs.writeFile(bridge.endpoint, "do not replace");
+  it.runIf(process.platform !== "win32")("refuses to replace a non-socket endpoint", async () => {
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "agent-group-bridge-file-"));
+    directories.push(stateDir);
+    const bridge = new TerminalAgentBridgeServer(stateDir);
+    bridges.push(bridge);
+    endpoints.push(bridge.endpoint);
+    await fs.writeFile(bridge.endpoint, "do not replace");
 
-      await expect(bridge.start()).rejects.toThrow("is not a socket");
-      await expect(fs.readFile(bridge.endpoint, "utf8")).resolves.toBe("do not replace");
-      await bridge.close();
-      await expect(fs.readFile(bridge.endpoint, "utf8")).resolves.toBe("do not replace");
-    },
-  );
+    await expect(bridge.start()).rejects.toThrow("is not a socket");
+    await expect(fs.readFile(bridge.endpoint, "utf8")).resolves.toBe("do not replace");
+    await bridge.close();
+    await expect(fs.readFile(bridge.endpoint, "utf8")).resolves.toBe("do not replace");
+  });
 
   it("derives stable, bounded platform endpoints without exposing state paths", () => {
     const stateDir = "/private/project/state";

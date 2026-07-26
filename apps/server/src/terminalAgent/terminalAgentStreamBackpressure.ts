@@ -1,7 +1,4 @@
-import {
-  TERMINAL_AGENT_SNAPSHOT_MAX_BYTES,
-  type TerminalAgentEvent,
-} from "@agent-group/contracts";
+import { TERMINAL_AGENT_SNAPSHOT_MAX_BYTES, type TerminalAgentEvent } from "@agent-group/contracts";
 import { Effect, Stream } from "effect";
 
 import { TerminalAgentServiceError } from "./Services/TerminalAgentService";
@@ -30,8 +27,7 @@ function terminalAgentEventBytes(event: TerminalAgentEvent): number {
 const backpressureError = () =>
   new TerminalAgentServiceError({
     reason: "stale-runtime",
-    message:
-      "Terminal output consumer fell behind; reconnect for a fresh snapshot.",
+    message: "Terminal output consumer fell behind; reconnect for a fresh snapshot.",
   });
 
 /**

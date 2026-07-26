@@ -11,10 +11,7 @@ import { ServerConfig, type ServerConfigShape } from "./config";
 import { ExecutionAdapterAuthority } from "./orchestration/Services/ExecutionAdapterAuthority";
 import { ExecutionAdapterCoordinator } from "./orchestration/Services/ExecutionAdapterCoordinator";
 import { SqlitePersistenceMemory } from "./persistence/Layers/Sqlite";
-import {
-  ProviderService,
-  type ProviderServiceShape,
-} from "./provider/Services/ProviderService";
+import { ProviderService, type ProviderServiceShape } from "./provider/Services/ProviderService";
 import { ExecutionAdapterRuntimeLayerLive } from "./serverLayers";
 
 function testConfig(baseDir: string): ServerConfigShape {

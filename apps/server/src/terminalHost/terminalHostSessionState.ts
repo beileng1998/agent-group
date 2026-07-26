@@ -1,10 +1,7 @@
 import type { PtyProcess } from "../terminal/Services/PTY";
 import type { TerminalProcessGroupIdentity } from "../terminal/terminalProcessGroup";
 import type { HeadlessEmulator } from "./headless-emulator";
-import type {
-  TerminalHostGeneration,
-  TerminalHostSession,
-} from "./TerminalHostTypes";
+import type { TerminalHostGeneration, TerminalHostSession } from "./TerminalHostTypes";
 
 export function makeTerminalHostSessionState(input: {
   readonly sessionId: string;

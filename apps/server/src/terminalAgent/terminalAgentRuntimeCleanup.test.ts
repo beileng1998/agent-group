@@ -13,9 +13,7 @@ const directories: string[] = [];
 
 afterEach(async () => {
   await Promise.all(
-    directories.splice(0).map((directory) =>
-      fs.rm(directory, { recursive: true, force: true }),
-    ),
+    directories.splice(0).map((directory) => fs.rm(directory, { recursive: true, force: true })),
   );
 });
 
@@ -40,9 +38,7 @@ describe("managed terminal runtime cleanup", () => {
     const outside = path.join(stateDir, "keep.txt");
     await fs.writeFile(outside, "keep");
 
-    await expect(
-      retireTerminalRuntimeDirectory(stateDir, outside),
-    ).rejects.toThrow("outside");
+    await expect(retireTerminalRuntimeDirectory(stateDir, outside)).rejects.toThrow("outside");
     await expect(fs.readFile(outside, "utf8")).resolves.toBe("keep");
   });
 });

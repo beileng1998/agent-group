@@ -32,9 +32,7 @@ async function deliver(input: {
 
 afterEach(async () => {
   await Promise.all(
-    tempDirs.splice(0).map((directory) =>
-      fs.rm(directory, { recursive: true, force: true }),
-    ),
+    tempDirs.splice(0).map((directory) => fs.rm(directory, { recursive: true, force: true })),
   );
 });
 
@@ -90,9 +88,7 @@ describe("deliverTerminalAgentContext private file delivery", () => {
 
     expect(delivered.delivery).toBe("file-reference");
     expect(delivered.checksum).toBe(createHash("sha256").update(envelope).digest("hex"));
-    expect(path.basename(delivered.filePath ?? "")).toMatch(
-      /^[a-f0-9]{64}-[a-f0-9]{64}\.md$/u,
-    );
+    expect(path.basename(delivered.filePath ?? "")).toMatch(/^[a-f0-9]{64}-[a-f0-9]{64}\.md$/u);
     expect(delivered.text).toBe(
       `Read the complete Agent Group context at ${delivered.filePath} before acting.`,
     );
@@ -127,9 +123,7 @@ describe("deliverTerminalAgentContext private file delivery", () => {
     const first = await deliver({ runtimeDir, envelope });
     await fs.writeFile(first.filePath!, "unexpected content");
 
-    await expect(deliver({ runtimeDir, envelope })).rejects.toThrow(
-      "contains unexpected content",
-    );
+    await expect(deliver({ runtimeDir, envelope })).rejects.toThrow("contains unexpected content");
     expect(await fs.readFile(first.filePath!, "utf8")).toBe("unexpected content");
   });
 });

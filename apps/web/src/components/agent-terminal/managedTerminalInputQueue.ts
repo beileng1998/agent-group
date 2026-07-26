@@ -18,10 +18,7 @@ function sameFence(
   left: ManagedTerminalInputFence | null,
   right: ManagedTerminalInputFence | null,
 ): boolean {
-  return (
-    left?.revision === right?.revision &&
-    left?.generation === right?.generation
-  );
+  return left?.revision === right?.revision && left?.generation === right?.generation;
 }
 
 export class ManagedTerminalInputQueue {
@@ -34,10 +31,7 @@ export class ManagedTerminalInputQueue {
   private disposed = false;
 
   constructor(
-    private readonly send: (
-      fence: ManagedTerminalInputFence,
-      data: string,
-    ) => Promise<void>,
+    private readonly send: (fence: ManagedTerminalInputFence, data: string) => Promise<void>,
     private readonly onOverflow: () => void,
     private readonly maxPendingBytes = DEFAULT_MAX_PENDING_INPUT_BYTES,
   ) {}

@@ -12,8 +12,7 @@ it.effect("falls back when realpath never completes", () =>
     let realPathCalls = 0;
     const stalledFileSystem: FileSystem.FileSystem = {
       ...fileSystem,
-      exists: (candidate) =>
-        Effect.succeed(candidate === "/virtual/protected"),
+      exists: (candidate) => Effect.succeed(candidate === "/virtual/protected"),
       realPath: () =>
         Effect.sync(() => {
           realPathCalls += 1;
@@ -21,16 +20,11 @@ it.effect("falls back when realpath never completes", () =>
     };
     const resolving = yield* realpathNearestExisting("/virtual/protected/workspace", {
       realPathTimeoutMs: 1_000,
-    }).pipe(
-      Effect.provideService(FileSystem.FileSystem, stalledFileSystem),
-      Effect.forkChild,
-    );
+    }).pipe(Effect.provideService(FileSystem.FileSystem, stalledFileSystem), Effect.forkChild);
 
     yield* TestClock.adjust(Duration.seconds(1));
 
-    expect(yield* Fiber.join(resolving)).toBe(
-      "/virtual/protected/workspace",
-    );
+    expect(yield* Fiber.join(resolving)).toBe("/virtual/protected/workspace");
     expect(realPathCalls).toBe(1);
   }).pipe(Effect.provide(NodeServices.layer)),
 );

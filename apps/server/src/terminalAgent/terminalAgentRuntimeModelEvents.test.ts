@@ -235,11 +235,7 @@ describe("managed terminal runtime model events", () => {
       },
       terminalRuntimeFence: { revision: 3, generation: "generation-model" },
     });
-    await harness.invoke(
-      { prompt: "Use the current model." },
-      "prompt-model",
-      "prompt-accepted",
-    );
+    await harness.invoke({ prompt: "Use the current model." }, "prompt-model", "prompt-accepted");
     expect(harness.events.at(-1)).toMatchObject({
       type: "turn.started",
       payload: { model: "gpt-5.3-codex", effort: "high" },
@@ -317,9 +313,7 @@ describe("managed terminal runtime model events", () => {
     };
     harness.failNextStateUpdate();
 
-    await expect(harness.invoke(update, "runtime-retry")).rejects.toThrow(
-      "state unavailable",
-    );
+    await expect(harness.invoke(update, "runtime-retry")).rejects.toThrow("state unavailable");
     expect(harness.runtime.modelSelection).toMatchObject({
       model: "openai/gpt-5.1",
       options: { thinkingLevel: "high" },

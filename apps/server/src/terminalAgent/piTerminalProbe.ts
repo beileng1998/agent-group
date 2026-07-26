@@ -45,12 +45,7 @@ function parseAvailableModels(text: string) {
   return text
     .split(/\r?\n/u)
     .map((line) => line.trim().split(/\s+/u))
-    .filter(
-      (columns) =>
-        columns.length >= 2 &&
-        columns[0] !== "provider" &&
-        columns[0] !== "No",
-    )
+    .filter((columns) => columns.length >= 2 && columns[0] !== "provider" && columns[0] !== "No")
     .map(([provider, model]) => ({ provider, model }));
 }
 
@@ -62,9 +57,7 @@ function resolveSelectedModel(
   if (separator > 0) {
     const provider = modelReference.slice(0, separator);
     const model = modelReference.slice(separator + 1);
-    return rows.find(
-      (row) => row.provider === provider && row.model === model,
-    );
+    return rows.find((row) => row.provider === provider && row.model === model);
   }
   const matches = rows.filter((row) => row.model === modelReference);
   return matches.length === 1 ? matches[0] : undefined;
@@ -78,11 +71,7 @@ export function inspectPiTerminalProbe(input: {
 }): TerminalAgentCapabilitySnapshot {
   const versionOutput = output(input.version);
   const parsedVersion = parseVersion(versionOutput);
-  if (
-    input.version.code !== 0 ||
-    !parsedVersion ||
-    !versionIsSupported(parsedVersion)
-  ) {
+  if (input.version.code !== 0 || !parsedVersion || !versionIsSupported(parsedVersion)) {
     throw new Error("Pi 0.80.10 or newer is required.");
   }
 
@@ -98,15 +87,10 @@ export function inspectPiTerminalProbe(input: {
 
   const selectedModel =
     input.models.code === 0
-      ? resolveSelectedModel(
-          input.modelSelection.model,
-          parseAvailableModels(output(input.models)),
-        )
+      ? resolveSelectedModel(input.modelSelection.model, parseAvailableModels(output(input.models)))
       : undefined;
   if (!selectedModel) {
-    throw new Error(
-      `Pi cannot authenticate the selected model '${input.modelSelection.model}'.`,
-    );
+    throw new Error(`Pi cannot authenticate the selected model '${input.modelSelection.model}'.`);
   }
   return {
     cliVersion: parsedVersion.join("."),
@@ -124,15 +108,11 @@ export function probePiTerminal(
 ) {
   const run = (args: ReadonlyArray<string>) =>
     runPiCommand(args, executable).pipe(
-      Effect.provideService(
-        ChildProcessSpawner.ChildProcessSpawner,
-        childProcessSpawner,
-      ),
+      Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, childProcessSpawner),
       Effect.timeoutOption("5 seconds"),
       Effect.flatMap(
         Option.match({
-          onNone: () =>
-            Effect.fail(new Error("Pi CLI capability probe timed out.")),
+          onNone: () => Effect.fail(new Error("Pi CLI capability probe timed out.")),
           onSome: Effect.succeed,
         }),
       ),
@@ -147,9 +127,7 @@ export function probePiTerminal(
     return yield* Effect.try({
       try: () => inspectPiTerminalProbe(results),
       catch: (cause) =>
-        cause instanceof Error
-          ? cause
-          : new Error("Pi CLI capability probe failed."),
+        cause instanceof Error ? cause : new Error("Pi CLI capability probe failed."),
     });
   });
 }

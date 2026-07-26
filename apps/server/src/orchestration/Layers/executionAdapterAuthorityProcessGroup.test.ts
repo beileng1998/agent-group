@@ -46,9 +46,7 @@ function state(): TerminalAuthorityState {
 
 afterEach(async () => {
   await Promise.all(
-    directories.splice(0).map((directory) =>
-      fs.rm(directory, { recursive: true, force: true }),
-    ),
+    directories.splice(0).map((directory) => fs.rm(directory, { recursive: true, force: true })),
   );
 });
 
@@ -78,35 +76,28 @@ describe("execution adapter process-group persistence", () => {
       }),
     );
 
-    await expect(
-      Effect.runPromise(authority.beginThreadDeletion(threadId)),
-    ).resolves.toMatchObject({
-      adapter: "structured",
-      status: "deleting",
-    });
+    await expect(Effect.runPromise(authority.beginThreadDeletion(threadId))).resolves.toMatchObject(
+      {
+        adapter: "structured",
+        status: "deleting",
+      },
+    );
   });
 
   it("round-trips a verified POSIX process-group identity", async () => {
-    const directory = await fs.mkdtemp(
-      path.join(os.tmpdir(), "agent-group-authority-group-"),
-    );
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), "agent-group-authority-group-"));
     directories.push(directory);
     const filePath = path.join(directory, "execution-adapters.json");
 
-    await writeExecutionAdapterAuthority(
-      filePath,
+    await writeExecutionAdapterAuthority(filePath, new Map([[threadId, state()]]));
+
+    await expect(readExecutionAdapterAuthority(filePath)).resolves.toEqual(
       new Map([[threadId, state()]]),
     );
-
-    await expect(
-      readExecutionAdapterAuthority(filePath),
-    ).resolves.toEqual(new Map([[threadId, state()]]));
   });
 
   it("migrates a version-2 owner identity with no invented process group", async () => {
-    const directory = await fs.mkdtemp(
-      path.join(os.tmpdir(), "agent-group-authority-v2-group-"),
-    );
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), "agent-group-authority-v2-group-"));
     directories.push(directory);
     const filePath = path.join(directory, "execution-adapters.json");
     const legacy = state();
@@ -120,33 +111,32 @@ describe("execution adapter process-group persistence", () => {
       { mode: 0o600 },
     );
 
-    expect((await readExecutionAdapterAuthority(filePath)).get(threadId))
-      .toMatchObject({
-        ownerIdentity,
-        processGroupIdentity: null,
-      });
+    expect((await readExecutionAdapterAuthority(filePath)).get(threadId)).toMatchObject({
+      ownerIdentity,
+      processGroupIdentity: null,
+    });
   });
 
   it("rejects a group identity that does not match its durable owner", async () => {
-    const directory = await fs.mkdtemp(
-      path.join(os.tmpdir(), "agent-group-authority-bad-group-"),
-    );
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), "agent-group-authority-bad-group-"));
     directories.push(directory);
     const filePath = path.join(directory, "execution-adapters.json");
     await fs.writeFile(
       filePath,
       JSON.stringify({
         version: 3,
-        states: [{
-          threadId,
-          state: {
-            ...state(),
-            processGroupIdentity: {
-              pgid: 43,
-              leaderIdentity: { ...ownerIdentity, pid: 43 },
+        states: [
+          {
+            threadId,
+            state: {
+              ...state(),
+              processGroupIdentity: {
+                pgid: 43,
+                leaderIdentity: { ...ownerIdentity, pid: 43 },
+              },
             },
           },
-        }],
+        ],
       }),
       { mode: 0o600 },
     );

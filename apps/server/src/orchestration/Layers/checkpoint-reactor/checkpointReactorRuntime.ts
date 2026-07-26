@@ -104,10 +104,7 @@ export function makeCheckpointReactorRuntime(dependencies: CheckpointReactorRunt
     const processInput = (input: CheckpointReactorInput) =>
       withStructuredRuntimeLease({
         authority,
-        threadId:
-          input.source === "domain"
-            ? input.event.payload.threadId
-            : input.event.threadId,
+        threadId: input.source === "domain" ? input.event.payload.threadId : input.event.threadId,
         operation: `checkpoint:${input.source}:${input.event.type}`,
         effect:
           input.source === "domain"

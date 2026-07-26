@@ -52,9 +52,7 @@ export async function retireTerminalContextFile(
 
 export function makeTerminalRuntimeRetirer(stateDir: string) {
   return (runtime: TerminalAgentRuntimeRecord) =>
-    Effect.tryPromise(() =>
-      retireTerminalRuntimeDirectory(stateDir, runtime.runtimeDir),
-    ).pipe(
+    Effect.tryPromise(() => retireTerminalRuntimeDirectory(stateDir, runtime.runtimeDir)).pipe(
       Effect.catch((cause) =>
         Effect.logWarning("managed terminal runtime cleanup failed", {
           threadId: runtime.threadId,

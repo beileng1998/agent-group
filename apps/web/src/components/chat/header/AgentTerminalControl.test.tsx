@@ -85,16 +85,12 @@ describe("AgentTerminalControl", () => {
 
     expect(markup).toContain("Terminal");
     expect(markup).toContain('aria-selected="true"');
-    expect(markup).not.toContain(
-      "Managed Agent Terminal is disabled for new sessions",
-    );
+    expect(markup).not.toContain("Managed Agent Terminal is disabled for new sessions");
   });
 
   it("stays absent when the feature is off and structured authority owns the thread", () => {
     const markup = renderToStaticMarkup(
-      <ManagedAgentTerminalProvider
-        value={controller({ available: false, featureEnabled: false })}
-      >
+      <ManagedAgentTerminalProvider value={controller({ available: false, featureEnabled: false })}>
         <AgentTerminalControl />
       </ManagedAgentTerminalProvider>,
     );
@@ -121,18 +117,13 @@ describe("AgentTerminalControl", () => {
       </ManagedAgentTerminalProvider>,
     );
 
-    expect(markup).not.toMatch(
-      /<button[^>]*disabled=""[^>]*title="Show Chat history"/s,
-    );
+    expect(markup).not.toMatch(/<button[^>]*disabled=""[^>]*title="Show Chat history"/s);
   });
 
   it("shows why Terminal cannot start while Chat is running", () => {
-    const reason =
-      "Stop or wait for the current Chat turn before opening Terminal.";
+    const reason = "Stop or wait for the current Chat turn before opening Terminal.";
     const markup = renderToStaticMarkup(
-      <ManagedAgentTerminalProvider
-        value={controller({ startBlockedReason: reason })}
-      >
+      <ManagedAgentTerminalProvider value={controller({ startBlockedReason: reason })}>
         <AgentTerminalControl />
       </ManagedAgentTerminalProvider>,
     );

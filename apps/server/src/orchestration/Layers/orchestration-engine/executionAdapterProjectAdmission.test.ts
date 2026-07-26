@@ -1,8 +1,4 @@
-import {
-  ProjectId,
-  ThreadId,
-  type OrchestrationReadModel,
-} from "@agent-group/contracts";
+import { ProjectId, ThreadId, type OrchestrationReadModel } from "@agent-group/contracts";
 import { Effect, Exit } from "effect";
 import { describe, expect, it } from "vitest";
 

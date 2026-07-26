@@ -34,8 +34,7 @@ export function useManagedAgentTerminalController(input: {
   const settingsQuery = useQuery(serverSettingsQueryOptions());
   const featureEnabled = settingsQuery.data?.enableManagedAgentTerminal === true;
   const [state, setState] = useState<TerminalAgentRuntimeState | null>(null);
-  const [pendingAction, setPendingAction] =
-    useState<ManagedAgentTerminalAction | null>(null);
+  const [pendingAction, setPendingAction] = useState<ManagedAgentTerminalAction | null>(null);
   const busyRef = useRef(false);
   const mutationTokenRef = useRef<symbol | null>(null);
   const requestVersionRef = useRef(0);
@@ -64,8 +63,7 @@ export function useManagedAgentTerminalController(input: {
       try {
         const next = await mutation(api);
         if (next && mutationTokenRef.current === token) {
-          const streamAdvanced =
-            streamEventVersionRef.current !== streamVersion;
+          const streamAdvanced = streamEventVersionRef.current !== streamVersion;
           setState((current) =>
             streamAdvanced
               ? acceptManagedTerminalRpcState(current, next)
@@ -83,21 +81,18 @@ export function useManagedAgentTerminalController(input: {
     [],
   );
 
-  const start = useCallback(
-    () => {
-      if (input.startBlockedReason) {
-        return Promise.reject(new Error(input.startBlockedReason));
-      }
-      return runMutation("start", (api) =>
-        api.terminalAgent.start({
-          threadId: input.threadId,
-          cols: viewportRef.current.cols,
-          rows: viewportRef.current.rows,
-        }),
-      );
-    },
-    [input.startBlockedReason, input.threadId, runMutation],
-  );
+  const start = useCallback(() => {
+    if (input.startBlockedReason) {
+      return Promise.reject(new Error(input.startBlockedReason));
+    }
+    return runMutation("start", (api) =>
+      api.terminalAgent.start({
+        threadId: input.threadId,
+        cols: viewportRef.current.cols,
+        rows: viewportRef.current.rows,
+      }),
+    );
+  }, [input.startBlockedReason, input.threadId, runMutation]);
   const switchToChat = useCallback(
     () =>
       runMutation("switch-to-chat", (api) =>
@@ -184,8 +179,7 @@ export function useManagedAgentTerminalController(input: {
     void api.terminalAgent.get({ threadId: input.threadId }).then(
       (next) => {
         if (requestVersionRef.current !== requestVersion) return;
-        const streamAdvanced =
-          streamEventVersionRef.current !== streamVersion;
+        const streamAdvanced = streamEventVersionRef.current !== streamVersion;
         setState((current) =>
           streamAdvanced
             ? acceptManagedTerminalRpcState(current, next)
@@ -207,8 +201,7 @@ export function useManagedAgentTerminalController(input: {
   const currentState = state?.threadId === input.threadId ? state : null;
   const active = isManagedTerminalAuthority(currentState);
   const available =
-    input.serverBacked &&
-    (active || (featureEnabled && isManagedTerminalProvider(input.provider)));
+    input.serverBacked && (active || (featureEnabled && isManagedTerminalProvider(input.provider)));
   const busy = pendingAction !== null;
 
   return useMemo(

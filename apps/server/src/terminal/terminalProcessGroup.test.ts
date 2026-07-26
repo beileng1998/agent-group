@@ -1,14 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import {
-  makeTerminalProcessGroupController,
-  parseProcessGroupTable,
-} from "./terminalProcessGroup";
+import { makeTerminalProcessGroupController, parseProcessGroupTable } from "./terminalProcessGroup";
 
-const leaderLine =
-  " 42001 42001 S Sat Jul 25 00:00:00 2026 /bin/sh -c managed-agent";
-const childLine =
-  " 42002 42001 S Sat Jul 25 00:00:01 2026 /bin/sleep 300";
+const leaderLine = " 42001 42001 S Sat Jul 25 00:00:00 2026 /bin/sh -c managed-agent";
+const childLine = " 42002 42001 S Sat Jul 25 00:00:01 2026 /bin/sleep 300";
 
 describe("terminal POSIX process-group ownership", () => {
   it("captures a stable leader only when the PTY root owns its group", () => {
@@ -66,8 +61,7 @@ describe("terminal POSIX process-group ownership", () => {
       signalGroup,
     });
     const identity = controller.capture(42_001)!;
-    table =
-      " 42001 42001 S Sat Jul 25 01:00:00 2026 /usr/bin/unrelated-service\n";
+    table = " 42001 42001 S Sat Jul 25 01:00:00 2026 /usr/bin/unrelated-service\n";
 
     expect(controller.inspect(identity)).toEqual({
       status: "replaced",
@@ -86,8 +80,7 @@ describe("terminal POSIX process-group ownership", () => {
       signalGroup,
     });
     const identity = controller.capture(42_001)!;
-    table =
-      " 42001 42001 S Sat Jul 25 00:00:00 2026 /usr/bin/exec-replacement\n";
+    table = " 42001 42001 S Sat Jul 25 00:00:00 2026 /usr/bin/exec-replacement\n";
 
     expect(controller.inspect(identity)).toMatchObject({
       status: "unverified",
@@ -106,8 +99,7 @@ describe("terminal POSIX process-group ownership", () => {
       signalGroup,
     });
     const identity = controller.capture(42_001)!;
-    table =
-      " 42001 42001 Z Sat Jul 25 00:00:00 2026 /bin/sh <defunct>\n";
+    table = " 42001 42001 Z Sat Jul 25 00:00:00 2026 /bin/sh <defunct>\n";
 
     expect(controller.inspect(identity)).toEqual({
       status: "absent",

@@ -25,9 +25,7 @@ function makeFakePty(
   options: { readonly exitOnKill?: boolean } = {},
 ): FakePtyController {
   const dataListeners = new Set<(data: string) => void>();
-  const exitListeners = new Set<
-    (event: { exitCode: number; signal: number | null }) => void
-  >();
+  const exitListeners = new Set<(event: { exitCode: number; signal: number | null }) => void>();
   let exited = false;
   const emitExit = (exitCode = 0) => {
     if (exited) return;
@@ -103,9 +101,7 @@ describe("TerminalHost natural root exit teardown", () => {
     let childAlive = true;
     const killer: ProcessTreeKiller = {
       capture: (rootPid) =>
-        rootExited
-          ? { descendants: [], captureComplete: false }
-          : processTree(rootPid, []),
+        rootExited ? { descendants: [], captureComplete: false } : processTree(rootPid, []),
       signal: () => {},
       inspect: () => ({ verified: true, survivors: [] }),
     };
@@ -123,9 +119,7 @@ describe("TerminalHost natural root exit teardown", () => {
         return null;
       },
       inspect: () =>
-        childAlive
-          ? { status: "owned", detail: null }
-          : { status: "absent", detail: null },
+        childAlive ? { status: "owned", detail: null } : { status: "absent", detail: null },
     };
     const host = new TerminalHost({
       spawnPty: async () => fake.pty,
@@ -191,9 +185,7 @@ describe("TerminalHost natural root exit teardown", () => {
       },
       inspect: () => {
         inspections += 1;
-        return childAlive
-          ? { status: "owned", detail: null }
-          : { status: "absent", detail: null };
+        return childAlive ? { status: "owned", detail: null } : { status: "absent", detail: null };
       },
     };
     const host = new TerminalHost({
@@ -215,9 +207,7 @@ describe("TerminalHost natural root exit teardown", () => {
       await waitFor(() => inspections >= 1);
       await new Promise((resolve) => setTimeout(resolve, 0));
 
-      await expect(host.createOrAttach(spawnInput)).rejects.toThrow(
-        TerminalHostTeardownError,
-      );
+      await expect(host.createOrAttach(spawnInput)).rejects.toThrow(TerminalHostTeardownError);
       expect(spawnCalls).toBe(1);
 
       allowCleanup = true;
@@ -262,13 +252,9 @@ describe("TerminalHost natural root exit teardown", () => {
       await host.createOrAttach(spawnInput);
       expect(fake.exitListenerCount()).toBe(1);
 
-      await expect(host.kill(spawnInput.sessionId)).rejects.toThrow(
-        TerminalHostTeardownError,
-      );
+      await expect(host.kill(spawnInput.sessionId)).rejects.toThrow(TerminalHostTeardownError);
       expect(fake.exitListenerCount()).toBe(1);
-      await expect(host.kill(spawnInput.sessionId)).rejects.toThrow(
-        TerminalHostTeardownError,
-      );
+      await expect(host.kill(spawnInput.sessionId)).rejects.toThrow(TerminalHostTeardownError);
       expect(fake.exitListenerCount()).toBe(1);
     } finally {
       allowCleanup = true;
@@ -311,9 +297,7 @@ describe("TerminalHost natural root exit teardown", () => {
       fake.emitExit(0);
       await waitFor(() => includeRootTree.length > 0);
 
-      await expect(host.createOrAttach(spawnInput)).rejects.toThrow(
-        TerminalHostTeardownError,
-      );
+      await expect(host.createOrAttach(spawnInput)).rejects.toThrow(TerminalHostTeardownError);
       expect(spawnCalls).toBe(1);
       expect(includeRootTree.every((included) => included === false)).toBe(true);
     } finally {

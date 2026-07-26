@@ -1,7 +1,4 @@
-import {
-  CLAUDE_CODE_EFFORT_OPTIONS,
-  PI_THINKING_LEVEL_OPTIONS,
-} from "@agent-group/contracts";
+import { CLAUDE_CODE_EFFORT_OPTIONS, PI_THINKING_LEVEL_OPTIONS } from "@agent-group/contracts";
 
 import type { ManagedTerminalModelSelection } from "./terminalAgentRuntimeTypes";
 
@@ -49,9 +46,7 @@ export function terminalAgentModelSelectionFromObservation(
         ...current,
         model,
         options:
-          effort === undefined
-            ? current.options
-            : { ...current.options, reasoningEffort: effort },
+          effort === undefined ? current.options : { ...current.options, reasoningEffort: effort },
       };
     }
     case "claudeAgent": {
@@ -65,8 +60,7 @@ export function terminalAgentModelSelectionFromObservation(
       return {
         ...current,
         model,
-        options:
-          effort === undefined ? current.options : { ...current.options, effort },
+        options: effort === undefined ? current.options : { ...current.options, effort },
       };
     }
     case "pi": {
@@ -81,9 +75,7 @@ export function terminalAgentModelSelectionFromObservation(
         ...current,
         model,
         options:
-          thinkingLevel === undefined
-            ? current.options
-            : { ...current.options, thinkingLevel },
+          thinkingLevel === undefined ? current.options : { ...current.options, thinkingLevel },
       };
     }
   }

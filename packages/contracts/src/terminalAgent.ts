@@ -1,16 +1,7 @@
 import { Schema } from "effect";
 
-import {
-  NonNegativeInt,
-  PositiveInt,
-  ThreadId,
-  TrimmedNonEmptyString,
-} from "./baseSchemas";
-import {
-  TerminalColsSchema,
-  TerminalRowsSchema,
-  TerminalWriteDataSchema,
-} from "./terminal";
+import { NonNegativeInt, PositiveInt, ThreadId, TrimmedNonEmptyString } from "./baseSchemas";
+import { TerminalColsSchema, TerminalRowsSchema, TerminalWriteDataSchema } from "./terminal";
 
 const StrictRequest = {
   parseOptions: { onExcessProperty: "error" },
@@ -56,8 +47,7 @@ export const TerminalAgentCapabilitySnapshot = Schema.Struct({
   apiProvider: Schema.NullOr(BoundedProviderValue),
   hookSchema: Schema.Literals(["cli-verified", "handshake-verified"]),
 });
-export type TerminalAgentCapabilitySnapshot =
-  typeof TerminalAgentCapabilitySnapshot.Type;
+export type TerminalAgentCapabilitySnapshot = typeof TerminalAgentCapabilitySnapshot.Type;
 
 export const TerminalAgentContextSource = Schema.Struct({
   label: BoundedProviderValue,
@@ -152,20 +142,14 @@ export type TerminalAgentSwitchToChatInput = Schema.Codec.Encoded<
   typeof TerminalAgentSwitchToChatInput
 >;
 
-export const TerminalAgentSubscriptionMode = Schema.Literals([
-  "state",
-  "terminal",
-]);
-export type TerminalAgentSubscriptionMode =
-  typeof TerminalAgentSubscriptionMode.Type;
+export const TerminalAgentSubscriptionMode = Schema.Literals(["state", "terminal"]);
+export type TerminalAgentSubscriptionMode = typeof TerminalAgentSubscriptionMode.Type;
 
 export const TerminalAgentSubscribeInput = Schema.Struct({
   threadId: ThreadId,
   mode: Schema.optional(TerminalAgentSubscriptionMode),
 }).annotate(StrictRequest);
-export type TerminalAgentSubscribeInput = Schema.Codec.Encoded<
-  typeof TerminalAgentSubscribeInput
->;
+export type TerminalAgentSubscribeInput = Schema.Codec.Encoded<typeof TerminalAgentSubscribeInput>;
 
 export const TerminalAgentSerializedSnapshot = Schema.Struct({
   snapshotAnsi: Schema.String,

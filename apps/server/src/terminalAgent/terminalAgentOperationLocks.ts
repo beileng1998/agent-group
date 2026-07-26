@@ -25,8 +25,6 @@ export const makeTerminalAgentOperationLocks: Effect.Effect<TerminalAgentOperati
       );
     return {
       withThread: (threadId, operation) =>
-        lockFor(threadId).pipe(
-          Effect.flatMap((lock) => lock.withPermits(1)(operation)),
-        ),
+        lockFor(threadId).pipe(Effect.flatMap((lock) => lock.withPermits(1)(operation))),
     };
   });

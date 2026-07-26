@@ -44,10 +44,7 @@ describe("ManagedTerminalOutputPump", () => {
 
     writes[0]!.complete();
     expect(parsed).toEqual([]);
-    expect(writes.map(({ data }) => data)).toEqual([
-      "old-active",
-      "fresh-snapshot",
-    ]);
+    expect(writes.map(({ data }) => data)).toEqual(["old-active", "fresh-snapshot"]);
     writes[1]!.complete();
     expect(parsed).toEqual(["snapshot"]);
   });

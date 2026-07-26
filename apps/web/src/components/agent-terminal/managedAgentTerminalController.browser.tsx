@@ -1,7 +1,10 @@
 import type {
   NativeApi,
   ServerSettings,
+  TerminalAgentEvent,
+  TerminalAgentGetInput,
   TerminalAgentRuntimeState,
+  TerminalAgentSubscribeInput,
   ThreadId,
 } from "@agent-group/contracts";
 import "../../index.css";
@@ -46,8 +49,25 @@ const STRUCTURED_STATE: TerminalAgentRuntimeState = {
 
 const originalNativeApi = window.nativeApi;
 
+function restoreNativeApi(): void {
+  if (originalNativeApi) {
+    window.nativeApi = originalNativeApi;
+  } else {
+    delete window.nativeApi;
+  }
+}
+
+function subscribeWithState(
+  state: TerminalAgentRuntimeState,
+): NativeApi["terminalAgent"]["subscribe"] {
+  return (_input, listener) => {
+    listener({ type: "state", state });
+    return () => {};
+  };
+}
+
 afterEach(() => {
-  window.nativeApi = originalNativeApi;
+  restoreNativeApi();
   document.body.innerHTML = "";
 });
 
@@ -57,10 +77,7 @@ describe("managed Agent Terminal controller", () => {
     window.nativeApi = {
       terminalAgent: {
         get: async () => STRUCTURED_STATE,
-        subscribe: (_input, listener) => {
-          listener({ type: "state", state: STRUCTURED_STATE });
-          return () => {};
-        },
+        subscribe: subscribeWithState(STRUCTURED_STATE),
         start,
       },
     } as unknown as NativeApi;
@@ -70,8 +87,7 @@ describe("managed Agent Terminal controller", () => {
     queryClient.setQueryData(serverQueryKeys.settings(), {
       enableManagedAgentTerminal: true,
     } as ServerSettings);
-    const blockedReason =
-      "Stop or wait for the current Chat turn before opening Terminal.";
+    const blockedReason = "Stop or wait for the current Chat turn before opening Terminal.";
 
     function Harness() {
       const controller = useManagedAgentTerminalController({
@@ -97,8 +113,9 @@ describe("managed Agent Terminal controller", () => {
       const terminal = page.getByRole("tab", { name: "Terminal" });
       await expect.element(chat).toHaveAttribute("aria-selected", "true");
       await expect.element(terminal).toHaveAttribute("aria-disabled", "true");
-      expect(terminal.element().title).toBe(blockedReason);
-      terminal.element().click();
+      const terminalElement = terminal.element() as HTMLElement;
+      expect(terminalElement.title).toBe(blockedReason);
+      terminalElement.click();
       await expect.element(chat).toHaveAttribute("aria-selected", "true");
       expect(start).not.toHaveBeenCalled();
     } finally {
@@ -115,10 +132,7 @@ describe("managed Agent Terminal controller", () => {
     window.nativeApi = {
       terminalAgent: {
         get: async () => TERMINAL_STATE,
-        subscribe: (_input, listener) => {
-          listener({ type: "state", state: TERMINAL_STATE });
-          return () => {};
-        },
+        subscribe: subscribeWithState(TERMINAL_STATE),
         switchToChat,
       },
     } as unknown as NativeApi;
@@ -160,15 +174,9 @@ describe("managed Agent Terminal controller", () => {
       expect(chatRect.height).toBe(24);
       expect(terminalRect.height).toBe(24);
       expect(
-        Math.abs(
-          chatRect.top +
-            chatRect.height / 2 -
-            (terminalRect.top + terminalRect.height / 2),
-        ),
+        Math.abs(chatRect.top + chatRect.height / 2 - (terminalRect.top + terminalRect.height / 2)),
       ).toBeLessThan(0.5);
-      expect(chatElement.scrollHeight).toBeLessThanOrEqual(
-        chatElement.clientHeight,
-      );
+      expect(chatElement.scrollHeight).toBeLessThanOrEqual(chatElement.clientHeight);
       const rendersBeforeSwitch = ownerRenderCount;
       await chat.click();
       await expect.element(chat).toHaveAttribute("aria-selected", "true");
@@ -187,10 +195,7 @@ describe("managed Agent Terminal controller", () => {
     window.nativeApi = {
       terminalAgent: {
         get: async () => STRUCTURED_STATE,
-        subscribe: (_input, listener) => {
-          listener({ type: "state", state: STRUCTURED_STATE });
-          return () => {};
-        },
+        subscribe: subscribeWithState(STRUCTURED_STATE),
         start,
       },
     } as unknown as NativeApi;
@@ -244,10 +249,7 @@ describe("managed Agent Terminal controller", () => {
     window.nativeApi = {
       terminalAgent: {
         get: async () => STRUCTURED_STATE,
-        subscribe: (_input, listener) => {
-          listener({ type: "state", state: STRUCTURED_STATE });
-          return () => {};
-        },
+        subscribe: subscribeWithState(STRUCTURED_STATE),
         start,
       },
     } as unknown as NativeApi;
@@ -305,9 +307,12 @@ describe("managed Agent Terminal controller", () => {
     };
     window.nativeApi = {
       terminalAgent: {
-        get: async ({ threadId }) =>
+        get: async ({ threadId }: TerminalAgentGetInput) =>
           threadId === THREAD_ID ? TERMINAL_STATE : structuredState,
-        subscribe: ({ threadId }, listener) => {
+        subscribe: (
+          { threadId }: TerminalAgentSubscribeInput,
+          listener: (event: TerminalAgentEvent) => void,
+        ) => {
           listener({
             type: "state",
             state: threadId === THREAD_ID ? TERMINAL_STATE : structuredState,
@@ -363,16 +368,13 @@ describe("managed Agent Terminal controller", () => {
       await expect
         .poll(() => document.body.textContent?.includes(`${nextThreadId}:chat`))
         .toBe(true);
-      const nextThreadRenders = renders.filter(
-        (rendered) => rendered.threadId === nextThreadId,
-      );
+      const nextThreadRenders = renders.filter((rendered) => rendered.threadId === nextThreadId);
       expect(nextThreadRenders.length).toBeGreaterThan(0);
       expect(
         nextThreadRenders.every(
           (rendered) =>
             !rendered.active &&
-            (rendered.stateThreadId === null ||
-              rendered.stateThreadId === nextThreadId),
+            (rendered.stateThreadId === null || rendered.stateThreadId === nextThreadId),
         ),
       ).toBe(true);
     } finally {
@@ -382,16 +384,15 @@ describe("managed Agent Terminal controller", () => {
   });
 
   it("routes Stop through the canonical session-stop command", async () => {
-    const dispatchCommand = vi.fn(async () => ({ sequence: 1 }));
+    const dispatchCommand = vi.fn<NativeApi["orchestration"]["dispatchCommand"]>(async () => ({
+      sequence: 1,
+    }));
     const rawTerminalStop = vi.fn(async () => TERMINAL_STATE);
     window.nativeApi = {
       orchestration: { dispatchCommand },
       terminalAgent: {
         get: async () => TERMINAL_STATE,
-        subscribe: (_input, listener) => {
-          listener({ type: "state", state: TERMINAL_STATE });
-          return () => {};
-        },
+        subscribe: subscribeWithState(TERMINAL_STATE),
         stop: rawTerminalStop,
       },
     } as unknown as NativeApi;

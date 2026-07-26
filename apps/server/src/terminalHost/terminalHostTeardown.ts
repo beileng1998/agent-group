@@ -3,10 +3,7 @@
 // Layer: Server terminal host lifecycle
 
 import type { PtyProcess } from "../terminal/Services/PTY";
-import type {
-  CapturedProcessTree,
-  ProcessTreeKiller,
-} from "../terminal/processTreeKiller";
+import type { CapturedProcessTree, ProcessTreeKiller } from "../terminal/processTreeKiller";
 import type {
   TerminalProcessGroupController,
   TerminalProcessGroupIdentity,
@@ -32,10 +29,7 @@ export function refreshTerminalSessionTree(input: {
   readonly invalidateOnIncomplete?: boolean;
 }): void {
   const now = Date.now();
-  if (
-    !input.force &&
-    now - input.owner.lastTreeCaptureAt < TREE_REFRESH_INTERVAL_MS
-  ) {
+  if (!input.force && now - input.owner.lastTreeCaptureAt < TREE_REFRESH_INTERVAL_MS) {
     return;
   }
   input.owner.lastTreeCaptureAt = now;
@@ -52,10 +46,7 @@ export function refreshTerminalSessionTree(input: {
     }
     return;
   }
-  if (
-    captured.captureComplete === true ||
-    input.owner.teardownTree?.captureComplete !== true
-  ) {
+  if (captured.captureComplete === true || input.owner.teardownTree?.captureComplete !== true) {
     input.owner.teardownTree = captured;
   } else if (input.invalidateOnIncomplete) {
     input.owner.teardownTree = {
@@ -139,8 +130,7 @@ export async function teardownTerminalSession(input: {
         signalErrors.push(`process-group:${identity.pgid}: ${groupInspection.detail}`);
       }
       groupExitVerified =
-        groupInspection.status === "absent" ||
-        groupInspection.status === "replaced";
+        groupInspection.status === "absent" || groupInspection.status === "replaced";
     }
 
     const inspection = input.processTreeKiller.inspect?.(tree);

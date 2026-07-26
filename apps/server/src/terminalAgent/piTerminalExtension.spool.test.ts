@@ -95,16 +95,8 @@ it("bounds Pi lifecycle spool files and retained assistant output", async () => 
       },
     };
 
-    await invoke(
-      "input",
-      { text: "Generate a large answer.", source: "interactive" },
-      context,
-    );
-    await invoke(
-      "before_agent_start",
-      { prompt: "Generate a large answer." },
-      context,
-    );
+    await invoke("input", { text: "Generate a large answer.", source: "interactive" }, context);
+    await invoke("before_agent_start", { prompt: "Generate a large answer." }, context);
     await invoke(
       "before_provider_request",
       { payload: { messages: ["Managed context."] } },
@@ -124,22 +116,16 @@ it("bounds Pi lifecycle spool files and retained assistant output", async () => 
     await invoke("agent_settled", {}, context);
 
     const spoolDir = launch.env.AGENT_GROUP_PI_HOOK_SPOOL_DIR!;
-    const firstName = (await fs.readdir(spoolDir)).find((name) =>
-      name.endsWith(".json"),
-    );
+    const firstName = (await fs.readdir(spoolDir)).find((name) => name.endsWith(".json"));
     expect(firstName).toBeDefined();
     const firstPath = path.join(spoolDir, firstName!);
     const first = JSON.parse(await fs.readFile(firstPath, "utf8")) as {
       readonly input: { readonly assistant_text: string };
     };
-    expect(Buffer.byteLength(first.input.assistant_text)).toBeLessThanOrEqual(
-      512 * 1024,
+    expect(Buffer.byteLength(first.input.assistant_text)).toBeLessThanOrEqual(512 * 1024);
+    expect(first.input.assistant_text.endsWith("[Agent Group: assistant output truncated.]")).toBe(
+      true,
     );
-    expect(
-      first.input.assistant_text.endsWith(
-        "[Agent Group: assistant output truncated.]",
-      ),
-    ).toBe(true);
     expect((await fs.stat(firstPath)).size).toBeLessThanOrEqual(1024 * 1024);
 
     const retained = await fs.readFile(firstPath);
@@ -149,14 +135,8 @@ it("bounds Pi lifecycle spool files and retained assistant output", async () => 
         retained,
       );
     }
-    await invoke(
-      "session_shutdown",
-      { reason: "exit", targetSessionFile: undefined },
-      context,
-    );
-    const entries = (await fs.readdir(spoolDir)).filter((name) =>
-      name.endsWith(".json"),
-    );
+    await invoke("session_shutdown", { reason: "exit", targetSessionFile: undefined }, context);
+    const entries = (await fs.readdir(spoolDir)).filter((name) => name.endsWith(".json"));
     const totalBytes = (
       await Promise.all(entries.map((name) => fs.stat(path.join(spoolDir, name))))
     ).reduce((total, stat) => total + stat.size, 0);

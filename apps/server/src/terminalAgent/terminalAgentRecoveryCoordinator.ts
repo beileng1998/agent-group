@@ -72,35 +72,35 @@ export function recoverTerminalAgentAuthorities(input: {
             Effect.flatMap((result) =>
               Option.isSome(result)
                 ? Effect.void
-                : input.onRecoveryFailure(
-                    threadId,
-                    state,
-                    "Agent Terminal recovery timed out.",
-                  ).pipe(
-                    Effect.catch((cause) =>
-                      Effect.logWarning("managed terminal recovery timeout could not persist", {
-                        threadId,
-                        cause,
-                      }),
+                : input
+                    .onRecoveryFailure(threadId, state, "Agent Terminal recovery timed out.")
+                    .pipe(
+                      Effect.catch((cause) =>
+                        Effect.logWarning("managed terminal recovery timeout could not persist", {
+                          threadId,
+                          cause,
+                        }),
+                      ),
                     ),
-                  ),
             ),
             Effect.catch((cause) =>
-              input.onRecoveryFailure(
-                threadId,
-                state,
-                `Agent Terminal recovery failed: ${
-                  cause instanceof Error ? cause.message : String(cause)
-                }`,
-              ).pipe(
-                Effect.catch((persistCause) =>
-                  Effect.logWarning("managed terminal recovery failure could not persist", {
-                    threadId,
-                    cause,
-                    persistCause,
-                  }),
+              input
+                .onRecoveryFailure(
+                  threadId,
+                  state,
+                  `Agent Terminal recovery failed: ${
+                    cause instanceof Error ? cause.message : String(cause)
+                  }`,
+                )
+                .pipe(
+                  Effect.catch((persistCause) =>
+                    Effect.logWarning("managed terminal recovery failure could not persist", {
+                      threadId,
+                      cause,
+                      persistCause,
+                    }),
+                  ),
                 ),
-              ),
             ),
             Effect.tap(() =>
               Effect.sync(() => {
@@ -115,23 +115,22 @@ export function recoverTerminalAgentAuthorities(input: {
       yield* Effect.forEach(
         [...states].filter(([threadId]) => !settled.has(threadId)),
         ([threadId, state]) =>
-          input.onRecoveryFailure(
-            threadId,
-            state,
-            "Agent Terminal recovery exceeded the startup time limit.",
-          ).pipe(
-            Effect.catch((cause) =>
-              Effect.logWarning("managed terminal total-timeout state could not persist", {
-                threadId,
-                cause,
-              }),
+          input
+            .onRecoveryFailure(
+              threadId,
+              state,
+              "Agent Terminal recovery exceeded the startup time limit.",
+            )
+            .pipe(
+              Effect.catch((cause) =>
+                Effect.logWarning("managed terminal total-timeout state could not persist", {
+                  threadId,
+                  cause,
+                }),
+              ),
             ),
-          ),
         { concurrency: RECOVERY_CONCURRENCY },
-      ).pipe(
-        Effect.timeoutOption(Math.min(stateTimeoutMs, 5_000)),
-        Effect.asVoid,
-      );
+      ).pipe(Effect.timeoutOption(Math.min(stateTimeoutMs, 5_000)), Effect.asVoid);
     }
   });
 }

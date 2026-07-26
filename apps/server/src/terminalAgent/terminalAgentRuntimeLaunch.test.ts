@@ -2,10 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import {
-  DEFAULT_SERVER_SETTINGS,
-  ThreadId,
-} from "@agent-group/contracts";
+import { DEFAULT_SERVER_SETTINGS, ThreadId } from "@agent-group/contracts";
 import { Effect, Stream } from "effect";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -24,17 +21,13 @@ const directories: string[] = [];
 
 afterEach(async () => {
   await Promise.all(
-    directories.splice(0).map((directory) =>
-      fs.rm(directory, { recursive: true, force: true }),
-    ),
+    directories.splice(0).map((directory) => fs.rm(directory, { recursive: true, force: true })),
   );
 });
 
 describe("launchTerminalRuntime compensation", () => {
   it("tears down a live PTY when the post-start authority update fails", async () => {
-    const stateDir = await fs.mkdtemp(
-      path.join(os.tmpdir(), "agent-group-launch-"),
-    );
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "agent-group-launch-"));
     directories.push(stateDir);
     const threadId = ThreadId.makeUnsafe("terminal-launch-thread");
     let state: ExecutionAdapterState = {
@@ -48,9 +41,9 @@ describe("launchTerminalRuntime compensation", () => {
     const coordinator = {
       getState: () => Effect.sync(() => state),
       streamChanges: Stream.empty,
-      switchToTerminal: (input: Parameters<
-        ExecutionAdapterCoordinatorShape["switchToTerminal"]
-      >[0]) =>
+      switchToTerminal: (
+        input: Parameters<ExecutionAdapterCoordinatorShape["switchToTerminal"]>[0],
+      ) =>
         Effect.gen(function* () {
           const prepared = yield* input.prepare({
             provider: "codex",
@@ -192,15 +185,13 @@ describe("launchTerminalRuntime compensation", () => {
     ]);
     expect(records.has(threadId)).toBe(false);
     expect(state).toMatchObject({ adapter: "structured" });
-    await expect(
-      fs.lstat(codexTerminalRuntimeDir(stateDir, threadId)),
-    ).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(fs.lstat(codexTerminalRuntimeDir(stateDir, threadId))).rejects.toMatchObject({
+      code: "ENOENT",
+    });
   });
 
   it("revalidates a restart before replacing the persisted runtime", async () => {
-    const stateDir = await fs.mkdtemp(
-      path.join(os.tmpdir(), "agent-group-restart-revalidate-"),
-    );
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "agent-group-restart-revalidate-"));
     directories.push(stateDir);
     const threadId = ThreadId.makeUnsafe("terminal-restart-revalidation");
     const settings = {
@@ -304,9 +295,7 @@ describe("launchTerminalRuntime compensation", () => {
   });
 
   it("retires a replaced runtime directory when the new epoch fails", async () => {
-    const stateDir = await fs.mkdtemp(
-      path.join(os.tmpdir(), "agent-group-restart-cleanup-"),
-    );
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "agent-group-restart-cleanup-"));
     directories.push(stateDir);
     const threadId = ThreadId.makeUnsafe("terminal-restart-cleanup");
     const oldRuntimeDir = claudeTerminalRuntimeDir(stateDir, "runtime-old");
@@ -377,10 +366,7 @@ describe("launchTerminalRuntime compensation", () => {
       }) =>
         Effect.sync(() => {
           state = { ...state, ...input.patch } as ExecutionAdapterState;
-          return state as Extract<
-            ExecutionAdapterState,
-            { adapter: "terminal" }
-          >;
+          return state as Extract<ExecutionAdapterState, { adapter: "terminal" }>;
         }),
     } as unknown as ExecutionAdapterCoordinatorShape;
     const unregisterOld = vi.fn();

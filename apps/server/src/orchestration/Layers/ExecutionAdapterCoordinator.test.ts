@@ -168,9 +168,7 @@ describe("ExecutionAdapterCoordinator", () => {
     expect(physicalStops).toBe(0);
     expect(
       failureReason(
-        await Effect.runPromiseExit(
-          authority.acquireStructured(threadId, "structured:late"),
-        ),
+        await Effect.runPromiseExit(authority.acquireStructured(threadId, "structured:late")),
       ),
     ).toBe("transition-in-progress");
 
@@ -463,5 +461,4 @@ describe("ExecutionAdapterCoordinator", () => {
       exitCode: 1,
     });
   });
-
 });

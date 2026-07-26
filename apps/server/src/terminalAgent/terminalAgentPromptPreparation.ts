@@ -1,8 +1,4 @@
-import type {
-  ServerSettings,
-  TerminalAgentContextSnapshot,
-  TurnId,
-} from "@agent-group/contracts";
+import type { ServerSettings, TerminalAgentContextSnapshot, TurnId } from "@agent-group/contracts";
 
 import { prepareAgentGroupTurn } from "../agentGroup/runtime";
 import { deliverTerminalAgentContext } from "./terminalAgentContextDelivery";
@@ -25,8 +21,7 @@ export async function prepareTerminalAgentPrompt(input: {
     globalSettings: input.settings.agentGroup,
   });
   const contextEnvelope =
-    prepared?.contextEnvelope ??
-    "Agent Group manages this Turn. Follow the user request.";
+    prepared?.contextEnvelope ?? "Agent Group manages this Turn. Follow the user request.";
   const envelope = input.runtime.transcriptBootstrap
     ? [contextEnvelope, `<thread_context>\n${input.runtime.transcriptBootstrap}\n</thread_context>`]
         .filter(Boolean)

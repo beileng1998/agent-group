@@ -43,5 +43,4 @@ class ManagedAgentTerminalRuntimeRegistry {
   }
 }
 
-export const managedAgentTerminalRuntimeRegistry =
-  new ManagedAgentTerminalRuntimeRegistry();
+export const managedAgentTerminalRuntimeRegistry = new ManagedAgentTerminalRuntimeRegistry();

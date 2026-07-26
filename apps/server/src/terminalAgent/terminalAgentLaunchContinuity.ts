@@ -1,10 +1,6 @@
 import fs from "node:fs/promises";
 
-import type {
-  ProviderSession,
-  TerminalAgentProvider,
-  ThreadId,
-} from "@agent-group/contracts";
+import type { ProviderSession, TerminalAgentProvider, ThreadId } from "@agent-group/contracts";
 
 import {
   findClaudeTranscriptPath,
@@ -29,13 +25,9 @@ function persistedCursor(
   fallback: unknown,
 ): TerminalAgentProviderResumeCursor | null {
   const session = sessions.find(
-    (candidate) =>
-      candidate.threadId === threadId && candidate.provider === provider,
+    (candidate) => candidate.threadId === threadId && candidate.provider === provider,
   );
-  return terminalProviderResumeCursor(
-    provider,
-    session?.resumeCursor ?? fallback,
-  );
+  return terminalProviderResumeCursor(provider, session?.resumeCursor ?? fallback);
 }
 
 export function resolveTerminalLaunchContinuity(input: {
@@ -53,14 +45,8 @@ export function resolveTerminalLaunchContinuity(input: {
     input.provider,
     input.persistedResumeCursor,
   );
-  if (
-    input.provider === "pi" &&
-    (typeof cursor === "string" || (cursor && "path" in cursor))
-  ) {
-    if (
-      input.operation === "restart" &&
-      input.providerSessionId !== null
-    ) {
+  if (input.provider === "pi" && (typeof cursor === "string" || (cursor && "path" in cursor))) {
+    if (input.operation === "restart" && input.providerSessionId !== null) {
       return {
         providerSessionId: input.providerSessionId,
         providerResumeCursor: null,
@@ -68,8 +54,7 @@ export function resolveTerminalLaunchContinuity(input: {
       };
     }
     return {
-      providerSessionId:
-        typeof cursor === "string" ? null : cursor.sessionId,
+      providerSessionId: typeof cursor === "string" ? null : cursor.sessionId,
       providerResumeCursor: cursor,
       resume: true,
     };
@@ -103,15 +88,10 @@ export async function resolveAvailableTerminalLaunchContinuity(
     available =
       (await findCodexTranscriptPath({
         providerThreadId: continuity.providerSessionId,
-        ...(input.codexHomePath
-          ? { homePath: input.codexHomePath }
-          : {}),
+        ...(input.codexHomePath ? { homePath: input.codexHomePath } : {}),
         ...(input.env ? { env: input.env } : {}),
       })) !== null;
-  } else if (
-    input.provider === "claudeAgent" &&
-    continuity.providerSessionId
-  ) {
+  } else if (input.provider === "claudeAgent" && continuity.providerSessionId) {
     available =
       (await findClaudeTranscriptPath({
         homeDir: input.homeDir,
@@ -121,8 +101,7 @@ export async function resolveAvailableTerminalLaunchContinuity(
   } else if (
     input.provider === "pi" &&
     (typeof continuity.providerResumeCursor === "string" ||
-      (continuity.providerResumeCursor &&
-        "path" in continuity.providerResumeCursor))
+      (continuity.providerResumeCursor && "path" in continuity.providerResumeCursor))
   ) {
     const cursorPath =
       typeof continuity.providerResumeCursor === "string"
@@ -131,11 +110,7 @@ export async function resolveAvailableTerminalLaunchContinuity(
     try {
       await fs.lstat(cursorPath);
     } catch (cause) {
-      if (
-        !(cause instanceof Error) ||
-        !("code" in cause) ||
-        cause.code !== "ENOENT"
-      ) {
+      if (!(cause instanceof Error) || !("code" in cause) || cause.code !== "ENOENT") {
         return continuity;
       }
       available = false;

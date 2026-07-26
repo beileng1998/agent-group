@@ -45,9 +45,7 @@ describe("RightDock horizontal geometry", () => {
     expect(root).not.toBeNull();
     expect(content).not.toBeNull();
 
-    await expect
-      .poll(() => Math.round(root?.getBoundingClientRect().width ?? 0))
-      .toBe(600);
+    await expect.poll(() => Math.round(root?.getBoundingClientRect().width ?? 0)).toBe(600);
     expect(Math.round(content?.getBoundingClientRect().width ?? 0)).toBe(600);
   });
 });

@@ -48,11 +48,7 @@ export function inspectClaudeTerminalProbe(input: {
 }): TerminalAgentCapabilitySnapshot {
   const versionOutput = output(input.version);
   const version = /(\d+\.\d+\.\d+)/u.exec(versionOutput)?.[1];
-  if (
-    input.version.code !== 0 ||
-    !version ||
-    !/Claude Code/iu.test(versionOutput)
-  ) {
+  if (input.version.code !== 0 || !version || !/Claude Code/iu.test(versionOutput)) {
     throw new Error("The configured executable is not a supported Claude Code CLI.");
   }
 
@@ -91,15 +87,11 @@ export function probeClaudeTerminal(
   };
   const run = (args: ReadonlyArray<string>) =>
     runClaudeCommand(args, executable, env).pipe(
-      Effect.provideService(
-        ChildProcessSpawner.ChildProcessSpawner,
-        childProcessSpawner,
-      ),
+      Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, childProcessSpawner),
       Effect.timeoutOption("5 seconds"),
       Effect.flatMap(
         Option.match({
-          onNone: () =>
-            Effect.fail(new Error("Claude CLI capability probe timed out.")),
+          onNone: () => Effect.fail(new Error("Claude CLI capability probe timed out.")),
           onSome: Effect.succeed,
         }),
       ),
@@ -113,9 +105,7 @@ export function probeClaudeTerminal(
     return yield* Effect.try({
       try: () => inspectClaudeTerminalProbe(results),
       catch: (cause) =>
-        cause instanceof Error
-          ? cause
-          : new Error("Claude CLI capability probe failed."),
+        cause instanceof Error ? cause : new Error("Claude CLI capability probe failed."),
     });
   });
 }

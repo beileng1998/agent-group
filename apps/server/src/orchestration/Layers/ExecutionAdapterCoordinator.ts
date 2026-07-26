@@ -3,11 +3,7 @@
 // managed-terminal execution adapters.
 // Layer: Server orchestration service implementation
 
-import {
-  type ProviderKind,
-  type ProviderSession,
-  type ThreadId,
-} from "@agent-group/contracts";
+import { type ProviderKind, type ProviderSession, type ThreadId } from "@agent-group/contracts";
 import { Effect, Layer, Result } from "effect";
 import * as Semaphore from "effect/Semaphore";
 
@@ -33,10 +29,7 @@ import {
   suspendProviderRuntime,
   type StructuredRuntimeSuspension,
 } from "./executionAdapterProviderSuspension";
-import {
-  restartTerminalRuntime,
-  stopTerminalRuntime,
-} from "./executionAdapterTerminalControl";
+import { restartTerminalRuntime, stopTerminalRuntime } from "./executionAdapterTerminalControl";
 import { reconcileTerminalExit } from "./executionAdapterTerminalExit";
 import { abortTerminalLaunchRuntime } from "./executionAdapterTerminalLaunchAbort";
 import { spawnTerminalRuntime } from "./executionAdapterTerminalSpawn";
@@ -80,20 +73,18 @@ const fromUnknown = (
 ): ExecutionAdapterError =>
   cause instanceof ExecutionAdapterError
     ? cause
-    : error(
-        reason,
-        `${prefix}: ${cause instanceof Error ? cause.message : String(cause)}`,
-        cause,
-      );
+    : error(reason, `${prefix}: ${cause instanceof Error ? cause.message : String(cause)}`, cause);
 
 interface CoordinatorDependencies {
   readonly authority: ExecutionAdapterAuthorityShape;
   readonly terminalHost: TerminalHostServiceShape;
   readonly captureOwnerIdentity: (pid: number) => TerminalOwnerIdentity;
-  readonly findStructuredRuntime: (threadId: ThreadId) =>
-    Effect.Effect<ProviderSession | undefined, unknown>;
-  readonly suspendStructuredRuntime: (session: ProviderSession) =>
-    Effect.Effect<StructuredRuntimeSuspension, unknown>;
+  readonly findStructuredRuntime: (
+    threadId: ThreadId,
+  ) => Effect.Effect<ProviderSession | undefined, unknown>;
+  readonly suspendStructuredRuntime: (
+    session: ProviderSession,
+  ) => Effect.Effect<StructuredRuntimeSuspension, unknown>;
   readonly supportedTerminalProviders: readonly ProviderKind[];
   readonly now: () => string;
 }
@@ -137,7 +128,9 @@ export function makeExecutionAdapterCoordinator(
           ),
         );
 
-    const switchToTerminalUnlocked: ExecutionAdapterCoordinatorShape["switchToTerminal"] = (input) =>
+    const switchToTerminalUnlocked: ExecutionAdapterCoordinatorShape["switchToTerminal"] = (
+      input,
+    ) =>
       Effect.gen(function* () {
         if (!dependencies.supportedTerminalProviders.includes(input.provider)) {
           return yield* Effect.fail(
@@ -147,21 +140,20 @@ export function makeExecutionAdapterCoordinator(
             ),
           );
         }
-        const structured = yield* dependencies.findStructuredRuntime(input.threadId).pipe(
-          Effect.mapError((cause) =>
-            fromUnknown(cause, "structured-runtime", "Structured runtime lookup failed"),
-          ),
-        );
+        const structured = yield* dependencies
+          .findStructuredRuntime(input.threadId)
+          .pipe(
+            Effect.mapError((cause) =>
+              fromUnknown(cause, "structured-runtime", "Structured runtime lookup failed"),
+            ),
+          );
         if (
           structured?.activeTurnId !== undefined ||
           structured?.status === "running" ||
           structured?.status === "connecting"
         ) {
           return yield* Effect.fail(
-            error(
-              "turn-in-flight",
-              `Thread ${input.threadId} has a structured turn in flight.`,
-            ),
+            error("turn-in-flight", `Thread ${input.threadId} has a structured turn in flight.`),
           );
         }
         const starting = yield* authorityEffect(
@@ -180,9 +172,7 @@ export function makeExecutionAdapterCoordinator(
             if (structured !== undefined && structured.status !== "closed") {
               suspension = yield* dependencies.suspendStructuredRuntime(structured);
             }
-            const prepared = yield* input.prepare(
-              suspension?.session ?? structured,
-            );
+            const prepared = yield* input.prepare(suspension?.session ?? structured);
             yield* authorityEffect(
               dependencies.authority.updateTerminal({
                 threadId: input.threadId,
@@ -310,20 +300,16 @@ export function makeExecutionAdapterCoordinator(
               Effect.mapError((cause) =>
                 cause instanceof ExecutionAdapterAuthorityError
                   ? fromAuthorityError(cause)
-                  : fromUnknown(
-                      cause,
-                      "structured-runtime",
-                      "Structured runtime stop failed",
-                    ),
+                  : fromUnknown(cause, "structured-runtime", "Structured runtime stop failed"),
               ),
             );
             return "structured" as const;
           }
-          yield* input.beforeTerminalStop().pipe(
-            Effect.mapError((cause) =>
-              fromUnknown(cause, "host", "Terminal pre-stop failed"),
-            ),
-          );
+          yield* input
+            .beforeTerminalStop()
+            .pipe(
+              Effect.mapError((cause) => fromUnknown(cause, "host", "Terminal pre-stop failed")),
+            );
           yield* stopTerminalRuntime({
             authority: dependencies.authority,
             terminalHost: dependencies.terminalHost,
@@ -353,9 +339,7 @@ export function makeExecutionAdapterCoordinator(
               patch: {
                 status: "error",
                 error: `Terminal teardown failed: ${
-                  killed.failure instanceof Error
-                    ? killed.failure.message
-                    : String(killed.failure)
+                  killed.failure instanceof Error ? killed.failure.message : String(killed.failure)
                 }`,
               },
             })
@@ -421,9 +405,9 @@ export function makeExecutionAdapterCoordinator(
           ...input,
           operation: "terminal-attach",
           effect: dependencies.terminalHost.attachClient(terminalHostSessionId(input.threadId), {
-              onOutput: input.onOutput,
-              onExit: input.onExit,
-            }),
+            onOutput: input.onOutput,
+            onExit: input.onExit,
+          }),
         }).pipe(
           Effect.mapError((cause) =>
             cause instanceof ExecutionAdapterAuthorityError
@@ -437,10 +421,10 @@ export function makeExecutionAdapterCoordinator(
           ...input,
           operation: "terminal-write",
           effect: dependencies.terminalHost.write({
-              sessionId: terminalHostSessionId(input.threadId),
-              generation: input.generation,
-              data: input.data,
-            }),
+            sessionId: terminalHostSessionId(input.threadId),
+            generation: input.generation,
+            data: input.data,
+          }),
         }).pipe(
           Effect.mapError((cause) =>
             cause instanceof ExecutionAdapterAuthorityError
@@ -454,11 +438,11 @@ export function makeExecutionAdapterCoordinator(
           ...input,
           operation: "terminal-resize",
           effect: dependencies.terminalHost.resize({
-              sessionId: terminalHostSessionId(input.threadId),
-              generation: input.generation,
-              cols: input.cols,
-              rows: input.rows,
-            }),
+            sessionId: terminalHostSessionId(input.threadId),
+            generation: input.generation,
+            cols: input.cols,
+            rows: input.rows,
+          }),
         }).pipe(
           Effect.mapError((cause) =>
             cause instanceof ExecutionAdapterAuthorityError
@@ -466,8 +450,7 @@ export function makeExecutionAdapterCoordinator(
               : fromUnknown(cause, "host", "Terminal resize failed"),
           ),
         ),
-      updateTerminalState: (input) =>
-        authorityEffect(dependencies.authority.updateTerminal(input)),
+      updateTerminalState: (input) => authorityEffect(dependencies.authority.updateTerminal(input)),
       teardownThread,
       finalizeThreadDeletion,
     } satisfies ExecutionAdapterCoordinatorShape;

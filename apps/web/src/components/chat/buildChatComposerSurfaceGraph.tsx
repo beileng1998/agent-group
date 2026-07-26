@@ -164,8 +164,7 @@ export function buildChatComposerSurfaceGraph(input: ChatComposerSurfaceGraphInp
           busy: runtimeActivity.dispatch.isSendBusy,
           connecting: runtimeActivity.session.isConnecting,
           preparingWorktree: runtimeActivity.dispatch.isPreparingWorktree,
-          hasSendableContent:
-            sendState.hasSendableContent && input.readOnly !== true,
+          hasSendableContent: sendState.hasSendableContent && input.readOnly !== true,
         },
       },
       menu: {
@@ -276,9 +275,7 @@ export function buildChatComposerSurfaceGraph(input: ChatComposerSurfaceGraphInp
         onCollapsePastedText: composerInteraction.references.actions.addPastedText,
         hasLiveTurn: runtimeActivity.session.hasLiveTurn,
         phase: runtimeActivity.session.phase,
-        disabled:
-          input.readOnly === true ||
-          runtimeActivity.presentation.isComposerEditorDisabled,
+        disabled: input.readOnly === true || runtimeActivity.presentation.isComposerEditorDisabled,
       },
     },
     footer: {

@@ -13,11 +13,7 @@ import {
 } from "../Services/ExecutionAdapterCoordinator";
 import { spawnTerminalRuntime } from "./executionAdapterTerminalSpawn";
 
-const failure = (
-  reason: ExecutionAdapterError["reason"],
-  message: string,
-  cause?: unknown,
-) =>
+const failure = (reason: ExecutionAdapterError["reason"], message: string, cause?: unknown) =>
   new ExecutionAdapterError({
     reason,
     message,
@@ -78,8 +74,7 @@ export function restartTerminalRuntime(input: {
         .updateTerminal({
           threadId: request.threadId,
           revision: failedState.revision,
-          ...(failedState.adapter === "terminal" &&
-          failedState.generation !== null
+          ...(failedState.adapter === "terminal" && failedState.generation !== null
             ? { generation: failedState.generation }
             : {}),
           patch: {
@@ -89,11 +84,7 @@ export function restartTerminalRuntime(input: {
         })
         .pipe(Effect.catch(() => Effect.void));
       return yield* Effect.fail(
-        failure(
-          "host",
-          `Terminal teardown failed: ${killed.failure.message}`,
-          killed.failure,
-        ),
+        failure("host", `Terminal teardown failed: ${killed.failure.message}`, killed.failure),
       );
     }
     const starting = yield* mapAuthority(
@@ -147,18 +138,14 @@ export function stopTerminalRuntime(input: {
   readonly sessionId: string;
 }) {
   return Effect.gen(function* () {
-    const stopping = yield* mapAuthority(
-      input.authority.beginTerminalStop(input.threadId),
-    );
+    const stopping = yield* mapAuthority(input.authority.beginTerminalStop(input.threadId));
     const killed = yield* Effect.result(input.terminalHost.kill(input.sessionId));
     if (Result.isFailure(killed)) {
       yield* input.authority
         .updateTerminal({
           threadId: input.threadId,
           revision: stopping.revision,
-          ...(stopping.generation !== null
-            ? { generation: stopping.generation }
-            : {}),
+          ...(stopping.generation !== null ? { generation: stopping.generation } : {}),
           patch: {
             status: "error",
             error: `Terminal teardown failed: ${killed.failure.message}`,
@@ -166,20 +153,14 @@ export function stopTerminalRuntime(input: {
         })
         .pipe(Effect.catch(() => Effect.void));
       return yield* Effect.fail(
-        failure(
-          "host",
-          `Terminal teardown failed: ${killed.failure.message}`,
-          killed.failure,
-        ),
+        failure("host", `Terminal teardown failed: ${killed.failure.message}`, killed.failure),
       );
     }
     yield* mapAuthority(
       input.authority.updateTerminal({
         threadId: input.threadId,
         revision: stopping.revision,
-        ...(stopping.generation !== null
-          ? { generation: stopping.generation }
-          : {}),
+        ...(stopping.generation !== null ? { generation: stopping.generation } : {}),
         patch: {
           status: "stopped",
           pid: null,

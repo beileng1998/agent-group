@@ -36,18 +36,14 @@ afterEach(async () => {
     if (holder.exitCode === null && holder.signalCode === null) holder.kill("SIGKILL");
   }
   await Promise.all(
-    directories.splice(0).map((directory) =>
-      fs.rm(directory, { recursive: true, force: true }),
-    ),
+    directories.splice(0).map((directory) => fs.rm(directory, { recursive: true, force: true })),
   );
 });
 
 describe("node-pty owner crash", () => {
   it("hangs up the PTY root when the server-side holder is SIGKILLed", async () => {
     if (process.platform === "win32") return;
-    const directory = await fs.mkdtemp(
-      path.join(os.tmpdir(), "agent-group-pty-owner-crash-"),
-    );
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), "agent-group-pty-owner-crash-"));
     directories.push(directory);
     const pidPath = path.join(directory, "pty.pid");
     const holderScript = [
@@ -69,7 +65,12 @@ describe("node-pty owner crash", () => {
       holderError += String(chunk);
     });
 
-    await waitFor(() => fs.stat(pidPath).then(() => true, () => false));
+    await waitFor(() =>
+      fs.stat(pidPath).then(
+        () => true,
+        () => false,
+      ),
+    );
     const ptyPid = Number(await fs.readFile(pidPath, "utf8"));
     expect(ptyPid).toBeGreaterThan(0);
     expect(processIsAbsent(ptyPid)).toBe(false);
@@ -84,9 +85,7 @@ describe("node-pty owner crash", () => {
 
   it("reaps a HUP-ignoring child from durable process-group ownership", async () => {
     if (process.platform === "win32") return;
-    const directory = await fs.mkdtemp(
-      path.join(os.tmpdir(), "agent-group-pty-group-crash-"),
-    );
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), "agent-group-pty-group-crash-"));
     directories.push(directory);
     const rootPidPath = path.join(directory, "root.pid");
     const childPidPath = path.join(directory, "child.pid");
@@ -111,14 +110,13 @@ describe("node-pty owner crash", () => {
     });
     holders.push(holder);
     let childPid: number | null = null;
-    let processGroup =
-      null as ReturnType<typeof defaultTerminalProcessGroupController.capture>;
+    let processGroup = null as ReturnType<typeof defaultTerminalProcessGroupController.capture>;
     try {
       await waitFor(() =>
-        Promise.all([
-          fs.stat(rootPidPath),
-          fs.stat(childPidPath),
-        ]).then(() => true, () => false),
+        Promise.all([fs.stat(rootPidPath), fs.stat(childPidPath)]).then(
+          () => true,
+          () => false,
+        ),
       );
       const rootPid = Number(await fs.readFile(rootPidPath, "utf8"));
       childPid = Number(await fs.readFile(childPidPath, "utf8"));

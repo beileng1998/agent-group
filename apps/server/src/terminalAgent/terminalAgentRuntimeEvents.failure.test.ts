@@ -18,9 +18,7 @@ describe("managed terminal runtime event failures", () => {
     };
 
     harness.setManagedTerminalEnabled(false);
-    await expect(harness.invoke(prompt)).rejects.toThrow(
-      "disabled in server settings",
-    );
+    await expect(harness.invoke(prompt)).rejects.toThrow("disabled in server settings");
     expect(harness.runtime.activeTurn).toBeNull();
     expect(harness.commands).toHaveLength(0);
 
@@ -28,17 +26,11 @@ describe("managed terminal runtime event failures", () => {
     await harness.invoke(prompt);
     harness.setManagedTerminalEnabled(false);
     await expect(
-      harness.invoke(
-        { prompt: "Do not reach the model." },
-        "prompt-disabled",
-        "prompt-accepted",
-      ),
+      harness.invoke({ prompt: "Do not reach the model." }, "prompt-disabled", "prompt-accepted"),
     ).rejects.toThrow("disabled in server settings");
     expect(harness.runtime.activeTurn).toMatchObject({ accepted: false });
     expect(harness.commands).toHaveLength(0);
-    expect(
-      harness.events.filter((event) => event.type === "turn.started"),
-    ).toHaveLength(0);
+    expect(harness.events.filter((event) => event.type === "turn.started")).toHaveLength(0);
   });
 
   it("still accepts lifecycle cleanup after the feature is disabled", async () => {
@@ -50,11 +42,7 @@ describe("managed terminal runtime event failures", () => {
       session_id: "provider-session-1",
       prompt: "Finish safely.",
     });
-    await harness.invoke(
-      { prompt: "Finish safely." },
-      "prompt-before-disable",
-      "prompt-accepted",
-    );
+    await harness.invoke({ prompt: "Finish safely." }, "prompt-before-disable", "prompt-accepted");
 
     harness.setManagedTerminalEnabled(false);
     await harness.invoke({
@@ -101,11 +89,7 @@ describe("managed terminal runtime event failures", () => {
     harness.failNextPublish();
 
     await expect(
-      harness.invoke(
-        { prompt: "Retry this exact prompt." },
-        "prompt-retry",
-        "prompt-accepted",
-      ),
+      harness.invoke({ prompt: "Retry this exact prompt." }, "prompt-retry", "prompt-accepted"),
     ).rejects.toThrow("projection unavailable");
     expect(harness.getState()).toMatchObject({
       status: "attention",
@@ -117,20 +101,14 @@ describe("managed terminal runtime event failures", () => {
     });
     await expect(harness.invoke(prompt)).resolves.toEqual(prepared);
 
-    await harness.invoke(
-      { prompt: "Retry this exact prompt." },
-      "prompt-retry",
-      "prompt-accepted",
-    );
+    await harness.invoke({ prompt: "Retry this exact prompt." }, "prompt-retry", "prompt-accepted");
     expect(harness.getState()).toMatchObject({
       status: "running",
       activeTurnId: harness.runtime.activeTurn?.turnId,
     });
     expect(harness.commands).toHaveLength(2);
     expect(harness.commands[0]?.commandId).toBe(harness.commands[1]?.commandId);
-    expect(
-      harness.events.filter((event) => event.type === "turn.started"),
-    ).toHaveLength(1);
+    expect(harness.events.filter((event) => event.type === "turn.started")).toHaveLength(1);
   });
 
   it("does not strand authority when visible prompt projection fails", async () => {
@@ -146,26 +124,16 @@ describe("managed terminal runtime event failures", () => {
     harness.failNextDispatch();
 
     await expect(
-      harness.invoke(
-        { prompt: "Project me once." },
-        "prompt-command-retry",
-        "prompt-accepted",
-      ),
+      harness.invoke({ prompt: "Project me once." }, "prompt-command-retry", "prompt-accepted"),
     ).rejects.toThrow("command unavailable");
     expect(harness.getState()).toMatchObject({
       status: "attention",
       activeTurnId: null,
     });
 
-    await harness.invoke(
-      { prompt: "Project me once." },
-      "prompt-command-retry",
-      "prompt-accepted",
-    );
+    await harness.invoke({ prompt: "Project me once." }, "prompt-command-retry", "prompt-accepted");
     expect(harness.commands).toHaveLength(1);
-    expect(
-      harness.events.filter((event) => event.type === "turn.started"),
-    ).toHaveLength(1);
+    expect(harness.events.filter((event) => event.type === "turn.started")).toHaveLength(1);
     expect(harness.getState()).toMatchObject({ status: "running" });
   });
 });

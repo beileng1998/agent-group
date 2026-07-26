@@ -34,10 +34,7 @@ describe("project runtime gate", () => {
       ),
     );
     const launching = Effect.runFork(
-      withProjectRuntimeGate(
-        projectId,
-        Deferred.succeed(terminalEntered, undefined),
-      ),
+      withProjectRuntimeGate(projectId, Deferred.succeed(terminalEntered, undefined)),
     );
 
     await Effect.runPromise(Deferred.succeed(releaseCreate, undefined));

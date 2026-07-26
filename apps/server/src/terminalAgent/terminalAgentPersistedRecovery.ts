@@ -2,10 +2,7 @@
 // Purpose: Crash-recovery guard and private runtime-directory retirement.
 // Layer: Managed terminal service support
 
-import {
-  TerminalAgentProvider,
-  type ThreadId,
-} from "@agent-group/contracts";
+import { TerminalAgentProvider, type ThreadId } from "@agent-group/contracts";
 import { Effect, Schema } from "effect";
 
 import type { ExecutionAdapterState } from "../orchestration/Services/ExecutionAdapterCoordinator";
@@ -21,18 +18,13 @@ export function makeTerminalAgentPersistedRecovery(input: {
   readonly records: Map<ThreadId, TerminalAgentRuntimeRecord>;
 }) {
   const ensureOwnerExited = (
-    owner: Pick<
-      TerminalAuthorityState,
-      "pid" | "ownerIdentity" | "processGroupIdentity"
-    >,
+    owner: Pick<TerminalAuthorityState, "pid" | "ownerIdentity" | "processGroupIdentity">,
   ) =>
     Effect.tryPromise({
       try: async () => {
         const verified = await waitForPersistedTerminalOwnerExit(owner);
         if (!verified.verified) {
-          throw new Error(
-            verified.detail ?? "The previous terminal process exit is unverified.",
-          );
+          throw new Error(verified.detail ?? "The previous terminal process exit is unverified.");
         }
       },
       catch: (cause) =>
@@ -60,14 +52,8 @@ export function makeTerminalAgentPersistedRecovery(input: {
       ? ensureOwnerExited(state)
       : Effect.void;
 
-  const retirePreviousRuntime = (
-    threadId: ThreadId,
-    state: ExecutionAdapterState,
-  ) => {
-    if (
-      state.adapter !== "terminal" ||
-      !Schema.is(TerminalAgentProvider)(state.provider)
-    ) {
+  const retirePreviousRuntime = (threadId: ThreadId, state: ExecutionAdapterState) => {
+    if (state.adapter !== "terminal" || !Schema.is(TerminalAgentProvider)(state.provider)) {
       return Effect.void;
     }
     const runtimeDir = terminalAgentRuntimeDir({
@@ -79,9 +65,7 @@ export function makeTerminalAgentPersistedRecovery(input: {
     if (input.records.get(threadId)?.runtimeDir === runtimeDir) {
       return Effect.void;
     }
-    return Effect.tryPromise(() =>
-      retireTerminalRuntimeDirectory(input.stateDir, runtimeDir),
-    ).pipe(
+    return Effect.tryPromise(() => retireTerminalRuntimeDirectory(input.stateDir, runtimeDir)).pipe(
       Effect.catch((cause) =>
         Effect.logWarning("persisted Agent Terminal runtime cleanup failed", {
           threadId,

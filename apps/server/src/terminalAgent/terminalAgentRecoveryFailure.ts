@@ -11,9 +11,7 @@ import type {
 import type { ExecutionAdapterCoordinatorShape } from "../orchestration/Services/ExecutionAdapterCoordinator";
 import type { ThreadId } from "@agent-group/contracts";
 
-export function makeTerminalRecoveryFailureHandler(
-  coordinator: ExecutionAdapterCoordinatorShape,
-) {
+export function makeTerminalRecoveryFailureHandler(coordinator: ExecutionAdapterCoordinatorShape) {
   return (
     threadId: ThreadId,
     expected: StructuredAuthorityState | TerminalAuthorityState,
@@ -33,9 +31,7 @@ export function makeTerminalRecoveryFailureHandler(
           yield* coordinator.updateTerminalState({
             threadId,
             revision: current.revision,
-            ...(current.generation !== null
-              ? { generation: current.generation }
-              : {}),
+            ...(current.generation !== null ? { generation: current.generation } : {}),
             patch: {
               status: "error",
               activeTurnId: null,

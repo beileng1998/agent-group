@@ -1,6 +1,7 @@
 import type {
   TerminalAgentRuntimeState,
   TerminalAgentSerializedSnapshot,
+  ThreadId,
 } from "@agent-group/contracts";
 import { describe, expect, it } from "vitest";
 
@@ -16,9 +17,11 @@ import {
   splitManagedTerminalInput,
 } from "./managedTerminalPresentation";
 
+const THREAD_ID = "thread-managed-terminal" as ThreadId;
+
 function runtimeState(revision: number): TerminalAgentRuntimeState {
   return {
-    threadId: "thread-managed-terminal",
+    threadId: THREAD_ID,
     authority: "terminal",
     revision,
     provider: "codex",
@@ -122,9 +125,7 @@ describe("managed terminal presentation", () => {
     expect(classifyManagedTerminalOutput({ ...base, seq: 43 })).toBe("resync");
     expect(classifyManagedTerminalOutput({ ...base, seq: 41 })).toBe("ignore");
     expect(classifyManagedTerminalOutput({ ...base, seq: 40 })).toBe("ignore");
-    expect(
-      classifyManagedTerminalOutput({ ...base, revision: 8, seq: 42 }),
-    ).toBe("ignore");
+    expect(classifyManagedTerminalOutput({ ...base, revision: 8, seq: 42 })).toBe("ignore");
     expect(
       classifyManagedTerminalOutput({
         ...base,
@@ -158,7 +159,7 @@ describe("managed terminal presentation", () => {
     expect(
       managedTerminalEventThreadId({
         type: "output",
-        threadId: "thread-managed-terminal",
+        threadId: THREAD_ID,
         revision: 10,
         generation: "generation-1",
         seq: 43,

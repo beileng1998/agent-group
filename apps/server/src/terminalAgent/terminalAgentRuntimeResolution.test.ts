@@ -1,7 +1,4 @@
-import {
-  DEFAULT_SERVER_SETTINGS,
-  ThreadId,
-} from "@agent-group/contracts";
+import { DEFAULT_SERVER_SETTINGS, ThreadId } from "@agent-group/contracts";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 

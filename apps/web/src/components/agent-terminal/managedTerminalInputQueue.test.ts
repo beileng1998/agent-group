@@ -112,10 +112,6 @@ describe("ManagedTerminalInputQueue", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(onOverflow).not.toHaveBeenCalled();
-    expect(sends).toEqual([
-      "generation-1:old",
-      "generation-2:one",
-      "generation-2:two",
-    ]);
+    expect(sends).toEqual(["generation-1:old", "generation-2:one", "generation-2:two"]);
   });
 });

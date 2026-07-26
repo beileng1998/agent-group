@@ -17,6 +17,14 @@ import { ManagedAgentTerminalSurface } from "./ManagedAgentTerminalSurface";
 
 const originalNativeApi = window.nativeApi;
 
+function restoreNativeApi(): void {
+  if (originalNativeApi) {
+    window.nativeApi = originalNativeApi;
+  } else {
+    delete window.nativeApi;
+  }
+}
+
 function terminalState(threadId: ThreadId): TerminalAgentRuntimeState {
   return {
     threadId,
@@ -39,14 +47,14 @@ function terminalState(threadId: ThreadId): TerminalAgentRuntimeState {
 
 describe("managed Agent Terminal input and parking", () => {
   afterEach(() => {
-    window.nativeApi = originalNativeApi;
+    restoreNativeApi();
     document.body.innerHTML = "";
   });
 
   it("forwards keyboard sequences that resemble replies and drops synthetic replies", async () => {
     const threadId = "query-reply-terminal" as ThreadId;
     let listener: ((event: TerminalAgentEvent) => void) | undefined;
-    const write = vi.fn(async () => {});
+    const write = vi.fn<NativeApi["terminalAgent"]["write"]>(async () => {});
     window.nativeApi = {
       terminalAgent: {
         subscribe: (
@@ -101,12 +109,8 @@ describe("managed Agent Terminal input and parking", () => {
           outputSequence: 0,
         },
       });
-      await expect
-        .poll(() => document.body.textContent?.includes("Connected"))
-        .toBe(true);
-      const textarea = document.querySelector<HTMLTextAreaElement>(
-        ".xterm-helper-textarea",
-      );
+      await expect.poll(() => document.body.textContent?.includes("Connected")).toBe(true);
+      const textarea = document.querySelector<HTMLTextAreaElement>(".xterm-helper-textarea");
       expect(textarea).not.toBeNull();
       const keydown = new KeyboardEvent("keydown", {
         key: "F3",

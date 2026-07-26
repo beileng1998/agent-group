@@ -14,12 +14,8 @@ const DEVICE_ATTRIBUTES_RE = new RegExp("^\\u001b\\[[?>=]?[0-9;]*c$");
 const WINDOW_SIZE_REPORT_RE = new RegExp("^\\u001b\\[[468];[0-9]+;[0-9]+t$");
 const DECRPM_RE = new RegExp("^\\u001b\\[\\??[0-9;]*\\$y$");
 const KITTY_FLAGS_RE = new RegExp("^\\u001b\\[\\?[0-9]+u$");
-const OSC_RESPONSE_RE = new RegExp(
-  "^\\u001b\\][0-9]+;[^\\u0007\\u001b]*(?:\\u0007|\\u001b\\\\)$",
-);
-const DCS_RESPONSE_RE = new RegExp(
-  "^\\u001bP(?:[01]\\$r[^\\u001b]*|>\\|[^\\u001b]*)\\u001b\\\\$",
-);
+const OSC_RESPONSE_RE = new RegExp("^\\u001b\\][0-9]+;[^\\u0007\\u001b]*(?:\\u0007|\\u001b\\\\)$");
+const DCS_RESPONSE_RE = new RegExp("^\\u001bP(?:[01]\\$r[^\\u001b]*|>\\|[^\\u001b]*)\\u001b\\\\$");
 /* oxlint-enable no-control-regex */
 
 export function isTerminalQueryReply(data: string): boolean {

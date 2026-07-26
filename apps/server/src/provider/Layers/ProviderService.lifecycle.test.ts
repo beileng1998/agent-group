@@ -291,8 +291,7 @@ lifecycle.layer("ProviderService lifecycle serialization", (it) => {
       assert.equal(binding?.status, "stopped");
       assert.deepEqual(binding?.resumeCursor, terminalCursor);
       assert.equal(
-        (binding?.runtimePayload as { readonly lastRuntimeEvent?: string })
-          ?.lastRuntimeEvent,
+        (binding?.runtimePayload as { readonly lastRuntimeEvent?: string })?.lastRuntimeEvent,
         "terminal.session.started",
       );
     }),

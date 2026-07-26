@@ -29,15 +29,15 @@ export function makeExecutionAdapterAuthorityTransitions(input: {
 }) {
   const awaitClaimsDrained = (threadId: ThreadId) => {
     const poll = (): Effect.Effect<void> =>
-      input.claimCount(threadId).pipe(
-        Effect.flatMap((count) =>
-          count === 0
-            ? Effect.void
-            : Effect.sleep(CLAIM_DRAIN_POLL).pipe(
-                Effect.andThen(Effect.suspend(poll)),
-              ),
-        ),
-      );
+      input
+        .claimCount(threadId)
+        .pipe(
+          Effect.flatMap((count) =>
+            count === 0
+              ? Effect.void
+              : Effect.sleep(CLAIM_DRAIN_POLL).pipe(Effect.andThen(Effect.suspend(poll))),
+          ),
+        );
     return Effect.raceFirst(
       poll(),
       Effect.sleep(CLAIM_DRAIN_TIMEOUT).pipe(

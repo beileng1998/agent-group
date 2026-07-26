@@ -298,9 +298,7 @@ it.effect("keeps terminal model observations internal and runtime-fenced", () =>
       createdAt: "2026-01-01T00:00:00.000Z",
     };
 
-    const clientResult = yield* Effect.exit(
-      decodeClientOrchestrationCommand(command),
-    );
+    const clientResult = yield* Effect.exit(decodeClientOrchestrationCommand(command));
     assert.strictEqual(clientResult._tag, "Failure");
 
     const parsedInternal = yield* decodeOrchestrationCommand(command);

@@ -41,9 +41,7 @@ export function managedTerminalStartBlockedReason(input: {
   return null;
 }
 
-export function managedTerminalStatusLabel(
-  state: TerminalAgentRuntimeState | null,
-): string {
+export function managedTerminalStatusLabel(state: TerminalAgentRuntimeState | null): string {
   if (!state) return "Unavailable";
   switch (state.status) {
     case "context-blocked":
@@ -73,15 +71,11 @@ export function managedTerminalStatusLabel(
   }
 }
 
-export function isManagedTerminalAuthority(
-  state: TerminalAgentRuntimeState | null,
-): boolean {
+export function isManagedTerminalAuthority(state: TerminalAgentRuntimeState | null): boolean {
   return state?.authority === "terminal";
 }
 
-export function canRestartManagedTerminal(
-  state: TerminalAgentRuntimeState | null,
-): boolean {
+export function canRestartManagedTerminal(state: TerminalAgentRuntimeState | null): boolean {
   return (
     state?.authority === "terminal" &&
     (state.status === "stopped" ||
@@ -92,13 +86,9 @@ export function canRestartManagedTerminal(
   );
 }
 
-export function canSwitchManagedTerminalToChat(
-  state: TerminalAgentRuntimeState | null,
-): boolean {
+export function canSwitchManagedTerminalToChat(state: TerminalAgentRuntimeState | null): boolean {
   return (
-    state?.authority === "terminal" &&
-    state.status !== "running" &&
-    state.status !== "stopping"
+    state?.authority === "terminal" && state.status !== "running" && state.status !== "stopping"
   );
 }
 
@@ -120,10 +110,7 @@ export function acceptManagedTerminalRpcState(
   current: TerminalAgentRuntimeState | null,
   next: TerminalAgentRuntimeState,
 ): TerminalAgentRuntimeState {
-  if (
-    current?.threadId === next.threadId &&
-    current.revision >= next.revision
-  ) {
+  if (current?.threadId === next.threadId && current.revision >= next.revision) {
     return current;
   }
   return next;

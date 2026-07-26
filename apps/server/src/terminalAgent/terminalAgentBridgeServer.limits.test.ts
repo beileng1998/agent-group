@@ -167,10 +167,7 @@ describe("TerminalAgentBridgeServer request limits", () => {
 
   it("finishes the request deadline even when a handler ignores abort", async () => {
     const bridge = await makeBridge(20);
-    const registration = bridge.register(
-      "runtime-1",
-      () => new Promise(() => {}),
-    );
+    const registration = bridge.register("runtime-1", () => new Promise(() => {}));
 
     const response = await requestBridge({
       bridge,

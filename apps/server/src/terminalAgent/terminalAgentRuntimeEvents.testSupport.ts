@@ -17,9 +17,7 @@ import type { TerminalAgentRuntimeRecord } from "./terminalAgentRuntimeTypes";
 
 const threadId = ThreadId.makeUnsafe("thread-terminal-events");
 
-export function makeRuntimeEventsHarness(
-  provider: "pi" | "claudeAgent" = "pi",
-) {
+export function makeRuntimeEventsHarness(provider: "pi" | "claudeAgent" = "pi") {
   const commands: OrchestrationCommand[] = [];
   const events: ProviderRuntimeEvent[] = [];
   const adoptedCursors: unknown[] = [];

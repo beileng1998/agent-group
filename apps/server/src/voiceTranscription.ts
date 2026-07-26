@@ -112,7 +112,11 @@ async function requestTranscription(input: {
   const formData = new FormData();
   // Why the copy: DOM's BlobPart requires ArrayBufferView<ArrayBuffer> while a
   // Buffer's backing store is typed ArrayBufferLike; Uint8Array re-buffers it.
-  formData.append("file", new Blob([new Uint8Array(input.audioBuffer)], { type: input.mimeType }), "voice.wav");
+  formData.append(
+    "file",
+    new Blob([new Uint8Array(input.audioBuffer)], { type: input.mimeType }),
+    "voice.wav",
+  );
 
   return input.fetchImpl(input.transcriptionUrl ?? CHATGPT_TRANSCRIPTIONS_URL, {
     method: "POST",

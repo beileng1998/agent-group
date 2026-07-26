@@ -11,27 +11,19 @@ import {
 } from "./executionAdapterAuthorityState";
 
 export function makeTerminalAuthorityAssertion(
-  getState: (
-    threadId: ThreadId,
-  ) => Effect.Effect<ExecutionAdapterAuthorityState>,
+  getState: (threadId: ThreadId) => Effect.Effect<ExecutionAdapterAuthorityState>,
 ): ExecutionAdapterAuthorityShape["assertTerminal"] {
   return (threadId, revision, generation) =>
     getState(threadId).pipe(
       Effect.flatMap((state) => {
         if (state.adapter !== "terminal") {
-          return Effect.fail(
-            authorityError("not-terminal", `Thread ${threadId} is not terminal.`),
-          );
+          return Effect.fail(authorityError("not-terminal", `Thread ${threadId} is not terminal.`));
         }
         if (state.revision !== revision) {
-          return Effect.fail(
-            authorityError("stale-revision", "Terminal revision is stale."),
-          );
+          return Effect.fail(authorityError("stale-revision", "Terminal revision is stale."));
         }
         if (state.generation !== generation) {
-          return Effect.fail(
-            authorityError("stale-generation", "Terminal generation is stale."),
-          );
+          return Effect.fail(authorityError("stale-generation", "Terminal generation is stale."));
         }
         if (!terminalAuthorityAcceptsOperations(state.status)) {
           return Effect.fail(

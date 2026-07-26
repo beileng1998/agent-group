@@ -41,11 +41,8 @@ export function AgentTerminalControl({ compact = false }: { compact?: boolean })
 
   const state = controller.state;
   const terminalSelected = controller.surface === "terminal";
-  const terminalLabel = state
-    ? managedTerminalProviderLabel(state.provider)
-    : "Agent";
-  const startBlockedReason =
-    !controller.active ? controller.startBlockedReason : null;
+  const terminalLabel = state ? managedTerminalProviderLabel(state.provider) : "Agent";
+  const startBlockedReason = !controller.active ? controller.startBlockedReason : null;
   const terminalTitle =
     startBlockedReason ??
     (controller.featureEnabled
@@ -66,9 +63,7 @@ export function AgentTerminalControl({ compact = false }: { compact?: boolean })
         title="Show Chat history"
         className={cn(
           SEGMENT_CLASS_NAME,
-          terminalSelected
-            ? IDLE_SEGMENT_CLASS_NAME
-            : ACTIVE_SEGMENT_CLASS_NAME,
+          terminalSelected ? IDLE_SEGMENT_CLASS_NAME : ACTIVE_SEGMENT_CLASS_NAME,
         )}
         onClick={() => {
           controller.showSurface("chat");
@@ -93,9 +88,7 @@ export function AgentTerminalControl({ compact = false }: { compact?: boolean })
               }
               className={cn(
                 SEGMENT_CLASS_NAME,
-                terminalSelected
-                  ? ACTIVE_SEGMENT_CLASS_NAME
-                  : IDLE_SEGMENT_CLASS_NAME,
+                terminalSelected ? ACTIVE_SEGMENT_CLASS_NAME : IDLE_SEGMENT_CLASS_NAME,
                 startBlockedReason && "cursor-not-allowed opacity-55",
               )}
               onClick={() => {

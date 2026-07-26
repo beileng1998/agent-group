@@ -23,19 +23,14 @@ import {
   piTerminalSessionDir,
   preparePiTerminalLaunch,
 } from "./piTerminalDriver";
-import {
-  prepareTerminalAgentLaunch,
-  terminalAgentExecutable,
-} from "./terminalAgentDriverRegistry";
+import { prepareTerminalAgentLaunch, terminalAgentExecutable } from "./terminalAgentDriverRegistry";
 
 describe("managed terminal drivers", () => {
   const tempDirs: string[] = [];
 
   afterEach(async () => {
     await Promise.all(
-      tempDirs.splice(0).map((directory) =>
-        fs.rm(directory, { recursive: true, force: true }),
-      ),
+      tempDirs.splice(0).map((directory) => fs.rm(directory, { recursive: true, force: true })),
     );
   });
 
@@ -84,10 +79,7 @@ describe("managed terminal drivers", () => {
         runtimeMode: "approval-required",
         resumeSessionId: "019f0000-0000-7000-8000-000000000001",
       }).slice(0, 2),
-    ).toEqual([
-      "resume",
-      "019f0000-0000-7000-8000-000000000001",
-    ]);
+    ).toEqual(["resume", "019f0000-0000-7000-8000-000000000001"]);
   });
 
   it("isolates and hardens the Codex overlay on repeated launch", async () => {
@@ -98,10 +90,7 @@ describe("managed terminal drivers", () => {
     await fs.writeFile(path.join(sourceHome, "config.toml"), sourceConfig);
     await fs.writeFile(path.join(sourceHome, "auth.json"), '{"tokens":{}}\n');
     await fs.mkdir(path.join(sourceHome, "skills"));
-    await fs.writeFile(
-      path.join(sourceHome, "agent-group-terminal.config.toml"),
-      sourceProfile,
-    );
+    await fs.writeFile(path.join(sourceHome, "agent-group-terminal.config.toml"), sourceProfile);
     const runtimeDir = codexTerminalRuntimeDir(stateDir, "thread-one");
     await fs.mkdir(runtimeDir, { recursive: true, mode: 0o777 });
     await fs.chmod(runtimeDir, 0o777);
@@ -129,18 +118,11 @@ describe("managed terminal drivers", () => {
     expect((await fs.stat(launch.profilePath)).mode & 0o777).toBe(0o600);
     expect((await fs.stat(launch.shimPath)).mode & 0o777).toBe(0o700);
     expect(await fs.readFile(victim, "utf8")).toBe("unchanged");
-    expect(await fs.readFile(path.join(sourceHome, "config.toml"), "utf8")).toBe(
-      sourceConfig,
-    );
+    expect(await fs.readFile(path.join(sourceHome, "config.toml"), "utf8")).toBe(sourceConfig);
     expect(
-      await fs.readFile(
-        path.join(sourceHome, "agent-group-terminal.config.toml"),
-        "utf8",
-      ),
+      await fs.readFile(path.join(sourceHome, "agent-group-terminal.config.toml"), "utf8"),
     ).toBe(sourceProfile);
-    expect(
-      (await fs.lstat(path.join(launch.codexHome, "auth.json"))).isSymbolicLink(),
-    ).toBe(true);
+    expect((await fs.lstat(path.join(launch.codexHome, "auth.json"))).isSymbolicLink()).toBe(true);
   });
 
   it("uses Codex's canonical profile path for native hook trust", async () => {
@@ -167,14 +149,9 @@ describe("managed terminal drivers", () => {
     });
 
     expect(launch.profilePath).toBe(
-      path.join(
-        await fs.realpath(launch.codexHome),
-        `${CODEX_TERMINAL_PROFILE_NAME}.config.toml`,
-      ),
+      path.join(await fs.realpath(launch.codexHome), `${CODEX_TERMINAL_PROFILE_NAME}.config.toml`),
     );
-    expect(await fs.readFile(launch.profilePath, "utf8")).toContain(
-      `[projects."${realStateDir}"]`,
-    );
+    expect(await fs.readFile(launch.profilePath, "utf8")).toContain(`[projects."${realStateDir}"]`);
   });
 
   it("uses a private Claude settings overlay and disables updates", async () => {
@@ -375,9 +352,7 @@ describe("managed terminal drivers", () => {
         },
       },
     };
-    expect(terminalAgentExecutable(settings, "pi")).toBe(
-      "/server/pi-original",
-    );
+    expect(terminalAgentExecutable(settings, "pi")).toBe("/server/pi-original");
     const serverInput = {
       stateDir,
       threadId: "thread-one",
@@ -408,12 +383,8 @@ describe("managed terminal drivers", () => {
   });
 
   it("rejects path-like runtime identifiers", () => {
-    expect(() => claudeTerminalRuntimeDir("/tmp/state", "../escape")).toThrow(
-      "invalid",
-    );
-    expect(() => piTerminalRuntimeDir("/tmp/state", "nested/runtime")).toThrow(
-      "invalid",
-    );
+    expect(() => claudeTerminalRuntimeDir("/tmp/state", "../escape")).toThrow("invalid");
+    expect(() => piTerminalRuntimeDir("/tmp/state", "nested/runtime")).toThrow("invalid");
     expect(() =>
       buildClaudeTerminalArgs({
         settingsPath: "/tmp/settings.json",

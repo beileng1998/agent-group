@@ -3,19 +3,14 @@ import { Effect } from "effect";
 import { describe, expect, it, vi } from "vitest";
 
 import { makeExecutionAdapterAuthority } from "../orchestration/Layers/ExecutionAdapterAuthority";
-import {
-  makeServerRuntimeStartup,
-  type ServerRuntimeStartupShape,
-} from "../serverRuntimeStartup";
+import { makeServerRuntimeStartup, type ServerRuntimeStartupShape } from "../serverRuntimeStartup";
 import { toWsRpcError } from "../wsRpcError";
 import { makeProviderAutomationHandlers } from "./providerAutomationHandlers";
 
 const now = "2026-07-26T00:00:00.000Z";
 const threadId = ThreadId.makeUnsafe("thread-terminal-compact");
-const rpcEffect = <A, E, R>(
-  effect: Effect.Effect<A, E, R>,
-  fallbackMessage: string,
-) => effect.pipe(Effect.mapError((cause) => toWsRpcError(cause, fallbackMessage)));
+const rpcEffect = <A, E, R>(effect: Effect.Effect<A, E, R>, fallbackMessage: string) =>
+  effect.pipe(Effect.mapError((cause) => toWsRpcError(cause, fallbackMessage)));
 const readyRuntimeStartup: ServerRuntimeStartupShape = {
   awaitCommandReady: Effect.void,
   markCommandReady: Effect.void,
@@ -78,9 +73,7 @@ describe("provider automation RPC authority", () => {
     const runtimeStartup = await Effect.runPromise(makeServerRuntimeStartup);
     const compactThread = vi.fn(() => Effect.void);
     const handlers = makeHandlers(authority, compactThread, runtimeStartup);
-    const pending = Effect.runPromise(
-      handlers[WS_METHODS.providerCompactThread]({ threadId }),
-    );
+    const pending = Effect.runPromise(handlers[WS_METHODS.providerCompactThread]({ threadId }));
 
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(compactThread).not.toHaveBeenCalled();
@@ -107,12 +100,10 @@ describe("provider automation RPC authority", () => {
         return { run: {} as never };
       }),
     );
-    const handlers = makeHandlers(
-      authority,
-      () => Effect.void,
-      runtimeStartup,
-      { runNow, cancelRun } as never,
-    );
+    const handlers = makeHandlers(authority, () => Effect.void, runtimeStartup, {
+      runNow,
+      cancelRun,
+    } as never);
     const running = Effect.runPromise(
       handlers[WS_METHODS.automationRunNow]({
         automationId: "automation-startup" as never,

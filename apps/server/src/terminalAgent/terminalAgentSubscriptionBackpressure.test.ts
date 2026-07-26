@@ -73,9 +73,8 @@ describe("managed terminal subscription attach backpressure", () => {
     const generation = "generation-10-late";
     const state = terminalState(generation);
     const unsubscribe = vi.fn();
-    let emitOutput:
-      | ((output: { seq: number; data: string; generation: string }) => void)
-      | null = null;
+    let emitOutput: ((output: { seq: number; data: string; generation: string }) => void) | null =
+      null;
     const coordinator = {
       getState: () =>
         Effect.sync(() => {
@@ -88,11 +87,7 @@ describe("managed terminal subscription attach backpressure", () => {
         }),
       streamChanges: Stream.empty,
       attachClient: (input: {
-        onOutput: (output: {
-          seq: number;
-          data: string;
-          generation: string;
-        }) => void;
+        onOutput: (output: { seq: number; data: string; generation: string }) => void;
       }) =>
         Effect.sync(() => {
           emitOutput = input.onOutput;
@@ -112,11 +107,7 @@ describe("managed terminal subscription attach backpressure", () => {
       getState: () => Effect.succeed(state),
       streamChanges: Stream.empty,
       attachClient: (input: {
-        onOutput: (output: {
-          seq: number;
-          data: string;
-          generation: string;
-        }) => void;
+        onOutput: (output: { seq: number; data: string; generation: string }) => void;
       }) =>
         Effect.sync(() => {
           for (let seq = 2; seq <= 258; seq += 1) {

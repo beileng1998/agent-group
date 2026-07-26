@@ -30,9 +30,7 @@ export function abortTerminalTurnForTeardown(input: {
             .updateTerminalState({
               threadId: input.runtime.threadId,
               revision: input.runtime.revision,
-              ...(input.runtime.generation
-                ? { generation: input.runtime.generation }
-                : {}),
+              ...(input.runtime.generation ? { generation: input.runtime.generation } : {}),
               patch: {
                 status:
                   state.status === "stopping" ||
@@ -56,15 +54,13 @@ export function abortTerminalTurnForTeardown(input: {
           );
         }
         if (turn) {
-          yield* Effect.promise(() =>
-            retireTerminalTurnContexts(input.runtime, turn),
-          );
+          yield* Effect.promise(() => retireTerminalTurnContexts(input.runtime, turn));
         }
         input.runtime.activeTurn = null;
-        yield* Effect.logWarning(
-          "managed terminal turn projection failed during teardown",
-          { threadId: input.runtime.threadId, cause },
-        );
+        yield* Effect.logWarning("managed terminal turn projection failed during teardown", {
+          threadId: input.runtime.threadId,
+          cause,
+        });
       }),
     ),
   );

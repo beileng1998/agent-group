@@ -17,9 +17,7 @@ export function pruneExecutionAdapterClaims(
   let next = claims;
   for (const [threadId, byId] of claims) {
     const kept = new Map(
-      [...byId].filter(
-        ([, claim]) => claim.leased || now - claim.createdAt < CLAIM_TTL_MS,
-      ),
+      [...byId].filter(([, claim]) => claim.leased || now - claim.createdAt < CLAIM_TTL_MS),
     );
     if (kept.size === byId.size) continue;
     if (next === claims) next = new Map(claims);

@@ -75,11 +75,7 @@ describe("terminal recovery failure state", () => {
     } as unknown as ExecutionAdapterCoordinatorShape;
 
     await Effect.runPromise(
-      makeTerminalRecoveryFailureHandler(coordinator)(
-        threadId,
-        state,
-        "late timeout",
-      ),
+      makeTerminalRecoveryFailureHandler(coordinator)(threadId, state, "late timeout"),
     );
 
     expect(coordinator.updateTerminalState).not.toHaveBeenCalled();

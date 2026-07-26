@@ -79,9 +79,10 @@ function close(server: http.Server): Promise<void> {
 function bridgeServer(input: {
   readonly seen: Array<Record<string, unknown>>;
   readonly token: string;
-  readonly response: (
-    payload: Record<string, unknown>,
-  ) => { readonly status?: number; readonly body?: unknown };
+  readonly response: (payload: Record<string, unknown>) => {
+    readonly status?: number;
+    readonly body?: unknown;
+  };
 }): http.Server {
   return http.createServer((request, response) => {
     let body = "";
@@ -117,9 +118,7 @@ describe("managed terminal hook shims", () => {
   afterEach(async () => {
     await Promise.all(servers.splice(0).map(close));
     await Promise.all(
-      tempDirs.splice(0).map((directory) =>
-        fs.rm(directory, { recursive: true, force: true }),
-      ),
+      tempDirs.splice(0).map((directory) => fs.rm(directory, { recursive: true, force: true })),
     );
   });
 
@@ -146,22 +145,16 @@ describe("managed terminal hook shims", () => {
       runtimeMode: "approval-required",
       codexHomePath: sourceHome,
     });
-    const offlineSessionStart = await runShim(
-      launch.shimPath,
-      launch.env,
-      {
-        ...codexInput,
-        hook_event_name: "SessionStart",
-        source: "startup",
-      },
-    );
+    const offlineSessionStart = await runShim(launch.shimPath, launch.env, {
+      ...codexInput,
+      hook_event_name: "SessionStart",
+      source: "startup",
+    });
     expect(offlineSessionStart).toMatchObject({
       stdout: "",
       code: 2,
     });
-    expect(offlineSessionStart.stderr).toContain(
-      "Agent Group context unavailable",
-    );
+    expect(offlineSessionStart.stderr).toContain("Agent Group context unavailable");
     const prompt = {
       ...codexInput,
       hook_event_name: "UserPromptSubmit",
@@ -184,9 +177,7 @@ describe("managed terminal hook shims", () => {
       token: "secret-token",
       response: (payload) => {
         if (payload.mode === "prompt-accepted") {
-          return bridgeMode === "reject-ack"
-            ? { status: 503 }
-            : { body: {} };
+          return bridgeMode === "reject-ack" ? { status: 503 } : { body: {} };
         }
         return bridgeMode === "empty"
           ? { body: {} }
@@ -196,8 +187,9 @@ describe("managed terminal hook shims", () => {
     servers.push(server);
     await listen(server, endpoint);
 
-    expect(JSON.parse((await runShim(launch.shimPath, launch.env, prompt)).stdout))
-      .toMatchObject({ decision: "block" });
+    expect(JSON.parse((await runShim(launch.shimPath, launch.env, prompt)).stdout)).toMatchObject({
+      decision: "block",
+    });
     expect(seen.at(-1)?.eventId).toBe(recovery.eventId);
     bridgeMode = "reject-ack";
     const rejectedAck = await runShim(launch.shimPath, launch.env, prompt);
@@ -206,17 +198,17 @@ describe("managed terminal hook shims", () => {
       hookSpecificOutput: { additionalContext: "Managed context." },
     });
     expect(rejectedAck.stderr).toContain("context unavailable");
-    expect(
-      JSON.parse(await fs.readFile(recoveryPath, "utf8")),
-    ).toMatchObject({ eventId: recovery.eventId, prompt: "Ship it." });
+    expect(JSON.parse(await fs.readFile(recoveryPath, "utf8"))).toMatchObject({
+      eventId: recovery.eventId,
+      prompt: "Ship it.",
+    });
     bridgeMode = "ready";
-    expect(JSON.parse((await runShim(launch.shimPath, launch.env, prompt)).stdout))
-      .toEqual({
-        hookSpecificOutput: {
-          hookEventName: "UserPromptSubmit",
-          additionalContext: "Managed context.",
-        },
-      });
+    expect(JSON.parse((await runShim(launch.shimPath, launch.env, prompt)).stdout)).toEqual({
+      hookSpecificOutput: {
+        hookEventName: "UserPromptSubmit",
+        additionalContext: "Managed context.",
+      },
+    });
     await expect(fs.stat(recoveryPath)).rejects.toMatchObject({ code: "ENOENT" });
     expect(seen.some((payload) => payload.mode === "prompt-accepted")).toBe(true);
   });
@@ -239,13 +231,9 @@ describe("managed terminal hook shims", () => {
       last_assistant_message: "Done.",
     });
     const spoolDir = path.join(launch.runtimeDir, "hook-spool");
-    const spooled = (await fs.readdir(spoolDir)).filter((name) =>
-      name.endsWith(".json"),
-    );
+    const spooled = (await fs.readdir(spoolDir)).filter((name) => name.endsWith(".json"));
     expect(spooled).toHaveLength(1);
-    expect((await fs.stat(path.join(spoolDir, spooled[0]!))).mode & 0o777).toBe(
-      0o600,
-    );
+    expect((await fs.stat(path.join(spoolDir, spooled[0]!))).mode & 0o777).toBe(0o600);
 
     const seen: Array<Record<string, unknown>> = [];
     let contextReady = false;
@@ -265,27 +253,20 @@ describe("managed terminal hook shims", () => {
       hook_event_name: "UserPromptSubmit",
       prompt: "Ship it.",
     };
-    expect(JSON.parse((await runShim(launch.shimPath, launch.env, prompt)).stdout))
-      .toMatchObject({ decision: "block" });
+    expect(JSON.parse((await runShim(launch.shimPath, launch.env, prompt)).stdout)).toMatchObject({
+      decision: "block",
+    });
     contextReady = true;
-    expect(JSON.parse((await runShim(launch.shimPath, launch.env, prompt)).stdout))
-      .toMatchObject({
-        hookSpecificOutput: { additionalContext: "Managed context." },
-      });
+    expect(JSON.parse((await runShim(launch.shimPath, launch.env, prompt)).stdout)).toMatchObject({
+      hookSpecificOutput: { additionalContext: "Managed context." },
+    });
     expect(
       seen.map((payload) => {
         const hook = payload.input as Record<string, unknown>;
         return payload.mode ?? hook.hook_event_name;
       }),
-    ).toEqual([
-      "Stop",
-      "UserPromptSubmit",
-      "UserPromptSubmit",
-      "prompt-accepted",
-    ]);
-    expect(
-      (await fs.readdir(spoolDir)).filter((name) => name.endsWith(".json")),
-    ).toEqual([]);
+    ).toEqual(["Stop", "UserPromptSubmit", "UserPromptSubmit", "prompt-accepted"]);
+    expect((await fs.readdir(spoolDir)).filter((name) => name.endsWith(".json"))).toEqual([]);
   });
 
   it("does not commit when the provider output pipe rejects context", async () => {
@@ -314,15 +295,11 @@ describe("managed terminal hook shims", () => {
     servers.push(server);
     await listen(server, endpoint);
 
-    const result = await runShimWithClosedOutput(
-      launch.shimPath,
-      launch.env,
-      {
-        ...codexInput,
-        hook_event_name: "UserPromptSubmit",
-        prompt: "Do not half commit.",
-      },
-    );
+    const result = await runShimWithClosedOutput(launch.shimPath, launch.env, {
+      ...codexInput,
+      hook_event_name: "UserPromptSubmit",
+      prompt: "Do not half commit.",
+    });
 
     expect(result.code).not.toBe(0);
     expect(result.stderr).toContain("context unavailable");
@@ -366,15 +343,23 @@ describe("managed terminal hook shims", () => {
   });
 
   it.each([
-    ["Codex", buildCodexHookShimSource, {
-      ...codexInput,
-      hook_event_name: "UserPromptSubmit",
-      prompt: "Wait forever.",
-    }],
-    ["Claude", buildClaudeHookShimSource, {
-      hook_event_name: "UserPromptSubmit",
-      prompt: "Wait forever.",
-    }],
+    [
+      "Codex",
+      buildCodexHookShimSource,
+      {
+        ...codexInput,
+        hook_event_name: "UserPromptSubmit",
+        prompt: "Wait forever.",
+      },
+    ],
+    [
+      "Claude",
+      buildClaudeHookShimSource,
+      {
+        hook_event_name: "UserPromptSubmit",
+        prompt: "Wait forever.",
+      },
+    ],
   ] as const)(
     "aborts a hung %s bridge before the provider hook deadline",
     async (_provider, buildSource, prompt) => {

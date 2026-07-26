@@ -72,8 +72,7 @@ export type CodexHookInput =
   | CodexSubagentStartHookInput
   | CodexStopHookInput;
 
-export interface CodexHookBridgeRequest
-  extends Omit<TerminalAgentBridgeRequest, "input" | "mode"> {
+export interface CodexHookBridgeRequest extends Omit<TerminalAgentBridgeRequest, "input" | "mode"> {
   readonly input: CodexHookInput;
 }
 
@@ -87,28 +86,17 @@ function providerString(value: unknown, field: string): string {
   return requiredBoundedHookString(value, `Codex hook ${field}`);
 }
 
-function optionalProviderString(
-  value: unknown,
-  field: string,
-): string | undefined {
+function optionalProviderString(value: unknown, field: string): string | undefined {
   if (value === undefined) return undefined;
   return providerString(value, field);
 }
 
 function pathString(value: unknown, field: string): string {
-  return requiredBoundedHookString(
-    value,
-    `Codex hook ${field}`,
-    TERMINAL_HOOK_PATH_MAX_CHARS,
-  );
+  return requiredBoundedHookString(value, `Codex hook ${field}`, TERMINAL_HOOK_PATH_MAX_CHARS);
 }
 
 function nullablePathString(value: unknown, field: string): string | null {
-  return nullableBoundedHookString(
-    value,
-    `Codex hook ${field}`,
-    TERMINAL_HOOK_PATH_MAX_CHARS,
-  );
+  return nullableBoundedHookString(value, `Codex hook ${field}`, TERMINAL_HOOK_PATH_MAX_CHARS);
 }
 
 function permissionMode(value: unknown): CodexPermissionMode {
@@ -122,10 +110,7 @@ function baseInput(input: Record<string, unknown>): CodexHookInputBase {
   return {
     session_id: providerString(input.session_id, "session id"),
     cwd: pathString(input.cwd, "cwd"),
-    transcript_path: nullablePathString(
-      input.transcript_path,
-      "transcript path",
-    ),
+    transcript_path: nullablePathString(input.transcript_path, "transcript path"),
     model: providerString(input.model, "model"),
     permission_mode: permissionMode(input.permission_mode),
     raw: input,
@@ -135,11 +120,7 @@ function baseInput(input: Record<string, unknown>): CodexHookInputBase {
 export function parseCodexHookInput(value: unknown): CodexHookInput {
   const input = record(value);
   if (!input) throw new Error("Invalid Codex hook input.");
-  const eventName = requiredBoundedHookString(
-    input.hook_event_name,
-    "Codex hook event",
-    64,
-  );
+  const eventName = requiredBoundedHookString(input.hook_event_name, "Codex hook event", 64);
   if (!CODEX_HOOK_EVENT_NAMES.includes(eventName as CodexHookEventName)) {
     throw new Error("Unsupported Codex hook event.");
   }
@@ -201,9 +182,7 @@ export function parseCodexHookInput(value: unknown): CodexHookInput {
   }
 }
 
-export function parseCodexHookBridgeRequest(
-  value: unknown,
-): CodexHookBridgeRequest {
+export function parseCodexHookBridgeRequest(value: unknown): CodexHookBridgeRequest {
   const request = record(value);
   if (!request) throw new Error("Invalid Codex hook bridge request.");
   if (request.mode !== undefined) {

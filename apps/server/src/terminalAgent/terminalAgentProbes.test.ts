@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  CODEX_TERMINAL_BASELINE_VERSION,
-  inspectCodexTerminalProbe,
-} from "./codexTerminalProbe";
+import { CODEX_TERMINAL_BASELINE_VERSION, inspectCodexTerminalProbe } from "./codexTerminalProbe";
 import { inspectClaudeTerminalProbe } from "./claudeTerminalProbe";
 import { inspectPiTerminalProbe } from "./piTerminalProbe";
 

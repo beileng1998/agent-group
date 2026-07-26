@@ -24,10 +24,10 @@ const codexCommon = {
 describe("managed terminal protocols", () => {
   it("parses the Codex 0.144.6 lifecycle and canonical prompt event", () => {
     const sessionStart = parseCodexHookInput({
-        ...codexCommon,
-        hook_event_name: "SessionStart",
-        source: "resume",
-      });
+      ...codexCommon,
+      hook_event_name: "SessionStart",
+      source: "resume",
+    });
     expect(sessionStart).toMatchObject({
       hook_event_name: "SessionStart",
       source: "resume",
@@ -46,9 +46,7 @@ describe("managed terminal protocols", () => {
         prompt: "",
       },
     });
-    expect(
-      codexHookInputToTerminalEvent(request.input, request.eventId),
-    ).toEqual({
+    expect(codexHookInputToTerminalEvent(request.input, request.eventId)).toEqual({
       eventId: "event-1",
       type: "prompt_submit",
       prompt: "",
@@ -97,9 +95,9 @@ describe("managed terminal protocols", () => {
         block: { message: "Unavailable." },
       }),
     ).toEqual({ decision: "block", reason: "Unavailable." });
-    expect(() =>
-      encodeCodexHookResponse("Stop", { additionalContext: "No." }),
-    ).toThrow("does not accept");
+    expect(() => encodeCodexHookResponse("Stop", { additionalContext: "No." })).toThrow(
+      "does not accept",
+    );
   });
 
   it("parses Claude hooks and rejects unknown wrapper modes", () => {

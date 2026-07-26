@@ -20,8 +20,7 @@ import type { TerminalAgentDriverLaunch } from "./terminalAgentProtocol";
 export const CODEX_TERMINAL_PROFILE_NAME = "agent-group-terminal";
 export const CODEX_HOOK_ENDPOINT_ENV = "AGENT_GROUP_HOOK_ENDPOINT";
 export const CODEX_HOOK_TOKEN_ENV = "AGENT_GROUP_HOOK_TOKEN";
-export const CODEX_RUNTIME_INSTANCE_ID_ENV =
-  "AGENT_GROUP_RUNTIME_INSTANCE_ID";
+export const CODEX_RUNTIME_INSTANCE_ID_ENV = "AGENT_GROUP_RUNTIME_INSTANCE_ID";
 export const CODEX_HOOK_SPOOL_DIR_ENV = "AGENT_GROUP_HOOK_SPOOL_DIR";
 
 const CODEX_TERMINAL_HOOKS = [
@@ -42,17 +41,9 @@ function stableSessionHash(sessionKey: string): string {
   return createHash("sha256").update(sessionKey).digest("hex").slice(0, 24);
 }
 
-export function codexTerminalRuntimeDir(
-  stateDir: string,
-  sessionKey: string,
-): string {
+export function codexTerminalRuntimeDir(stateDir: string, sessionKey: string): string {
   requireLaunchValue(stateDir, "State directory");
-  return path.join(
-    stateDir,
-    "terminal-agent",
-    "codex",
-    stableSessionHash(sessionKey),
-  );
+  return path.join(stateDir, "terminal-agent", "codex", stableSessionHash(sessionKey));
 }
 
 export function codexTerminalHookSpoolDir(runtimeDir: string): string {
@@ -75,8 +66,7 @@ export function buildCodexHookCommand(
   executable: string,
   shimPath: string,
   platform: NodeJS.Platform = process.platform,
-  electronRunAsNode =
-    process.env.ELECTRON_RUN_AS_NODE === "1" && "electron" in process.versions,
+  electronRunAsNode = process.env.ELECTRON_RUN_AS_NODE === "1" && "electron" in process.versions,
 ): string {
   const quote = platform === "win32" ? quoteWindowsShell : quotePosixShell;
   const command = `${quote(executable)} ${quote(shimPath)}`;
@@ -90,10 +80,7 @@ function tomlString(value: string): string {
   return JSON.stringify(value);
 }
 
-export function buildCodexTerminalProfile(
-  hookCommand: string,
-  workspaceRoot: string,
-): string {
+export function buildCodexTerminalProfile(hookCommand: string, workspaceRoot: string): string {
   requireLaunchValue(workspaceRoot, "Codex Terminal workspace root");
   const lines: string[] = [];
   for (const hook of CODEX_TERMINAL_HOOKS) {
@@ -107,11 +94,7 @@ export function buildCodexTerminalProfile(
       `timeout = ${hook.timeout}`,
     );
   }
-  lines.push(
-    "",
-    `[projects.${tomlString(workspaceRoot)}]`,
-    'trust_level = "trusted"',
-  );
+  lines.push("", `[projects.${tomlString(workspaceRoot)}]`, 'trust_level = "trusted"');
   return `${lines.join("\n")}\n`;
 }
 
@@ -174,10 +157,7 @@ export async function prepareCodexTerminalLaunch(input: {
   requireLaunchValue(input.executable, "Codex executable");
   const runtimeDir = codexTerminalRuntimeDir(input.stateDir, input.sessionKey);
   const environmentRoot = path.join(runtimeDir, "codex-environment");
-  const expectedCodexHome = path.join(
-    environmentRoot,
-    AGENT_GROUP_CODEX_HOME_OVERLAY_DIR,
-  );
+  const expectedCodexHome = path.join(environmentRoot, AGENT_GROUP_CODEX_HOME_OVERLAY_DIR);
   await ensurePrivateDirectory(runtimeDir);
 
   const baseEnv = { ...(input.baseEnv ?? process.env) };
@@ -190,10 +170,7 @@ export async function prepareCodexTerminalLaunch(input: {
     throw new Error("Failed to prepare the Codex Terminal home.");
   }
   const canonicalCodexHome = await fs.realpath(codexHome);
-  const profilePath = path.join(
-    canonicalCodexHome,
-    `${CODEX_TERMINAL_PROFILE_NAME}.config.toml`,
-  );
+  const profilePath = path.join(canonicalCodexHome, `${CODEX_TERMINAL_PROFILE_NAME}.config.toml`);
   effectiveEnv.CODEX_HOME = canonicalCodexHome;
 
   const spoolDir = codexTerminalHookSpoolDir(runtimeDir);
@@ -213,9 +190,7 @@ export async function prepareCodexTerminalLaunch(input: {
       profileName: CODEX_TERMINAL_PROFILE_NAME,
       modelSelection: input.modelSelection,
       runtimeMode: input.runtimeMode,
-      ...(input.resumeSessionId !== undefined
-        ? { resumeSessionId: input.resumeSessionId }
-        : {}),
+      ...(input.resumeSessionId !== undefined ? { resumeSessionId: input.resumeSessionId } : {}),
     }),
     env: buildTerminalAgentProcessEnv(effectiveEnv, {
       [CODEX_HOOK_ENDPOINT_ENV]: input.hookEndpoint,

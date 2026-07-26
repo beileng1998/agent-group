@@ -68,9 +68,7 @@ async function socketIsReachable(endpoint: string): Promise<boolean> {
   });
 }
 
-export async function prepareTerminalAgentBridgeEndpoint(
-  endpoint: string,
-): Promise<void> {
+export async function prepareTerminalAgentBridgeEndpoint(endpoint: string): Promise<void> {
   let stat;
   try {
     stat = await fs.lstat(endpoint);
@@ -99,10 +97,7 @@ export async function prepareTerminalAgentBridgeEndpoint(
     if ((cause as NodeJS.ErrnoException).code === "ENOENT") return;
     throw cause;
   }
-  if (
-    !current.isSocket() ||
-    !sameSocketIdentity(expectedIdentity, socketIdentity(current))
-  ) {
+  if (!current.isSocket() || !sameSocketIdentity(expectedIdentity, socketIdentity(current))) {
     throw new Error("Managed terminal bridge endpoint changed during startup.");
   }
   await fs.rm(endpoint);
@@ -151,9 +146,7 @@ export async function closeBridgeHttpServer(
   identity: TerminalAgentBridgeSocketIdentity | null = null,
 ): Promise<void> {
   if (!server.listening) return;
-  const protectedSocket = endpoint
-    ? await protectReplacementSocket(endpoint, identity)
-    : null;
+  const protectedSocket = endpoint ? await protectReplacementSocket(endpoint, identity) : null;
   try {
     await new Promise<void>((resolve) => {
       server.close(() => resolve());

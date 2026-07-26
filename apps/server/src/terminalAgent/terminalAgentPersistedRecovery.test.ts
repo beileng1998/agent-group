@@ -44,17 +44,13 @@ function authority(
 
 afterEach(async () => {
   await Promise.all(
-    directories.splice(0).map((directory) =>
-      fs.rm(directory, { recursive: true, force: true }),
-    ),
+    directories.splice(0).map((directory) => fs.rm(directory, { recursive: true, force: true })),
   );
 });
 
 describe("persisted Agent Terminal runtime cleanup", () => {
   it("blocks detached lifecycle operations while the persisted PID is occupied", async () => {
-    const stateDir = await fs.mkdtemp(
-      path.join(os.tmpdir(), "agent-group-persisted-runtime-"),
-    );
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "agent-group-persisted-runtime-"));
     directories.push(stateDir);
     const recovery = makeTerminalAgentPersistedRecovery({
       stateDir,
@@ -76,9 +72,7 @@ describe("persisted Agent Terminal runtime cleanup", () => {
   });
 
   it("leaves lifecycle teardown to TerminalHost when this process owns the runtime", async () => {
-    const stateDir = await fs.mkdtemp(
-      path.join(os.tmpdir(), "agent-group-persisted-runtime-"),
-    );
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "agent-group-persisted-runtime-"));
     directories.push(stateDir);
     const runtime = {
       threadId,
@@ -91,18 +85,13 @@ describe("persisted Agent Terminal runtime cleanup", () => {
 
     await expect(
       Effect.runPromise(
-        recovery.ensureDetachedOwnerExited(
-          authority("codex", "runtime-old"),
-          runtime,
-        ),
+        recovery.ensureDetachedOwnerExited(authority("codex", "runtime-old"), runtime),
       ),
     ).resolves.toBeUndefined();
   });
 
   it("allows a durably stopped terminal with no remaining ownership", async () => {
-    const stateDir = await fs.mkdtemp(
-      path.join(os.tmpdir(), "agent-group-persisted-runtime-"),
-    );
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "agent-group-persisted-runtime-"));
     directories.push(stateDir);
     const recovery = makeTerminalAgentPersistedRecovery({
       stateDir,
@@ -126,9 +115,7 @@ describe("persisted Agent Terminal runtime cleanup", () => {
   });
 
   it("blocks a pre-persistence spawn crash with no durable ownership", async () => {
-    const stateDir = await fs.mkdtemp(
-      path.join(os.tmpdir(), "agent-group-persisted-runtime-"),
-    );
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "agent-group-persisted-runtime-"));
     directories.push(stateDir);
     const recovery = makeTerminalAgentPersistedRecovery({
       stateDir,
@@ -153,9 +140,7 @@ describe("persisted Agent Terminal runtime cleanup", () => {
   });
 
   it("retires a distinct pre-crash Claude runtime after replacement", async () => {
-    const stateDir = await fs.mkdtemp(
-      path.join(os.tmpdir(), "agent-group-persisted-runtime-"),
-    );
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "agent-group-persisted-runtime-"));
     directories.push(stateDir);
     const oldState = authority("claudeAgent", "runtime-old");
     const oldDir = terminalAgentRuntimeDir({
@@ -178,18 +163,14 @@ describe("persisted Agent Terminal runtime cleanup", () => {
     ]);
     const recovery = makeTerminalAgentPersistedRecovery({ stateDir, records });
 
-    await Effect.runPromise(
-      recovery.retirePreviousRuntime(threadId, oldState),
-    );
+    await Effect.runPromise(recovery.retirePreviousRuntime(threadId, oldState));
 
     await expect(fs.lstat(oldDir)).rejects.toMatchObject({ code: "ENOENT" });
     await expect(fs.lstat(newDir)).resolves.toMatchObject({});
   });
 
   it("preserves the stable Codex runtime directory used by the replacement", async () => {
-    const stateDir = await fs.mkdtemp(
-      path.join(os.tmpdir(), "agent-group-persisted-runtime-"),
-    );
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "agent-group-persisted-runtime-"));
     directories.push(stateDir);
     const oldState = authority("codex", "runtime-old");
     const stableDir = terminalAgentRuntimeDir({
@@ -205,12 +186,8 @@ describe("persisted Agent Terminal runtime cleanup", () => {
     ]);
     const recovery = makeTerminalAgentPersistedRecovery({ stateDir, records });
 
-    await Effect.runPromise(
-      recovery.retirePreviousRuntime(threadId, oldState),
-    );
+    await Effect.runPromise(recovery.retirePreviousRuntime(threadId, oldState));
 
-    await expect(
-      fs.readFile(path.join(stableDir, "resume-state"), "utf8"),
-    ).resolves.toBe("keep");
+    await expect(fs.readFile(path.join(stableDir, "resume-state"), "utf8")).resolves.toBe("keep");
   });
 });

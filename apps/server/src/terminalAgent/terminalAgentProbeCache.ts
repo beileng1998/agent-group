@@ -1,7 +1,4 @@
-import type {
-  ServerSettings,
-  TerminalAgentCapabilitySnapshot,
-} from "@agent-group/contracts";
+import type { ServerSettings, TerminalAgentCapabilitySnapshot } from "@agent-group/contracts";
 
 import { terminalAgentExecutable } from "./terminalAgentDriverRegistry";
 import type { ResolvedTerminalTarget } from "./terminalAgentRuntimeTypes";
@@ -15,19 +12,12 @@ interface CachedProbe {
 
 const probesBySpawner = new WeakMap<object, Map<string, CachedProbe>>();
 
-function probeKey(
-  target: ResolvedTerminalTarget,
-  settings: ServerSettings,
-): string {
+function probeKey(target: ResolvedTerminalTarget, settings: ServerSettings): string {
   return JSON.stringify({
     provider: target.provider,
     executable: terminalAgentExecutable(settings, target.provider),
-    codexHome:
-      target.provider === "codex"
-        ? settings.providers.codex.homePath
-        : null,
-    modelSelection:
-      target.provider === "pi" ? target.modelSelection : null,
+    codexHome: target.provider === "codex" ? settings.providers.codex.homePath : null,
+    modelSelection: target.provider === "pi" ? target.modelSelection : null,
   });
 }
 

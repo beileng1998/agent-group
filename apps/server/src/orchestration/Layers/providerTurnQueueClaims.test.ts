@@ -25,10 +25,7 @@ const messageId = MessageId.makeUnsafe("message-queued-claim");
 const now = "2026-07-26T00:00:00.000Z";
 
 type QueuedEvent = Extract<OrchestrationEvent, { type: "thread.turn-queued" }>;
-type StartEvent = Extract<
-  OrchestrationEvent,
-  { type: "thread.turn-start-requested" }
->;
+type StartEvent = Extract<OrchestrationEvent, { type: "thread.turn-start-requested" }>;
 
 function eventBase(commandId: CommandId) {
   return {
@@ -209,10 +206,7 @@ describe("queued turn authority claims", () => {
     const harness = await makeHarness();
     const commandId = CommandId.makeUnsafe("queued-long-running-command");
     await Effect.runPromise(
-      harness.authority.reserveStructuredStart(
-        threadId,
-        `command:${commandId}`,
-      ),
+      harness.authority.reserveStructuredStart(threadId, `command:${commandId}`),
     );
     await Effect.runPromise(harness.admission.processTurnQueued(queuedEvent(commandId)));
 
@@ -224,10 +218,7 @@ describe("queued turn authority claims", () => {
     const harness = await makeHarness();
     const commandId = CommandId.makeUnsafe("queued-promotion-retry");
     await Effect.runPromise(
-      harness.authority.reserveStructuredStart(
-        threadId,
-        `command:${commandId}`,
-      ),
+      harness.authority.reserveStructuredStart(threadId, `command:${commandId}`),
     );
     await Effect.runPromise(harness.admission.processTurnQueued(queuedEvent(commandId)));
     harness.setLiveTurn(false);
@@ -247,10 +238,7 @@ describe("queued turn authority claims", () => {
     const harness = await makeHarness();
     const originalCommandId = CommandId.makeUnsafe("queued-command");
     await Effect.runPromise(
-      harness.authority.reserveStructuredStart(
-        threadId,
-        `command:${originalCommandId}`,
-      ),
+      harness.authority.reserveStructuredStart(threadId, `command:${originalCommandId}`),
     );
     await Effect.runPromise(harness.admission.processTurnQueued(queuedEvent(originalCommandId)));
 
@@ -262,9 +250,7 @@ describe("queued turn authority claims", () => {
     const promotedCommandId = harness.promotedCommandId();
     expect(promotedCommandId).not.toBeNull();
     await Effect.runPromise(
-      Effect.scoped(
-        harness.admission.processTurnStartRequested(startEvent(promotedCommandId!)),
-      ),
+      Effect.scoped(harness.admission.processTurnStartRequested(startEvent(promotedCommandId!))),
     );
 
     await expectSwitchAllowed(harness.authority);

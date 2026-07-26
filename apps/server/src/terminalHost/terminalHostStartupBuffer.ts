@@ -56,10 +56,7 @@ export class TerminalHostStartupBuffer {
       this.onLiveExit(event);
       return;
     }
-    if (
-      this.failure !== null ||
-      this.events.length >= STARTUP_BUFFER_MAX_EVENTS
-    ) {
+    if (this.failure !== null || this.events.length >= STARTUP_BUFFER_MAX_EVENTS) {
       this.fail();
       return;
     }

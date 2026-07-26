@@ -45,12 +45,7 @@ function parseProcessGroupRow(line: string): ProcessGroupRow | null {
   const fields = line.trim().split(/\s+/g);
   const pid = Number(fields[0]);
   const pgid = Number(fields[1]);
-  if (
-    !Number.isSafeInteger(pid) ||
-    pid <= 0 ||
-    !Number.isSafeInteger(pgid) ||
-    pgid <= 0
-  ) {
+  if (!Number.isSafeInteger(pid) || pid <= 0 || !Number.isSafeInteger(pgid) || pgid <= 0) {
     return null;
   }
   const zombie = (fields[2] ?? "").startsWith("Z");
@@ -80,9 +75,7 @@ export function parseProcessGroupTable(psOutput: string): readonly ProcessGroupR
     .filter((row): row is ProcessGroupRow => row !== null);
 }
 
-function validateIdentity(
-  identity: TerminalProcessGroupIdentity,
-): string | null {
+function validateIdentity(identity: TerminalProcessGroupIdentity): string | null {
   if (
     !Number.isSafeInteger(identity.pgid) ||
     identity.pgid <= 0 ||
@@ -110,9 +103,7 @@ function classifyLeaderMismatch(
 export function makeTerminalProcessGroupController(
   dependencies: TerminalProcessGroupControllerDependencies,
 ): TerminalProcessGroupController {
-  const inspect = (
-    expected: TerminalProcessGroupIdentity,
-  ): TerminalProcessGroupInspection => {
+  const inspect = (expected: TerminalProcessGroupIdentity): TerminalProcessGroupInspection => {
     const invalid = validateIdentity(expected);
     if (invalid !== null) return { status: "unverified", detail: invalid };
     if (dependencies.platform === "win32") {
@@ -128,13 +119,9 @@ export function makeTerminalProcessGroupController(
         detail: `Process group ${expected.pgid} could not be inspected.`,
       };
     }
-    const rows = parseProcessGroupTable(processTable).filter(
-      (row) => !row.zombie,
-    );
+    const rows = parseProcessGroupTable(processTable).filter((row) => !row.zombie);
     const members = rows.filter((row) => row.pgid === expected.pgid);
-    const currentLeader = rows.find(
-      (row) => row.pid === expected.leaderIdentity.pid,
-    );
+    const currentLeader = rows.find((row) => row.pid === expected.leaderIdentity.pid);
     if (members.length === 0) {
       if (currentLeader === undefined) return { status: "absent", detail: null };
       if (currentLeader.identity === null) {
@@ -143,16 +130,8 @@ export function makeTerminalProcessGroupController(
           detail: `Process ${currentLeader.pid} was reused but its identity is unreadable.`,
         };
       }
-      if (
-        !terminalOwnerIdentityMatches(
-          expected.leaderIdentity,
-          currentLeader.identity,
-        )
-      ) {
-        return classifyLeaderMismatch(
-          expected.leaderIdentity,
-          currentLeader.identity,
-        );
+      if (!terminalOwnerIdentityMatches(expected.leaderIdentity, currentLeader.identity)) {
+        return classifyLeaderMismatch(expected.leaderIdentity, currentLeader.identity);
       }
       return {
         status: "unverified",
@@ -176,15 +155,9 @@ export function makeTerminalProcessGroupController(
         detail: `Terminal group leader ${currentLeader.pid} has no stable identity.`,
       };
     }
-    return terminalOwnerIdentityMatches(
-      expected.leaderIdentity,
-      currentLeader.identity,
-    )
+    return terminalOwnerIdentityMatches(expected.leaderIdentity, currentLeader.identity)
       ? { status: "owned", detail: null }
-      : classifyLeaderMismatch(
-          expected.leaderIdentity,
-          currentLeader.identity,
-        );
+      : classifyLeaderMismatch(expected.leaderIdentity, currentLeader.identity);
   };
 
   return {
@@ -197,26 +170,19 @@ export function makeTerminalProcessGroupController(
       if (processTable === null) {
         throw new Error(`Terminal process group for PID ${rootPid} could not be read.`);
       }
-      const root = parseProcessGroupTable(processTable).find(
-        (row) => row.pid === rootPid,
-      );
+      const root = parseProcessGroupTable(processTable).find((row) => row.pid === rootPid);
       if (root === undefined || root.identity === null) {
         throw new Error(`Terminal process ${rootPid} has no stable group identity.`);
       }
       if (root.pgid !== rootPid) {
-        throw new Error(
-          `Terminal process ${rootPid} does not own process group ${root.pgid}.`,
-        );
+        throw new Error(`Terminal process ${rootPid} does not own process group ${root.pgid}.`);
       }
       return { pgid: root.pgid, leaderIdentity: root.identity };
     },
     inspect,
     signal: (identity, signal) => {
       const inspection = inspect(identity);
-      if (
-        inspection.status === "absent" ||
-        inspection.status === "replaced"
-      ) {
+      if (inspection.status === "absent" || inspection.status === "replaced") {
         return null;
       }
       if (inspection.status === "unverified") {
@@ -229,16 +195,12 @@ export function makeTerminalProcessGroupController(
 
 function readProcessTable(): string | null {
   try {
-    const result = spawnSync(
-      "ps",
-      ["-axo", "pid=,pgid=,stat=,lstart=,command="],
-      {
-        encoding: "utf8",
-        env: { ...process.env, LC_ALL: "C" },
-        maxBuffer: PROCESS_GROUP_SCAN_MAX_BUFFER_BYTES,
-        timeout: PROCESS_GROUP_SCAN_TIMEOUT_MS,
-      },
-    );
+    const result = spawnSync("ps", ["-axo", "pid=,pgid=,stat=,lstart=,command="], {
+      encoding: "utf8",
+      env: { ...process.env, LC_ALL: "C" },
+      maxBuffer: PROCESS_GROUP_SCAN_MAX_BUFFER_BYTES,
+      timeout: PROCESS_GROUP_SCAN_TIMEOUT_MS,
+    });
     return result.error || result.status !== 0 ? null : result.stdout;
   } catch {
     return null;
@@ -255,12 +217,11 @@ function signalGroup(pgid: number, signal: "SIGKILL"): Error | null {
   }
 }
 
-export const defaultTerminalProcessGroupController =
-  makeTerminalProcessGroupController({
-    platform: process.platform,
-    readProcessTable,
-    signalGroup,
-  });
+export const defaultTerminalProcessGroupController = makeTerminalProcessGroupController({
+  platform: process.platform,
+  readProcessTable,
+  signalGroup,
+});
 
 export const disabledTerminalProcessGroupController: TerminalProcessGroupController = {
   capture: () => null,

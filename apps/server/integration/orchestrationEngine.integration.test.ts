@@ -284,10 +284,7 @@ it.live("shares execution-adapter authority across structured and terminal proje
         messageId: "msg-authority-structured-start",
         text: "Complete before switching adapters.",
       });
-      yield* harness.waitForThread(
-        THREAD_ID,
-        (thread) => thread.session?.status === "ready",
-      );
+      yield* harness.waitForThread(THREAD_ID, (thread) => thread.session?.status === "ready");
       yield* harness.providerCommandReactor.drain;
       yield* harness.executionAdapterAuthority.awaitClaimsDrained(THREAD_ID);
 
@@ -435,9 +432,7 @@ it.live("shares execution-adapter authority across structured and terminal proje
       assert.equal(threadAfterStale?.modelSelection.model, "gpt-5.3-codex");
       assert.equal(threadAfterStale?.session?.status, "error");
 
-      const stopping = yield* harness.executionAdapterAuthority.beginTerminalStop(
-        THREAD_ID,
-      );
+      const stopping = yield* harness.executionAdapterAuthority.beginTerminalStop(THREAD_ID);
       yield* harness.executionAdapterAuthority.updateTerminal({
         threadId: THREAD_ID,
         revision: stopping.revision,
@@ -474,9 +469,7 @@ it.live("shares execution-adapter authority across structured and terminal proje
       const blockedReadyProjection = yield* Effect.exit(
         harness.engine.dispatch({
           type: "thread.session.set",
-          commandId: CommandId.makeUnsafe(
-            "cmd-authority-terminal-ready-without-fence",
-          ),
+          commandId: CommandId.makeUnsafe("cmd-authority-terminal-ready-without-fence"),
           threadId: THREAD_ID,
           session: {
             threadId: THREAD_ID,

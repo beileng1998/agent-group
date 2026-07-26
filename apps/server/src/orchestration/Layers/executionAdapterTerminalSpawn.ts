@@ -39,7 +39,7 @@ export function spawnTerminalRuntime(input: {
               reason: "host",
               message: `Terminal host failed to spawn: ${cause.message}`,
               cause,
-          }),
+            }),
         ),
       );
     yield* input.authority
@@ -48,8 +48,7 @@ export function spawnTerminalRuntime(input: {
         revision: input.revision,
         patch: {
           pid: attached.pid,
-          ownerIdentity:
-            attached.processGroupIdentity?.leaderIdentity ?? null,
+          ownerIdentity: attached.processGroupIdentity?.leaderIdentity ?? null,
           processGroupIdentity: attached.processGroupIdentity,
         },
       })
@@ -57,10 +56,7 @@ export function spawnTerminalRuntime(input: {
         Effect.mapError(
           (cause) =>
             new ExecutionAdapterError({
-              reason:
-                cause.reason === "stale-revision"
-                  ? "stale-revision"
-                  : "turn-in-flight",
+              reason: cause.reason === "stale-revision" ? "stale-revision" : "turn-in-flight",
               message: cause.message,
               cause,
             }),
@@ -77,8 +73,7 @@ export function spawnTerminalRuntime(input: {
     }
     const ownerIdentity = yield* Effect.try({
       try: () =>
-        attached.processGroupIdentity?.leaderIdentity ??
-        input.captureOwnerIdentity(attached.pid),
+        attached.processGroupIdentity?.leaderIdentity ?? input.captureOwnerIdentity(attached.pid),
       catch: (cause) =>
         new ExecutionAdapterError({
           reason: "host",

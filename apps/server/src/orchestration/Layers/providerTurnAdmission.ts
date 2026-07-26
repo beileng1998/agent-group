@@ -256,9 +256,7 @@ export function makeProviderTurnAdmission<
         );
     }).pipe(
       Effect.ensuring(
-        Effect.suspend(() =>
-          claimTransferredToQueue ? Effect.void : claimResult.success.release,
-        ),
+        Effect.suspend(() => (claimTransferredToQueue ? Effect.void : claimResult.success.release)),
       ),
     );
   });

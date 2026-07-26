@@ -17,10 +17,7 @@ describe("gateTerminalAgentBridgeHandler", () => {
     const handler = vi.fn(async () => ({ additionalContext: "ready" }));
     const gated = gateTerminalAgentBridgeHandler(activation.promise, handler);
     const operation = resolveTerminalAgentBridgeOperation(
-      gated(
-        { runtimeInstanceId: "runtime-1", input: {} },
-        new AbortController().signal,
-      ),
+      gated({ runtimeInstanceId: "runtime-1", input: {} }, new AbortController().signal),
     );
 
     await Promise.resolve();
@@ -54,18 +51,12 @@ describe("gateTerminalAgentBridgeHandler", () => {
   it("forwards cancellation to the activated handler", async () => {
     const cancelled = vi.fn(async () => {});
     let started = false;
-    const gated = gateTerminalAgentBridgeHandler(
-      Promise.resolve(true),
-      () => {
-        started = true;
-        return { result: new Promise(() => {}), cancel: cancelled };
-      },
-    );
+    const gated = gateTerminalAgentBridgeHandler(Promise.resolve(true), () => {
+      started = true;
+      return { result: new Promise(() => {}), cancel: cancelled };
+    });
     const operation = resolveTerminalAgentBridgeOperation(
-      gated(
-        { runtimeInstanceId: "runtime-1", input: {} },
-        new AbortController().signal,
-      ),
+      gated({ runtimeInstanceId: "runtime-1", input: {} }, new AbortController().signal),
     );
     while (!started) await Promise.resolve();
 

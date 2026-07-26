@@ -31,9 +31,7 @@ export interface ProviderRuntimeIngestionShape {
    */
   readonly drain: Effect.Effect<void>;
   /** Synchronously ingest one authority-fenced managed-terminal runtime event. */
-  readonly publishTerminal: (
-    event: ProviderRuntimeEvent,
-  ) => Effect.Effect<void>;
+  readonly publishTerminal: (event: ProviderRuntimeEvent) => Effect.Effect<void>;
 }
 
 /**

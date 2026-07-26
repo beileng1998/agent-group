@@ -51,10 +51,7 @@ export async function waitForPersistedTerminalOwnerExit(input: {
       input.pid === null ||
       input.ownerIdentity === null ||
       input.pid !== processGroupIdentity.pgid ||
-      !terminalOwnerIdentityMatches(
-        input.ownerIdentity,
-        processGroupIdentity.leaderIdentity,
-      )
+      !terminalOwnerIdentityMatches(input.ownerIdentity, processGroupIdentity.leaderIdentity)
     ) {
       return {
         verified: false,
@@ -64,25 +61,19 @@ export async function waitForPersistedTerminalOwnerExit(input: {
     if (platform === "win32") {
       return {
         verified: false,
-        detail:
-          "A persisted POSIX terminal process group cannot be safely terminated on Windows.",
+        detail: "A persisted POSIX terminal process group cannot be safely terminated on Windows.",
       };
     }
-    const controller =
-      input.processGroupController ?? defaultTerminalProcessGroupController;
+    const controller = input.processGroupController ?? defaultTerminalProcessGroupController;
     const pollMs = Math.max(1, input.pollMs ?? 25);
     const maxWaitMs = Math.max(0, input.maxWaitMs ?? 1_000);
     const sleep =
-      input.sleep ??
-      ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+      input.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
     const attempts = Math.max(1, Math.ceil(maxWaitMs / pollMs) + 1);
     let signalled = false;
     for (let attempt = 0; attempt < attempts; attempt += 1) {
       const inspection = controller.inspect(processGroupIdentity);
-      if (
-        inspection.status === "absent" ||
-        inspection.status === "replaced"
-      ) {
+      if (inspection.status === "absent" || inspection.status === "replaced") {
         return { verified: true, detail: null };
       }
       if (inspection.status === "unverified") {
@@ -112,18 +103,13 @@ export async function waitForPersistedTerminalOwnerExit(input: {
         "Refusing to assume that every process exited.",
     };
   }
-  if (
-    input.ownerIdentity !== null &&
-    input.ownerIdentity.pid !== input.pid
-  ) {
+  if (input.ownerIdentity !== null && input.ownerIdentity.pid !== input.pid) {
     return {
       verified: false,
       detail: "The persisted terminal PID does not match its owner identity.",
     };
   }
-  const inspect =
-    input.inspect ??
-    ((pid: number) => inspectTerminalProcess(pid, platform));
+  const inspect = input.inspect ?? ((pid: number) => inspectTerminalProcess(pid, platform));
   const pollMs = Math.max(1, input.pollMs ?? 25);
   // Startup may reconcile thousands of durable Threads serially. Production
   // probes therefore fail fast; callers can retry later without risking a
@@ -144,9 +130,7 @@ export async function waitForPersistedTerminalOwnerExit(input: {
     if (inspection.presence === "unverified") {
       return {
         verified: false,
-        detail:
-          inspection.detail ??
-          `Persisted terminal PID ${input.pid} could not be inspected.`,
+        detail: inspection.detail ?? `Persisted terminal PID ${input.pid} could not be inspected.`,
       };
     }
     if (input.ownerIdentity === null) {

@@ -380,9 +380,8 @@ export const makeOrchestrationIntegrationHarness = (
       "load ExecutionAdapterAuthority service",
       () => runtime.runPromise(Effect.service(ExecutionAdapterAuthority)),
     ).pipe(Effect.orDie);
-    const runtimeIngestion = yield* tryRuntimePromise(
-      "load ProviderRuntimeIngestion service",
-      () => runtime.runPromise(Effect.service(ProviderRuntimeIngestionService)),
+    const runtimeIngestion = yield* tryRuntimePromise("load ProviderRuntimeIngestion service", () =>
+      runtime.runPromise(Effect.service(ProviderRuntimeIngestionService)),
     ).pipe(Effect.orDie);
     const providerCommandReactor = yield* tryRuntimePromise(
       "load ProviderCommandReactor service",

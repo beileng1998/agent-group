@@ -36,9 +36,7 @@ const target = {
   },
 } as ResolvedTerminalTarget;
 
-function terminalState(
-  patch: Partial<TerminalAuthorityState> = {},
-): TerminalAuthorityState {
+function terminalState(patch: Partial<TerminalAuthorityState> = {}): TerminalAuthorityState {
   return {
     adapter: "terminal",
     revision: 7,

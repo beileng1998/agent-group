@@ -12,12 +12,10 @@ export function stopStructuredRuntime(input: {
   return Effect.acquireUseRelease(
     input.authority.beginStructuredStop(input.threadId),
     () =>
-      input.authority.awaitClaimsDrained(input.threadId).pipe(
-        Effect.andThen(Effect.suspend(input.stop)),
-      ),
-    (stopping) =>
       input.authority
-        .completeStructuredStop(input.threadId, stopping.revision)
-        .pipe(Effect.asVoid),
+        .awaitClaimsDrained(input.threadId)
+        .pipe(Effect.andThen(Effect.suspend(input.stop))),
+    (stopping) =>
+      input.authority.completeStructuredStop(input.threadId, stopping.revision).pipe(Effect.asVoid),
   );
 }

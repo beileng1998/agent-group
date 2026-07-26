@@ -20,9 +20,7 @@ function fakePty(kill: (signal?: string) => void): PtyProcess {
 
 function observableFakePty() {
   let dataListener: ((data: string) => void) | undefined;
-  let exitListener:
-    | ((event: { exitCode: number; signal: number | null }) => void)
-    | undefined;
+  let exitListener: ((event: { exitCode: number; signal: number | null }) => void) | undefined;
   const pty: PtyProcess = {
     ...fakePty(() => {}),
     onData: (listener) => {
@@ -242,9 +240,7 @@ describe("TerminalHost durable process-group ownership", () => {
       rows: 24,
     };
 
-    await expect(host.createOrAttach(input)).rejects.toThrow(
-      "process-group capture failed",
-    );
+    await expect(host.createOrAttach(input)).rejects.toThrow("process-group capture failed");
     await expect(host.createOrAttach(input)).rejects.toThrow(
       "captured process tree exit is unverified",
     );
@@ -253,9 +249,7 @@ describe("TerminalHost durable process-group ownership", () => {
     allowCleanup = true;
     await host.kill(input.sessionId);
     expect(rootAlive).toBe(false);
-    await expect(host.createOrAttach(input)).rejects.toThrow(
-      "has no verified process group",
-    );
+    await expect(host.createOrAttach(input)).rejects.toThrow("has no verified process group");
     expect(spawnCalls).toBe(2);
     await host.dispose();
   });

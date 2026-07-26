@@ -5,10 +5,7 @@ import {
   parseClaudeHookInput,
   parseClaudeStatusLine,
 } from "./claudeHookProtocol";
-import {
-  parseCodexHookBridgeRequest,
-  parseCodexHookInput,
-} from "./codexHookProtocol";
+import { parseCodexHookBridgeRequest, parseCodexHookInput } from "./codexHookProtocol";
 import { parsePiTerminalEvent } from "./piTerminalProtocol";
 import { parseTerminalAgentBridgeRequest } from "./terminalAgentBridgeBudget";
 
@@ -27,9 +24,7 @@ const codexBase = {
 
 describe("managed terminal hook protocol bounds", () => {
   it("accepts provider metadata at the public 512-character limit", () => {
-    expect(
-      parseCodexHookInput({ ...codexBase, model: providerLimit }).model,
-    ).toBe(providerLimit);
+    expect(parseCodexHookInput({ ...codexBase, model: providerLimit }).model).toBe(providerLimit);
     expect(
       parseClaudeHookInput({
         hook_event_name: "SessionStart",
@@ -63,13 +58,8 @@ describe("managed terminal hook protocol bounds", () => {
         model: oversizedProviderValue,
       }),
     ).toThrow("maximum length is 512");
-    const status = parseClaudeHookInput(
-      { model: { id: oversizedProviderValue } },
-      "status-line",
-    );
-    expect(() => parseClaudeStatusLine(status)).toThrow(
-      "maximum length is 512",
-    );
+    const status = parseClaudeHookInput({ model: { id: oversizedProviderValue } }, "status-line");
+    expect(() => parseClaudeStatusLine(status)).toThrow("maximum length is 512");
   });
 
   it("rejects oversized Pi provider metadata before projection", () => {

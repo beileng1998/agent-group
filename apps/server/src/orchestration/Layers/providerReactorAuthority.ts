@@ -23,13 +23,15 @@ export const makeProviderReactorAuthority = Effect.gen(function* () {
     );
 
   const claimStructuredStart = (threadId: ThreadId, claimId: string) =>
-    authority.claimStructuredStart(threadId, claimId).pipe(
-      Effect.catch((error) =>
-        error.reason === "claim-missing"
-          ? authority.acquireStructured(threadId, claimId)
-          : Effect.fail(error),
-      ),
-    );
+    authority
+      .claimStructuredStart(threadId, claimId)
+      .pipe(
+        Effect.catch((error) =>
+          error.reason === "claim-missing"
+            ? authority.acquireStructured(threadId, claimId)
+            : Effect.fail(error),
+        ),
+      );
 
   return {
     acquireStructured: authority.acquireStructured,

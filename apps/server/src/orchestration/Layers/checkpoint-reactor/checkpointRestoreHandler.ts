@@ -339,14 +339,9 @@ export function makeCheckpointRestoreHandler(dependencies: CheckpointRestoreDepe
       );
   });
 
-  return (
-    event: Extract<OrchestrationEvent, { type: "thread.checkpoint-revert-requested" }>,
-  ) =>
+  return (event: Extract<OrchestrationEvent, { type: "thread.checkpoint-revert-requested" }>) =>
     Effect.acquireUseRelease(
-      dependencies.acquireStructured(
-        event.payload.threadId,
-        `checkpoint-revert:${event.eventId}`,
-      ),
+      dependencies.acquireStructured(event.payload.threadId, `checkpoint-revert:${event.eventId}`),
       () => restore(event),
       (claim) => claim.release,
     );

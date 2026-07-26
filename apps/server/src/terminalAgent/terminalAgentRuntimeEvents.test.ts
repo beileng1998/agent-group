@@ -82,16 +82,8 @@ describe("managed terminal runtime events", () => {
     await expect(
       harness.invoke({ prompt: "wrong" }, "prompt-1", "prompt-accepted"),
     ).rejects.toThrow(/does not match/);
-    await harness.invoke(
-      { prompt: "Keep this user text exact." },
-      "prompt-1",
-      "prompt-accepted",
-    );
-    await harness.invoke(
-      { prompt: "Keep this user text exact." },
-      "prompt-1",
-      "prompt-accepted",
-    );
+    await harness.invoke({ prompt: "Keep this user text exact." }, "prompt-1", "prompt-accepted");
+    await harness.invoke({ prompt: "Keep this user text exact." }, "prompt-1", "prompt-accepted");
 
     expect(harness.commands).toHaveLength(1);
     expect(harness.commands[0]).toMatchObject({
@@ -100,10 +92,7 @@ describe("managed terminal runtime events", () => {
       text: "Keep this user text exact.",
       terminalRuntimeFence: { revision: 3, generation: "generation-1" },
     });
-    expect(harness.events.map((event) => event.type)).toEqual([
-      "session.started",
-      "turn.started",
-    ]);
+    expect(harness.events.map((event) => event.type)).toEqual(["session.started", "turn.started"]);
     expect(harness.getState()).toMatchObject({
       status: "running",
       activeTurnId: harness.runtime.activeTurn?.turnId,
@@ -140,11 +129,14 @@ describe("managed terminal runtime events", () => {
     const replay = await harness.invoke(input, "prompt-replay");
     expect(replay).toEqual(first);
     await harness.invoke({ prompt: "Run it." }, "prompt-replay", "prompt-accepted");
-    await harness.invoke({
-      hook_event_name: "Stop",
-      session_id: "provider-session-1",
-      background_tasks: [{ id: "task-1" }],
-    }, "stop-background");
+    await harness.invoke(
+      {
+        hook_event_name: "Stop",
+        session_id: "provider-session-1",
+        background_tasks: [{ id: "task-1" }],
+      },
+      "stop-background",
+    );
     expect(harness.runtime.activeTurn).not.toBeNull();
     expect(harness.events.filter((event) => event.type === "turn.completed")).toHaveLength(0);
   });
@@ -161,11 +153,7 @@ describe("managed terminal runtime events", () => {
       },
       "prompt-initial",
     );
-    await harness.invoke(
-      { prompt: "Start the task." },
-      "prompt-initial",
-      "prompt-accepted",
-    );
+    await harness.invoke({ prompt: "Start the task." }, "prompt-initial", "prompt-accepted");
 
     const steer = await harness.invoke(
       {
@@ -195,9 +183,7 @@ describe("managed terminal runtime events", () => {
     );
 
     expect(
-      harness.commands.filter(
-        (command) => command.type === "thread.terminal-message.observe",
-      ),
+      harness.commands.filter((command) => command.type === "thread.terminal-message.observe"),
     ).toMatchObject([
       {
         role: "user",
@@ -210,19 +196,15 @@ describe("managed terminal runtime events", () => {
         turnId: first.turnId,
       },
     ]);
-    expect(
-      harness.events.filter((event) => event.type === "turn.started"),
-    ).toHaveLength(1);
+    expect(harness.events.filter((event) => event.type === "turn.started")).toHaveLength(1);
     expect(harness.runtime.activeTurn).toMatchObject({
       turnId: first.turnId,
       pendingPrompt: null,
-      deliveredContext:
-        "Agent Group manages this Turn. Follow the user request.",
+      deliveredContext: "Agent Group manages this Turn. Follow the user request.",
     });
     expect(harness.getState()).toMatchObject({
       status: "running",
       activeTurnId: first.turnId,
     });
   });
-
 });

@@ -32,9 +32,7 @@ const hostError = (message: string, cause: unknown) =>
 export function abortTerminalLaunchRuntime(input: {
   readonly authority: ExecutionAdapterAuthorityShape;
   readonly terminalHost: TerminalHostServiceShape;
-  readonly request: Parameters<
-    ExecutionAdapterCoordinatorShape["abortTerminalLaunch"]
-  >[0];
+  readonly request: Parameters<ExecutionAdapterCoordinatorShape["abortTerminalLaunch"]>[0];
   readonly sessionId: string;
 }) {
   const request = input.request;
@@ -90,10 +88,7 @@ export function abortTerminalLaunchRuntime(input: {
         })
         .pipe(Effect.catch(() => Effect.void));
       return yield* Effect.fail(
-        hostError(
-          `Terminal launch cleanup failed: ${killed.failure.message}`,
-          killed.failure,
-        ),
+        hostError(`Terminal launch cleanup failed: ${killed.failure.message}`, killed.failure),
       );
     }
     const restoring = yield* input.authority

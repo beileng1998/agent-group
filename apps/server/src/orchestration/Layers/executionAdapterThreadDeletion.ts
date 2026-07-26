@@ -16,9 +16,6 @@ export function teardownExecutionAdapterForDeletion(input: {
     yield* input.authority.awaitClaimsDrained(input.threadId);
     if (deleting.adapter === "structured") return;
     yield* input.terminalHost.kill(input.sessionId);
-    yield* input.authority.completeTerminalDeletion(
-      input.threadId,
-      deleting.revision,
-    );
+    yield* input.authority.completeTerminalDeletion(input.threadId, deleting.revision);
   });
 }

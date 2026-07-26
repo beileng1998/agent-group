@@ -63,9 +63,8 @@ export class ProviderTurnQueue {
 
   has(threadId: ThreadId, messageId: string): boolean {
     return (
-      this.queuedByThread
-        .get(threadId)
-        ?.some((entry) => entry.payload.messageId === messageId) ?? false
+      this.queuedByThread.get(threadId)?.some((entry) => entry.payload.messageId === messageId) ??
+      false
     );
   }
 

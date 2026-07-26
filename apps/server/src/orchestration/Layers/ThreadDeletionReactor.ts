@@ -132,9 +132,7 @@ const make = Effect.gen(function* () {
       threadId,
     });
 
-  const finalizeExecutionAdapterDeletion = (
-    threadId: ThreadDeletedEvent["payload"]["threadId"],
-  ) =>
+  const finalizeExecutionAdapterDeletion = (threadId: ThreadDeletedEvent["payload"]["threadId"]) =>
     cleanupSucceededUnlessInterrupted({
       effect: executionAdapterCoordinator.finalizeThreadDeletion(threadId),
       message: "thread deletion cleanup retained execution-adapter tombstone",
@@ -171,8 +169,7 @@ const make = Effect.gen(function* () {
     // This acquires the managed terminal's per-Thread operation lock. Waiting
     // here first closes the start/delete race before provider bindings or
     // persisted Thread data can be removed.
-    const managedTerminalCleanupSucceeded =
-      yield* teardownManagedAgentTerminal(threadId);
+    const managedTerminalCleanupSucceeded = yield* teardownManagedAgentTerminal(threadId);
     if (!managedTerminalCleanupSucceeded) return false;
     const providerCleanupSucceeded = yield* stopProviderSession(threadId);
     const terminalCleanupSucceeded = yield* closeThreadTerminals(threadId);

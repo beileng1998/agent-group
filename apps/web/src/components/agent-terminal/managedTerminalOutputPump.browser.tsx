@@ -19,6 +19,14 @@ import { ManagedTerminalOutputPump } from "./managedTerminalOutputPump";
 
 const originalNativeApi = window.nativeApi;
 
+function restoreNativeApi(): void {
+  if (originalNativeApi) {
+    window.nativeApi = originalNativeApi;
+  } else {
+    delete window.nativeApi;
+  }
+}
+
 function readBuffer(terminal: Terminal): string {
   const buffer = terminal.buffer.active;
   const lines: string[] = [];
@@ -28,9 +36,7 @@ function readBuffer(terminal: Terminal): string {
   return lines.join("\n");
 }
 
-function parsedWrite(
-  enqueue: (onParsed: () => void) => boolean,
-): Promise<void> {
+function parsedWrite(enqueue: (onParsed: () => void) => boolean): Promise<void> {
   return new Promise((resolve, reject) => {
     if (!enqueue(resolve)) reject(new Error("xterm write was rejected"));
   });
@@ -38,7 +44,7 @@ function parsedWrite(
 
 describe("managed terminal output pump in Chromium", () => {
   afterEach(() => {
-    window.nativeApi = originalNativeApi;
+    restoreNativeApi();
     document.body.innerHTML = "";
   });
 
@@ -101,12 +107,7 @@ describe("managed terminal output pump in Chromium", () => {
       expect(resumedBuffer).toContain("live-after-reconnect");
       expect(resumedBuffer).not.toContain("attach-snapshot");
       expect(resumedBuffer).not.toContain("live-one");
-      expect(parsed).toEqual([
-        "snapshot-1",
-        "live-1",
-        "snapshot-2",
-        "live-2",
-      ]);
+      expect(parsed).toEqual(["snapshot-1", "live-1", "snapshot-2", "live-2"]);
       expect(overflows).toEqual([]);
     } finally {
       pump.dispose();
@@ -118,10 +119,7 @@ describe("managed terminal output pump in Chromium", () => {
     const threadId = "oversized-terminal-snapshot" as ThreadId;
     let listener: ((event: TerminalAgentEvent) => void) | undefined;
     const subscribe = vi.fn(
-      (
-        _input: TerminalAgentSubscribeInput,
-        nextListener: (event: TerminalAgentEvent) => void,
-      ) => {
+      (_input: TerminalAgentSubscribeInput, nextListener: (event: TerminalAgentEvent) => void) => {
         listener = nextListener;
         return () => {};
       },
@@ -203,10 +201,7 @@ describe("managed terminal output pump in Chromium", () => {
     const threadId = "failed-terminal-snapshot-write" as ThreadId;
     let listener: ((event: TerminalAgentEvent) => void) | undefined;
     const subscribe = vi.fn(
-      (
-        _input: TerminalAgentSubscribeInput,
-        nextListener: (event: TerminalAgentEvent) => void,
-      ) => {
+      (_input: TerminalAgentSubscribeInput, nextListener: (event: TerminalAgentEvent) => void) => {
         listener = nextListener;
         return () => {};
       },
@@ -261,11 +256,9 @@ describe("managed terminal output pump in Chromium", () => {
 
     try {
       await expect.poll(() => Boolean(listener)).toBe(true);
-      const write = vi
-        .spyOn(Terminal.prototype, "write")
-        .mockImplementationOnce(() => {
-          throw new Error("xterm write failed");
-        });
+      const write = vi.spyOn(Terminal.prototype, "write").mockImplementationOnce(() => {
+        throw new Error("xterm write failed");
+      });
       listener?.({
         type: "attached",
         threadId,
@@ -295,10 +288,7 @@ describe("managed terminal output pump in Chromium", () => {
     const threadId = "gapped-terminal-output" as ThreadId;
     let listener: ((event: TerminalAgentEvent) => void) | undefined;
     const subscribe = vi.fn(
-      (
-        _input: TerminalAgentSubscribeInput,
-        nextListener: (event: TerminalAgentEvent) => void,
-      ) => {
+      (_input: TerminalAgentSubscribeInput, nextListener: (event: TerminalAgentEvent) => void) => {
         listener = nextListener;
         return () => {};
       },
@@ -405,5 +395,4 @@ describe("managed terminal output pump in Chromium", () => {
     expect(sent).toEqual(["generation-1:active", "generation-2:fresh"]);
     queue.dispose();
   });
-
 });

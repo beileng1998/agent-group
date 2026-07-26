@@ -10,11 +10,7 @@ import { Effect, Layer } from "effect";
 import { expect } from "vitest";
 
 import { makeNodePtyLayer } from "../terminal/Layers/NodePTY";
-import {
-  PtyAdapter,
-  type PtyAdapterShape,
-  type PtyProcess,
-} from "../terminal/Services/PTY";
+import { PtyAdapter, type PtyAdapterShape, type PtyProcess } from "../terminal/Services/PTY";
 import { defaultProcessTreeKiller } from "../terminal/processTreeKiller";
 import {
   TerminalHost,
@@ -240,9 +236,7 @@ it.layer(PtyTestLayer)("TerminalHost", (it) => {
         expect(session.exitListeners.size).toBe(0);
 
         blocker.resolve(undefined);
-        yield* Effect.promise(() =>
-          expect(attaching).rejects.toThrow("attach was interrupted"),
-        );
+        yield* Effect.promise(() => expect(attaching).rejects.toThrow("attach was interrupted"));
       } finally {
         blocker.resolve(undefined);
         yield* Effect.promise(() => host.dispose());
@@ -359,124 +353,116 @@ it.layer(PtyTestLayer)("TerminalHost", (it) => {
     }),
   );
 
-  it.effect(
-    "rejects writes carrying a stale generation",
-    () =>
-      Effect.gen(function* () {
-        if (onWindows) return;
-        const adapter = yield* PtyAdapter;
-        const host = makeHost(adapter);
-        try {
-          const created = yield* Effect.promise(() =>
-            host.createOrAttach({
-              sessionId: "s2",
-              command: "/bin/cat",
-              cwd: process.cwd(),
-              cols: 80,
-              rows: 24,
-            }),
-          );
-          expect(() => host.write("s2", "x", "not-the-generation")).toThrow(
-            TerminalHostStaleGenerationError,
-          );
-          expect(() => host.write("s2", "ok", created.generation)).not.toThrow();
-          expect(host.generationOf("s2")).toBe(created.generation);
-        } finally {
-          yield* Effect.promise(() => host.dispose());
-        }
-      }),
-  );
-
-  it.effect(
-    "kills the whole process tree and tombstones the session",
-    () =>
-      Effect.gen(function* () {
-        if (onWindows) return;
-        const adapter = yield* PtyAdapter;
-        const host = makeHost(adapter);
+  it.effect("rejects writes carrying a stale generation", () =>
+    Effect.gen(function* () {
+      if (onWindows) return;
+      const adapter = yield* PtyAdapter;
+      const host = makeHost(adapter);
+      try {
         const created = yield* Effect.promise(() =>
           host.createOrAttach({
-            sessionId: "s3",
-            command: "/bin/sh",
-            args: ["-c", "sleep 300 & wait"],
+            sessionId: "s2",
+            command: "/bin/cat",
             cwd: process.cwd(),
             cols: 80,
             rows: 24,
           }),
         );
-        const tree = defaultProcessTreeKiller.capture(created.pid);
-        yield* Effect.promise(() => host.kill("s3"));
-
-        expect(host.isKilled("s3")).toBe(true);
-        expect(host.isAlive("s3")).toBe(false);
-        expect(host.generationOf("s3")).toBeNull();
-        expect(() => host.write("s3", "x", created.generation)).toThrow(
-          TerminalHostSessionNotFoundError,
+        expect(() => host.write("s2", "x", "not-the-generation")).toThrow(
+          TerminalHostStaleGenerationError,
         );
-        yield* Effect.promise(() => waitFor(() => pidDead(created.pid)));
-        for (const descendant of tree.descendants) {
-          yield* Effect.promise(() => waitFor(() => pidDead(descendant.pid)));
-        }
-      }),
+        expect(() => host.write("s2", "ok", created.generation)).not.toThrow();
+        expect(host.generationOf("s2")).toBe(created.generation);
+      } finally {
+        yield* Effect.promise(() => host.dispose());
+      }
+    }),
   );
 
-  it.effect(
-    "reports natural exit and forgets the session",
-    () =>
-      Effect.gen(function* () {
-        if (onWindows) return;
-        const adapter = yield* PtyAdapter;
-        const host = makeHost(adapter);
-        try {
-          yield* Effect.promise(() =>
-            host.createOrAttach({
-              sessionId: "s4",
-              command: "/bin/sh",
-              args: ["-c", "exit 7"],
-              cwd: process.cwd(),
-              cols: 80,
-              rows: 24,
-            }),
-          );
-          const exited = deferred<number>();
-          host.onExit("s4", (exit) => exited.resolve(exit.exitCode));
-          const exitCode = yield* Effect.promise(() => exited.promise);
-          expect(exitCode).toBe(7);
-          yield* Effect.promise(() => waitFor(() => !host.isAlive("s4")));
-          yield* Effect.promise(() =>
-            expect(host.attach("s4")).rejects.toThrow(TerminalHostSessionNotFoundError),
-          );
-          expect(host.isKilled("s4")).toBe(false);
-          expect(host.generationOf("s4")).toBeNull();
-        } finally {
-          yield* Effect.promise(() => host.dispose());
-        }
-      }),
+  it.effect("kills the whole process tree and tombstones the session", () =>
+    Effect.gen(function* () {
+      if (onWindows) return;
+      const adapter = yield* PtyAdapter;
+      const host = makeHost(adapter);
+      const created = yield* Effect.promise(() =>
+        host.createOrAttach({
+          sessionId: "s3",
+          command: "/bin/sh",
+          args: ["-c", "sleep 300 & wait"],
+          cwd: process.cwd(),
+          cols: 80,
+          rows: 24,
+        }),
+      );
+      const tree = defaultProcessTreeKiller.capture(created.pid);
+      yield* Effect.promise(() => host.kill("s3"));
+
+      expect(host.isKilled("s3")).toBe(true);
+      expect(host.isAlive("s3")).toBe(false);
+      expect(host.generationOf("s3")).toBeNull();
+      expect(() => host.write("s3", "x", created.generation)).toThrow(
+        TerminalHostSessionNotFoundError,
+      );
+      yield* Effect.promise(() => waitFor(() => pidDead(created.pid)));
+      for (const descendant of tree.descendants) {
+        yield* Effect.promise(() => waitFor(() => pidDead(descendant.pid)));
+      }
+    }),
   );
 
-  it.effect(
-    "createOrAttach reuses the live session instead of spawning a second runtime",
-    () =>
-      Effect.gen(function* () {
-        if (onWindows) return;
-        const adapter = yield* PtyAdapter;
-        const host = makeHost(adapter);
-        try {
-          const spawnInput = {
-            sessionId: "s5",
-            command: "/bin/cat",
+  it.effect("reports natural exit and forgets the session", () =>
+    Effect.gen(function* () {
+      if (onWindows) return;
+      const adapter = yield* PtyAdapter;
+      const host = makeHost(adapter);
+      try {
+        yield* Effect.promise(() =>
+          host.createOrAttach({
+            sessionId: "s4",
+            command: "/bin/sh",
+            args: ["-c", "exit 7"],
             cwd: process.cwd(),
             cols: 80,
             rows: 24,
-          };
-          const first = yield* Effect.promise(() => host.createOrAttach(spawnInput));
-          const second = yield* Effect.promise(() => host.createOrAttach(spawnInput));
-          expect(second.isNew).toBe(false);
-          expect(second.generation).toBe(first.generation);
-          expect(second.pid).toBe(first.pid);
-        } finally {
-          yield* Effect.promise(() => host.dispose());
-        }
-      }),
+          }),
+        );
+        const exited = deferred<number>();
+        host.onExit("s4", (exit) => exited.resolve(exit.exitCode));
+        const exitCode = yield* Effect.promise(() => exited.promise);
+        expect(exitCode).toBe(7);
+        yield* Effect.promise(() => waitFor(() => !host.isAlive("s4")));
+        yield* Effect.promise(() =>
+          expect(host.attach("s4")).rejects.toThrow(TerminalHostSessionNotFoundError),
+        );
+        expect(host.isKilled("s4")).toBe(false);
+        expect(host.generationOf("s4")).toBeNull();
+      } finally {
+        yield* Effect.promise(() => host.dispose());
+      }
+    }),
+  );
+
+  it.effect("createOrAttach reuses the live session instead of spawning a second runtime", () =>
+    Effect.gen(function* () {
+      if (onWindows) return;
+      const adapter = yield* PtyAdapter;
+      const host = makeHost(adapter);
+      try {
+        const spawnInput = {
+          sessionId: "s5",
+          command: "/bin/cat",
+          cwd: process.cwd(),
+          cols: 80,
+          rows: 24,
+        };
+        const first = yield* Effect.promise(() => host.createOrAttach(spawnInput));
+        const second = yield* Effect.promise(() => host.createOrAttach(spawnInput));
+        expect(second.isNew).toBe(false);
+        expect(second.generation).toBe(first.generation);
+        expect(second.pid).toBe(first.pid);
+      } finally {
+        yield* Effect.promise(() => host.dispose());
+      }
+    }),
   );
 });

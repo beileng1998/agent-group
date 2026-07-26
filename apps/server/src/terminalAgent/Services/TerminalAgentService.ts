@@ -64,9 +64,7 @@ export interface TerminalAgentServiceShape {
     mode?: TerminalAgentSubscriptionMode,
   ) => Stream.Stream<TerminalAgentEvent, TerminalAgentServiceError>;
   /** Internal deletion boundary: settle the Turn before the Thread is purged. */
-  readonly teardownThread: (
-    threadId: ThreadId,
-  ) => Effect.Effect<void, TerminalAgentServiceError>;
+  readonly teardownThread: (threadId: ThreadId) => Effect.Effect<void, TerminalAgentServiceError>;
   /** Reconcile durable terminal authority after the server runtime starts. */
   readonly recover: Effect.Effect<void>;
 }

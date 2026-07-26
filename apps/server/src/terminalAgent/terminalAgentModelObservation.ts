@@ -42,8 +42,7 @@ export async function observeTerminalAgentModel(input: {
     );
   }
 
-  const nextModel =
-    input.event.model === undefined ? input.runtime.model : nextSelection.model;
+  const nextModel = input.event.model === undefined ? input.runtime.model : nextSelection.model;
   const nextEffort =
     input.event.effort === undefined
       ? input.runtime.effort

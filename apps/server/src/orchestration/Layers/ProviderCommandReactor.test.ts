@@ -448,9 +448,7 @@ describe("ProviderCommandReactor", () => {
       }),
     );
     const stopManagedTerminal = vi.fn<
-      (
-        threadId: ThreadId,
-      ) => Effect.Effect<TerminalAgentRuntimeState, TerminalAgentServiceError>
+      (threadId: ThreadId) => Effect.Effect<TerminalAgentRuntimeState, TerminalAgentServiceError>
     >(
       input?.stopManagedTerminal ??
         ((threadId) =>
@@ -477,13 +475,15 @@ describe("ProviderCommandReactor", () => {
         threadId: ThreadId,
         stopStructured: () => Effect.Effect<void, unknown>,
       ) =>
-        executionAdapterAuthority.getState(threadId).pipe(
-          Effect.flatMap((state) =>
-            state.adapter === "terminal"
-              ? stopManagedTerminal(threadId).pipe(Effect.as("terminal" as const))
-              : stopStructured().pipe(Effect.as("structured" as const)),
+        executionAdapterAuthority
+          .getState(threadId)
+          .pipe(
+            Effect.flatMap((state) =>
+              state.adapter === "terminal"
+                ? stopManagedTerminal(threadId).pipe(Effect.as("terminal" as const))
+                : stopStructured().pipe(Effect.as("structured" as const)),
+            ),
           ),
-        ),
     } as unknown as TerminalAgentServiceShape;
 
     const orchestrationLayer = OrchestrationEngineLive.pipe(
@@ -3969,7 +3969,6 @@ describe("ProviderCommandReactor", () => {
     };
     const harness = await createHarness({ threadModelSelection: initialSelection });
     const threadId = ThreadId.makeUnsafe("thread-1");
-    const now = new Date().toISOString();
 
     // Mirrors native import: ProviderService owns the runtime start directly,
     // while the reactor learns the original selection from thread.created.
