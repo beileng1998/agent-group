@@ -118,6 +118,7 @@ export async function prepareTerminalAgentLaunch(input: {
       return prepareCodexTerminalLaunch({
         stateDir: input.stateDir,
         sessionKey: input.threadId,
+        workspaceRoot: input.workspaceRoot,
         runtimeInstanceId: input.runtimeInstanceId,
         hookEndpoint: input.hookEndpoint,
         hookToken: input.hookToken,

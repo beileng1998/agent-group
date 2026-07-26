@@ -1,7 +1,9 @@
 import { TERMINAL_AGENT_SNAPSHOT_MAX_BYTES } from "@agent-group/contracts";
 
+const utf8Encoder = new TextEncoder();
+
 export function managedTerminalUtf8Bytes(data: string): number {
-  return new TextEncoder().encode(data).byteLength;
+  return utf8Encoder.encode(data).byteLength;
 }
 
 export interface ManagedTerminalWriteTarget {

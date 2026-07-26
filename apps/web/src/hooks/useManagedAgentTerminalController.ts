@@ -8,6 +8,10 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { ManagedAgentTerminalController } from "../components/agent-terminal/ManagedAgentTerminalContext";
+import type {
+  ManagedAgentTerminalAction,
+  ManagedAgentTerminalSurface,
+} from "../components/agent-terminal/ManagedAgentTerminalContext";
 import {
   acceptManagedTerminalRpcState,
   acceptManagedTerminalState,
@@ -30,7 +34,12 @@ export function useManagedAgentTerminalController(input: {
   const settingsQuery = useQuery(serverSettingsQueryOptions());
   const featureEnabled = settingsQuery.data?.enableManagedAgentTerminal === true;
   const [state, setState] = useState<TerminalAgentRuntimeState | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [pendingAction, setPendingAction] =
+    useState<ManagedAgentTerminalAction | null>(null);
+  const [surfaceSelection, setSurfaceSelection] = useState<{
+    readonly threadId: ThreadId;
+    readonly surface: ManagedAgentTerminalSurface;
+  } | null>(null);
   const busyRef = useRef(false);
   const mutationTokenRef = useRef<symbol | null>(null);
   const requestVersionRef = useRef(0);
@@ -39,6 +48,7 @@ export function useManagedAgentTerminalController(input: {
 
   const runMutation = useCallback(
     async (
+      action: ManagedAgentTerminalAction,
       mutation: (
         api: NonNullable<ReturnType<typeof readNativeApi>>,
       ) => Promise<TerminalAgentRuntimeState | null>,
@@ -51,7 +61,7 @@ export function useManagedAgentTerminalController(input: {
       const token = Symbol("terminal-agent-mutation");
       mutationTokenRef.current = token;
       busyRef.current = true;
-      setBusy(true);
+      setPendingAction(action);
       const streamVersion = streamEventVersionRef.current;
       try {
         const next = await mutation(api);
@@ -68,7 +78,7 @@ export function useManagedAgentTerminalController(input: {
         if (mutationTokenRef.current === token) {
           mutationTokenRef.current = null;
           busyRef.current = false;
-          setBusy(false);
+          setPendingAction(null);
         }
       }
     },
@@ -76,23 +86,30 @@ export function useManagedAgentTerminalController(input: {
   );
 
   const start = useCallback(
-    () =>
-      runMutation((api) =>
+    () => {
+      setSurfaceSelection({ threadId: input.threadId, surface: "terminal" });
+      return runMutation("start", (api) =>
         api.terminalAgent.start({
           threadId: input.threadId,
           cols: viewportRef.current.cols,
           rows: viewportRef.current.rows,
         }),
-      ),
+      );
+    },
     [input.threadId, runMutation],
   );
   const switchToChat = useCallback(
-    () => runMutation((api) => api.terminalAgent.switchToChat({ threadId: input.threadId })),
+    () => {
+      setSurfaceSelection({ threadId: input.threadId, surface: "chat" });
+      return runMutation("switch-to-chat", (api) =>
+        api.terminalAgent.switchToChat({ threadId: input.threadId }),
+      );
+    },
     [input.threadId, runMutation],
   );
   const restart = useCallback(
     () =>
-      runMutation((api) =>
+      runMutation("restart", (api) =>
         api.terminalAgent.restart({
           threadId: input.threadId,
           cols: viewportRef.current.cols,
@@ -103,7 +120,7 @@ export function useManagedAgentTerminalController(input: {
   );
   const stop = useCallback(
     () =>
-      runMutation(async (api) => {
+      runMutation("stop", async (api) => {
         await api.orchestration.dispatchCommand({
           type: "thread.session.stop",
           commandId: newCommandId(),
@@ -154,7 +171,7 @@ export function useManagedAgentTerminalController(input: {
     const streamVersion = ++streamEventVersionRef.current;
     mutationTokenRef.current = null;
     busyRef.current = false;
-    setBusy(false);
+    setPendingAction(null);
     setState(null);
     if (!api?.terminalAgent || !input.serverBacked) return;
     let unsubscribe = () => {};
@@ -189,19 +206,39 @@ export function useManagedAgentTerminalController(input: {
   const setViewportSize = useCallback((cols: number, rows: number) => {
     viewportRef.current = { cols, rows };
   }, []);
-  const active = isManagedTerminalAuthority(state);
+  const currentState = state?.threadId === input.threadId ? state : null;
+  const active = isManagedTerminalAuthority(currentState);
+  const surface =
+    surfaceSelection?.threadId === input.threadId
+      ? surfaceSelection.surface
+      : active
+        ? "terminal"
+        : "chat";
+  const showSurface = useCallback(
+    (nextSurface: ManagedAgentTerminalSurface) => {
+      setSurfaceSelection({
+        threadId: input.threadId,
+        surface: nextSurface,
+      });
+    },
+    [input.threadId],
+  );
   const available =
     input.serverBacked &&
     (active || (featureEnabled && isManagedTerminalProvider(input.provider)));
+  const busy = pendingAction !== null;
 
   return useMemo(
     () => ({
       threadId: input.threadId,
-      state,
+      state: currentState,
       active,
       available,
       busy,
+      pendingAction,
+      surface,
       featureEnabled,
+      showSurface,
       start,
       switchToChat,
       restart,
@@ -214,11 +251,14 @@ export function useManagedAgentTerminalController(input: {
       busy,
       featureEnabled,
       input.threadId,
+      currentState,
+      pendingAction,
       restart,
       setViewportSize,
+      showSurface,
       start,
-      state,
       stop,
+      surface,
       switchToChat,
     ],
   );

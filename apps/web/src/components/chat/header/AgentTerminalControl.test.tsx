@@ -34,7 +34,10 @@ function controller(
     active: false,
     available: true,
     busy: false,
+    pendingAction: null,
+    surface: patch.active ? "terminal" : "chat",
     featureEnabled: true,
+    showSurface: vi.fn(),
     start: vi.fn(),
     switchToChat: vi.fn(),
     restart: vi.fn(),
@@ -55,7 +58,7 @@ describe("AgentTerminalControl", () => {
     expect(markup).toContain('aria-label="Session interface"');
     expect(markup).toContain("Chat");
     expect(markup).toContain("Terminal");
-    expect(markup).toContain('aria-pressed="true"');
+    expect(markup).toContain('aria-selected="true"');
   });
 
   it("keeps recovery visible but prevents new starts when the flag is off", () => {
@@ -80,7 +83,7 @@ describe("AgentTerminalControl", () => {
     );
 
     expect(markup).toContain("Terminal");
-    expect(markup).toContain('aria-pressed="true"');
+    expect(markup).toContain('aria-selected="true"');
     expect(markup).not.toContain(
       "Managed Agent Terminal is disabled for new sessions",
     );
@@ -98,7 +101,7 @@ describe("AgentTerminalControl", () => {
     expect(markup).toBe("");
   });
 
-  it("disables Chat while the terminal Turn is running", () => {
+  it("keeps Chat history reachable while the terminal Turn is running", () => {
     const terminalState = {
       ...controller().state!,
       authority: "terminal" as const,
@@ -117,6 +120,8 @@ describe("AgentTerminalControl", () => {
       </ManagedAgentTerminalProvider>,
     );
 
-    expect(markup).toMatch(/<button[^>]*disabled=""[^>]*>.*Chat/s);
+    expect(markup).not.toMatch(
+      /<button[^>]*disabled=""[^>]*title="Show Chat history"/s,
+    );
   });
 });

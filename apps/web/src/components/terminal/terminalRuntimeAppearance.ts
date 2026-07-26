@@ -5,10 +5,10 @@
 import { Terminal, type ITheme } from "@xterm/xterm";
 
 const FALLBACK_MONO_FONT_FAMILY =
-  '"JetBrains Mono", "JetBrainsMono NFM", "JetBrainsMono NF", monospace';
+  '"JetBrains Mono Variable", "JetBrains Mono", "JetBrainsMono NFM", "JetBrainsMono NF", "SFMono-Regular", "Noto Sans Mono CJK SC", "Sarasa Mono SC", "PingFang SC", "Microsoft YaHei", monospace';
 const FALLBACK_TERMINAL_FONT_SIZE_PX = 12;
-const TERMINAL_FONT_WEIGHT = 300;
-const TERMINAL_BOLD_FONT_WEIGHT = 500;
+const TERMINAL_FONT_WEIGHT = 400;
+const TERMINAL_BOLD_FONT_WEIGHT = 600;
 
 const DARK_TERMINAL_THEME_FALLBACK = {
   background: "rgb(14, 18, 24)",

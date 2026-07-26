@@ -150,7 +150,7 @@ export const ChatHeader = memo(function ChatHeader({
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-2 [-webkit-app-region:no-drag]">
-        {!editorChatControls ? <AgentTerminalControl /> : null}
+        <AgentTerminalControl compact={compact || editorChatControls !== null} />
         {!hideHandoffControls && !environment ? (
           <ProviderUsageMenuControl provider={activeProvider} />
         ) : null}

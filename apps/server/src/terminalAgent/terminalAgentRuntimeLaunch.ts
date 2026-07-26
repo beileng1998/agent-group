@@ -2,6 +2,7 @@ import type {
   ProviderSession,
   ServerSettings,
   TerminalAgentCapabilitySnapshot,
+  TerminalAgentProvider,
   ThreadId,
 } from "@agent-group/contracts";
 import { Effect, Result } from "effect";
@@ -22,6 +23,7 @@ import {
 } from "./terminalAgentDriverRegistry";
 import { resolveAvailableTerminalLaunchContinuity } from "./terminalAgentLaunchContinuity";
 import { assertTerminalLaunchContextUnchanged } from "./terminalAgentLaunchRevalidation";
+import { cacheTerminalAgentProbe } from "./terminalAgentProbeCache";
 import { gateTerminalAgentBridgeHandler } from "./terminalAgentBridgeActivation";
 import { makeTerminalAgentBridgeHandler } from "./terminalAgentRuntimeEvents";
 import { retireTerminalRuntimeDirectory } from "./terminalAgentRuntimeCleanup";
@@ -40,6 +42,10 @@ export interface TerminalRuntimeLaunchDependencies {
   readonly childProcessSpawner: ChildProcessSpawner.ChildProcessSpawner["Service"];
   readonly getSettings: () => Promise<ServerSettings>;
   readonly listProviderSessions: () => Promise<ReadonlyArray<ProviderSession>>;
+  readonly readPersistedProviderResumeCursor: (
+    threadId: ThreadId,
+    provider: TerminalAgentProvider,
+  ) => Promise<unknown>;
   readonly revalidateLaunchContext: (
     threadId: ThreadId,
   ) => Promise<{
@@ -80,13 +86,15 @@ export async function probeTerminalRuntime(input: {
   readonly settings: ServerSettings;
   readonly childProcessSpawner: ChildProcessSpawner.ChildProcessSpawner["Service"];
 }): Promise<TerminalAgentCapabilitySnapshot> {
-  return Effect.runPromise(
-    probeTerminalAgent({
-      provider: input.target.provider,
-      modelSelection: input.target.modelSelection,
-      settings: input.settings,
-      childProcessSpawner: input.childProcessSpawner,
-    }),
+  return cacheTerminalAgentProbe(input.target, input.settings, input.childProcessSpawner, () =>
+    Effect.runPromise(
+      probeTerminalAgent({
+        provider: input.target.provider,
+        modelSelection: input.target.modelSelection,
+        settings: input.settings,
+        childProcessSpawner: input.childProcessSpawner,
+      }),
+    ),
   );
 }
 
@@ -199,6 +207,11 @@ async function launchTerminalRuntimeUnlocked(input: {
         operation: input.operation,
         providerSessionId: input.providerSessionId,
         resume: input.resume,
+        persistedResumeCursor:
+          await input.dependencies.readPersistedProviderResumeCursor(
+            input.target.threadId,
+            input.target.provider,
+          ),
       });
       const launch = await prepareTerminalAgentLaunch({
         stateDir: input.dependencies.stateDir,

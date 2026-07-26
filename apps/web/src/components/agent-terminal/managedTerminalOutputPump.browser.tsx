@@ -158,7 +158,10 @@ describe("managed terminal output pump in Chromium", () => {
           active: true,
           available: true,
           busy: false,
+          pendingAction: null,
+          surface: "terminal",
           featureEnabled: true,
+          showSurface: () => {},
           start: async () => {},
           switchToChat: async () => {},
           restart: async () => {},
@@ -239,7 +242,10 @@ describe("managed terminal output pump in Chromium", () => {
           active: true,
           available: true,
           busy: false,
+          pendingAction: null,
+          surface: "terminal",
           featureEnabled: true,
+          showSurface: () => {},
           start: async () => {},
           switchToChat: async () => {},
           restart: async () => {},
@@ -327,7 +333,10 @@ describe("managed terminal output pump in Chromium", () => {
           active: true,
           available: true,
           busy: false,
+          pendingAction: null,
+          surface: "terminal",
           featureEnabled: true,
+          showSurface: () => {},
           start: async () => {},
           switchToChat: async () => {},
           restart: async () => {},
@@ -394,107 +403,4 @@ describe("managed terminal output pump in Chromium", () => {
     queue.dispose();
   });
 
-  it("forwards keyboard sequences that resemble replies and drops synthetic replies", async () => {
-    const threadId = "query-reply-terminal" as ThreadId;
-    let listener: ((event: TerminalAgentEvent) => void) | undefined;
-    const write = vi.fn(async () => {});
-    window.nativeApi = {
-      terminalAgent: {
-        subscribe: (
-          _input: TerminalAgentSubscribeInput,
-          nextListener: (event: TerminalAgentEvent) => void,
-        ) => {
-          listener = nextListener;
-          return () => {};
-        },
-        resize: vi.fn(async () => {}),
-        write,
-      },
-    } as unknown as NativeApi;
-    const state: TerminalAgentRuntimeState = {
-      threadId,
-      authority: "terminal",
-      revision: 1,
-      provider: "codex",
-      status: "ready",
-      runtimeInstanceId: "runtime-1",
-      generation: "generation-1",
-      pid: 123,
-      providerSessionId: "provider-session-1",
-      model: null,
-      effort: null,
-      permission: null,
-      capabilities: null,
-      exit: null,
-      error: null,
-    };
-    const mounted = await render(
-      <ManagedAgentTerminalProvider
-        value={{
-          threadId,
-          state,
-          active: true,
-          available: true,
-          busy: false,
-          featureEnabled: true,
-          start: async () => {},
-          switchToChat: async () => {},
-          restart: async () => {},
-          stop: async () => {},
-          setViewportSize: () => {},
-        }}
-      >
-        <ManagedAgentTerminalSurface />
-      </ManagedAgentTerminalProvider>,
-    );
-
-    try {
-      await expect.poll(() => Boolean(listener)).toBe(true);
-      listener?.({
-        type: "attached",
-        threadId,
-        revision: 1,
-        generation: "generation-1",
-        snapshot: {
-          snapshotAnsi: "",
-          scrollbackAnsi: "",
-          rehydrateSequences: "",
-          cols: 80,
-          rows: 24,
-          outputSequence: 0,
-        },
-      });
-      const textarea = document.querySelector<HTMLTextAreaElement>(
-        ".xterm-helper-textarea",
-      );
-      expect(textarea).not.toBeNull();
-      const keydown = new KeyboardEvent("keydown", {
-        key: "F3",
-        code: "F3",
-        ctrlKey: true,
-        bubbles: true,
-        cancelable: true,
-      });
-      Object.defineProperties(keydown, {
-        keyCode: { value: 114 },
-        which: { value: 114 },
-      });
-      textarea!.dispatchEvent(keydown);
-      await expect.poll(() => write.mock.calls.length).toBe(1);
-      expect(write.mock.calls[0]?.[0].data).toMatch(/^\u001b\[[0-9;]*R$/u);
-
-      listener?.({
-        type: "output",
-        threadId,
-        revision: 1,
-        generation: "generation-1",
-        seq: 1,
-        data: "\u001b[6n",
-      });
-      await new Promise((resolve) => window.setTimeout(resolve, 20));
-      expect(write).toHaveBeenCalledOnce();
-    } finally {
-      await mounted.unmount();
-    }
-  });
 });

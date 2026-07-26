@@ -137,6 +137,7 @@ describe("managed terminal hook shims", () => {
     const launch = await prepareCodexTerminalLaunch({
       stateDir,
       sessionKey: "thread-one",
+      workspaceRoot: stateDir,
       runtimeInstanceId: "runtime-one",
       hookEndpoint: endpoint,
       hookToken: "secret-token",
@@ -295,6 +296,7 @@ describe("managed terminal hook shims", () => {
     const launch = await prepareCodexTerminalLaunch({
       stateDir,
       sessionKey: "thread-closed-output",
+      workspaceRoot: stateDir,
       runtimeInstanceId: "runtime-closed-output",
       hookEndpoint: endpoint,
       hookToken: "secret-token",

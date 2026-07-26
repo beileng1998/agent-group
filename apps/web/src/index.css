@@ -527,7 +527,10 @@
     monospace
   );
   --font-chat-code-family: var(--theme-font-code-family, var(--font-mono-family));
-  --terminal-font-family: "JetBrainsMono NFM", "JetBrainsMono NF", "JetBrains Mono", monospace;
+  --terminal-font-family:
+    "JetBrains Mono Variable", "JetBrains Mono", "JetBrainsMono NFM", "JetBrainsMono NF",
+    "SFMono-Regular", "Noto Sans Mono CJK SC", "Sarasa Mono SC", "PingFang SC",
+    "Microsoft YaHei", monospace;
   --app-shell-background: transparent;
   --app-sidebar-backdrop-filter: blur(8px) saturate(135%);
   --app-sidebar-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.025);

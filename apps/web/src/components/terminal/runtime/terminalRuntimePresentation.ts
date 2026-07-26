@@ -25,11 +25,15 @@ let suggestedRendererType: "webgl" | "dom" | undefined;
 
 export function getTerminalParkingContainer(): HTMLDivElement {
   let container = document.getElementById(TERMINAL_PARKING_CONTAINER_ID) as HTMLDivElement | null;
-  if (container) return container;
+  if (container) {
+    container.setAttribute("inert", "");
+    return container;
+  }
 
   container = document.createElement("div");
   container.id = TERMINAL_PARKING_CONTAINER_ID;
   container.setAttribute("aria-hidden", "true");
+  container.setAttribute("inert", "");
   container.style.cssText =
     "position:fixed;width:0;height:0;overflow:hidden;contain:strict;left:-10000px;top:-10000px;";
   document.body.append(container);

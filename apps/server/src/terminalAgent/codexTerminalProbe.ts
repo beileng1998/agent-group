@@ -20,6 +20,8 @@ interface ProbeCommandResult {
 }
 
 const REQUIRED_ROOT_OPTIONS = [
+  "--dangerously-bypass-hook-trust",
+  "--no-alt-screen",
   "--config",
   "--profile",
   "--enable",

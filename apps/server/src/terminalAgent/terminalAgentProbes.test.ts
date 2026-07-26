@@ -8,6 +8,8 @@ import { inspectClaudeTerminalProbe } from "./claudeTerminalProbe";
 import { inspectPiTerminalProbe } from "./piTerminalProbe";
 
 const codexOptions = [
+  "--dangerously-bypass-hook-trust",
+  "--no-alt-screen",
   "--config <key=value>",
   "--profile <profile>",
   "--enable <feature>",

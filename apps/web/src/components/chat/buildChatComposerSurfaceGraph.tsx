@@ -16,6 +16,7 @@ export interface ChatComposerSurfaceGraphInput {
   readonly interactionGraph: ChatViewInteractionGraphOwner;
   readonly executionGraph: ChatViewExecutionGraphOwner;
   readonly paneScopeId: string;
+  readonly readOnly?: boolean;
 }
 
 export function buildChatComposerSurfaceGraph(input: ChatComposerSurfaceGraphInput) {
@@ -163,7 +164,8 @@ export function buildChatComposerSurfaceGraph(input: ChatComposerSurfaceGraphInp
           busy: runtimeActivity.dispatch.isSendBusy,
           connecting: runtimeActivity.session.isConnecting,
           preparingWorktree: runtimeActivity.dispatch.isPreparingWorktree,
-          hasSendableContent: sendState.hasSendableContent,
+          hasSendableContent:
+            sendState.hasSendableContent && input.readOnly !== true,
         },
       },
       menu: {
@@ -274,7 +276,9 @@ export function buildChatComposerSurfaceGraph(input: ChatComposerSurfaceGraphInp
         onCollapsePastedText: composerInteraction.references.actions.addPastedText,
         hasLiveTurn: runtimeActivity.session.hasLiveTurn,
         phase: runtimeActivity.session.phase,
-        disabled: runtimeActivity.presentation.isComposerEditorDisabled,
+        disabled:
+          input.readOnly === true ||
+          runtimeActivity.presentation.isComposerEditorDisabled,
       },
     },
     footer: {

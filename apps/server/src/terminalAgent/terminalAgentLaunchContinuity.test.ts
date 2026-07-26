@@ -24,6 +24,24 @@ const session = (
 });
 
 describe("terminal launch continuity", () => {
+  it("resumes Codex from durable continuity when no runtime is active", () => {
+    expect(
+      resolveTerminalLaunchContinuity({
+        sessions: [],
+        threadId,
+        provider: "codex",
+        operation: "start",
+        providerSessionId: null,
+        resume: false,
+        persistedResumeCursor: { threadId: "durable-codex-thread" },
+      }),
+    ).toEqual({
+      providerSessionId: "durable-codex-thread",
+      providerResumeCursor: { threadId: "durable-codex-thread" },
+      resume: true,
+    });
+  });
+
   it.each([
     [
       "codex",

@@ -63,6 +63,7 @@ export default function ChatView(props: ChatViewProps) {
     interactionGraph,
     executionGraph,
     paneScopeId,
+    readOnly: managedAgentTerminal.active,
   });
   const shellSurface = buildChatShellSurfaceGraph({
     foundation,

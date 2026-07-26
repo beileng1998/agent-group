@@ -29,6 +29,7 @@ import { terminalTurnIsInFlight } from "../terminalAgentLifecycleGuards";
 import { runTerminalAgentLaunchTransaction } from "../terminalAgentLaunchTransaction";
 import { makeTerminalAgentOperationLocks } from "../terminalAgentOperationLocks";
 import { makeTerminalAgentPersistedRecovery } from "../terminalAgentPersistedRecovery";
+import { readPersistedProviderResumeCursor } from "../terminalAgentPersistedContinuity";
 import { makeTerminalProviderCursorAdopter } from "../terminalAgentProviderCursorAdoption";
 import {
   activeTerminalRecoveryThreadIds,
@@ -88,6 +89,8 @@ const make = Effect.gen(function* () {
     childProcessSpawner,
     getSettings,
     listProviderSessions: () => Effect.runPromise(providerService.listSessions()),
+    readPersistedProviderResumeCursor: (threadId, provider) =>
+      readPersistedProviderResumeCursor(providerService, threadId, provider),
     revalidateLaunchContext: async (threadId) => {
       const settings = await getSettings();
       const target = await Effect.runPromise(
@@ -468,7 +471,6 @@ const make = Effect.gen(function* () {
       onRecoveryFailure,
     });
   });
-
   yield* Effect.forkScoped(
     monitorTerminalAgentExits({
       coordinator,
@@ -479,7 +481,6 @@ const make = Effect.gen(function* () {
         operationLocks.withThread(threadId, operation),
     }),
   );
-
   return {
     get,
     start,
@@ -493,5 +494,4 @@ const make = Effect.gen(function* () {
     recover,
   } satisfies TerminalAgentServiceShape;
 });
-
 export const TerminalAgentServiceLive = Layer.effect(TerminalAgentService, make);

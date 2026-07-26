@@ -45,26 +45,22 @@ describe("managed terminal drivers", () => {
     return directory;
   }
 
-  it("writes exact Codex trust state without bypass flags", () => {
+  it("uses public Codex trust controls for the managed hook and workspace", () => {
     const command = buildCodexHookCommand(
       "/Applications/Agent Group.app/Contents/MacOS/Agent Group",
       "/tmp/codex hook.mjs",
       "darwin",
       true,
     );
-    const profilePath = "/tmp/agent-group-terminal.config.toml";
-    const profile = buildCodexTerminalProfile(command, profilePath);
+    const workspaceRoot = "/tmp/agent-group-workspace";
+    const profile = buildCodexTerminalProfile(command, workspaceRoot);
     expect(command).toBe(
       "ELECTRON_RUN_AS_NODE=1 '/Applications/Agent Group.app/Contents/MacOS/Agent Group' '/tmp/codex hook.mjs'",
     );
     expect(profile.match(/\[\[hooks\.(\w+)\]\]/gu)).toHaveLength(4);
-    expect(profile).toContain(
-      `[hooks.state."${profilePath}:session_start:0:0"]`,
-    );
-    expect(profile).toContain(
-      'trusted_hash = "sha256:209f38c02d212d912eb1fb654a12babbabcbd682b13cc35f83aa4d8294ab0678"',
-    );
-    expect(profile).not.toContain("dangerously-bypass");
+    expect(profile).toContain(`[projects."${workspaceRoot}"]`);
+    expect(profile).toContain('trust_level = "trusted"');
+    expect(profile).not.toContain("trusted_hash");
   });
 
   it("maps Codex permissions without changing the original executable", () => {
@@ -80,8 +76,8 @@ describe("managed terminal drivers", () => {
     const args = buildCodexTerminalArgs(common);
     expect(args).toContain("danger-full-access");
     expect(args).toContain("never");
-    expect(args).not.toContain("--no-alt-screen");
-    expect(args).not.toContain("--dangerously-bypass-hook-trust");
+    expect(args).toContain("--no-alt-screen");
+    expect(args).toContain("--dangerously-bypass-hook-trust");
     expect(
       buildCodexTerminalArgs({
         ...common,
@@ -116,6 +112,7 @@ describe("managed terminal drivers", () => {
     const launch = await prepareCodexTerminalLaunch({
       stateDir,
       sessionKey: "thread-one",
+      workspaceRoot: stateDir,
       runtimeInstanceId: "runtime-one",
       hookEndpoint: path.join(stateDir, "bridge.sock"),
       hookToken: "secret-token",
@@ -158,6 +155,7 @@ describe("managed terminal drivers", () => {
     const launch = await prepareCodexTerminalLaunch({
       stateDir,
       sessionKey: "thread-canonical",
+      workspaceRoot: realStateDir,
       runtimeInstanceId: "runtime-canonical",
       hookEndpoint: path.join(realStateDir, "bridge.sock"),
       hookToken: "secret-token",
@@ -175,7 +173,7 @@ describe("managed terminal drivers", () => {
       ),
     );
     expect(await fs.readFile(launch.profilePath, "utf8")).toContain(
-      `[hooks.state."${launch.profilePath}:session_start:0:0"]`,
+      `[projects."${realStateDir}"]`,
     );
   });
 

@@ -84,8 +84,6 @@ export function canSwitchManagedTerminalToChat(
   return (
     state?.authority === "terminal" &&
     state.status !== "running" &&
-    state.status !== "attention" &&
-    state.status !== "context-blocked" &&
     state.status !== "stopping"
   );
 }

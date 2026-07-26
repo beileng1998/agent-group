@@ -25,10 +25,10 @@ export const CODEX_RUNTIME_INSTANCE_ID_ENV =
 export const CODEX_HOOK_SPOOL_DIR_ENV = "AGENT_GROUP_HOOK_SPOOL_DIR";
 
 const CODEX_TERMINAL_HOOKS = [
-  { eventName: "SessionStart", key: "session_start", timeout: 10 },
-  { eventName: "UserPromptSubmit", key: "user_prompt_submit", timeout: 12 },
-  { eventName: "SubagentStart", key: "subagent_start", timeout: 10 },
-  { eventName: "Stop", key: "stop", timeout: 10 },
+  { eventName: "SessionStart", timeout: 10 },
+  { eventName: "UserPromptSubmit", timeout: 12 },
+  { eventName: "SubagentStart", timeout: 10 },
+  { eventName: "Stop", timeout: 10 },
 ] as const;
 
 export interface CodexTerminalLaunch extends TerminalAgentDriverLaunch {
@@ -90,29 +90,11 @@ function tomlString(value: string): string {
   return JSON.stringify(value);
 }
 
-function codexHookTrustedHash(
-  eventKey: string,
-  hookCommand: string,
-  timeout: number,
-): string {
-  const identity = JSON.stringify({
-    event_name: eventKey,
-    hooks: [
-      {
-        async: false,
-        command: hookCommand,
-        timeout,
-        type: "command",
-      },
-    ],
-  });
-  return `sha256:${createHash("sha256").update(identity).digest("hex")}`;
-}
-
 export function buildCodexTerminalProfile(
   hookCommand: string,
-  profilePath?: string,
+  workspaceRoot: string,
 ): string {
+  requireLaunchValue(workspaceRoot, "Codex Terminal workspace root");
   const lines: string[] = [];
   for (const hook of CODEX_TERMINAL_HOOKS) {
     if (lines.length > 0) lines.push("");
@@ -125,19 +107,11 @@ export function buildCodexTerminalProfile(
       `timeout = ${hook.timeout}`,
     );
   }
-  if (profilePath) {
-    lines.push("", "[hooks.state]");
-    for (const hook of CODEX_TERMINAL_HOOKS) {
-      const stateKey = `${profilePath}:${hook.key}:0:0`;
-      lines.push(
-        "",
-        `[hooks.state.${tomlString(stateKey)}]`,
-        `trusted_hash = ${tomlString(
-          codexHookTrustedHash(hook.key, hookCommand, hook.timeout),
-        )}`,
-      );
-    }
-  }
+  lines.push(
+    "",
+    `[projects.${tomlString(workspaceRoot)}]`,
+    'trust_level = "trusted"',
+  );
   return `${lines.join("\n")}\n`;
 }
 
@@ -149,6 +123,8 @@ export function buildCodexTerminalArgs(input: {
 }): ReadonlyArray<string> {
   const permission = mapCodexRuntimeMode(input.runtimeMode);
   const options = [
+    "--dangerously-bypass-hook-trust",
+    "--no-alt-screen",
     "--profile",
     input.profileName,
     "--enable",
@@ -181,6 +157,7 @@ export function buildCodexTerminalArgs(input: {
 export async function prepareCodexTerminalLaunch(input: {
   readonly stateDir: string;
   readonly sessionKey: string;
+  readonly workspaceRoot: string;
   readonly runtimeInstanceId: string;
   readonly hookEndpoint: string;
   readonly hookToken: string;
@@ -226,7 +203,7 @@ export async function prepareCodexTerminalLaunch(input: {
   const hookCommand = buildCodexHookCommand(process.execPath, shimPath);
   await writePrivateFile(
     profilePath,
-    buildCodexTerminalProfile(hookCommand, profilePath),
+    buildCodexTerminalProfile(hookCommand, input.workspaceRoot),
     0o600,
   );
 

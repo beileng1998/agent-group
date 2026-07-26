@@ -71,8 +71,28 @@ export function makeProviderSessionQueries(input: ProviderServiceDependencies) {
       return isFile ? candidate : null;
     });
 
+  const getSessionContinuity: NonNullable<
+    ProviderServiceShape["getSessionContinuity"]
+  > = (request) =>
+    directory.getBinding(request.threadId).pipe(
+      Effect.map((bindingOption) => {
+        const binding = Option.getOrUndefined(bindingOption);
+        return binding
+          ? {
+              provider: binding.provider,
+              resumeCursor: binding.resumeCursor ?? null,
+            }
+          : null;
+      }),
+    );
+
   const getCapabilities: ProviderServiceShape["getCapabilities"] = (provider) =>
     registry.getByProvider(provider).pipe(Effect.map((adapter) => adapter.capabilities));
 
-  return { listSessions, resolveTranscriptPath, getCapabilities };
+  return {
+    listSessions,
+    getSessionContinuity,
+    resolveTranscriptPath,
+    getCapabilities,
+  };
 }

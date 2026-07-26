@@ -140,6 +140,14 @@ export interface ProviderServiceShape {
    */
   readonly listSessions: () => Effect.Effect<ReadonlyArray<ProviderSession>>;
 
+  /** Read durable provider continuity without starting a runtime. */
+  readonly getSessionContinuity?: (input: {
+    readonly threadId: ThreadId;
+  }) => Effect.Effect<
+    { readonly provider: ProviderKind; readonly resumeCursor: unknown | null } | null,
+    ProviderServiceError
+  >;
+
   /** Best-effort provider-native transcript path; never starts the target runtime. */
   readonly resolveTranscriptPath?: (input: {
     readonly threadId: ThreadId;

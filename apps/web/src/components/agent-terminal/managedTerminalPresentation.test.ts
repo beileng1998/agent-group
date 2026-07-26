@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import {
   acceptManagedTerminalState,
   buildManagedTerminalSnapshotAnsi,
+  canSwitchManagedTerminalToChat,
   classifyManagedTerminalOutput,
   isManagedTerminalAuthority,
   managedTerminalEventThreadId,
@@ -35,6 +36,22 @@ function runtimeState(revision: number): TerminalAgentRuntimeState {
 }
 
 describe("managed terminal presentation", () => {
+  it("allows failed terminal states to return control to Chat", () => {
+    expect(
+      canSwitchManagedTerminalToChat({
+        ...runtimeState(1),
+        status: "attention",
+      }),
+    ).toBe(true);
+    expect(
+      canSwitchManagedTerminalToChat({
+        ...runtimeState(2),
+        status: "context-blocked",
+      }),
+    ).toBe(true);
+    expect(canSwitchManagedTerminalToChat(runtimeState(3))).toBe(false);
+  });
+
   it("describes the pre-handshake state without implying a failed check", () => {
     expect(
       managedTerminalStatusLabel({

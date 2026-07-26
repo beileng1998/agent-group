@@ -129,6 +129,7 @@ describe("launchTerminalRuntime compensation", () => {
           childProcessSpawner: {} as never,
           getSettings: async () => DEFAULT_SERVER_SETTINGS,
           listProviderSessions: async () => [],
+          readPersistedProviderResumeCursor: async () => null,
           revalidateLaunchContext: async () => ({
             target: {
               threadId,
@@ -265,6 +266,7 @@ describe("launchTerminalRuntime compensation", () => {
           childProcessSpawner: {} as never,
           getSettings: async () => settings,
           listProviderSessions: async () => [],
+          readPersistedProviderResumeCursor: async () => null,
           revalidateLaunchContext: async () => ({
             target: {
               ...target,
@@ -415,6 +417,7 @@ describe("launchTerminalRuntime compensation", () => {
           childProcessSpawner: {} as never,
           getSettings: async () => settings,
           listProviderSessions: async () => [],
+          readPersistedProviderResumeCursor: async () => null,
           revalidateLaunchContext: async () => ({ target, settings }),
           adoptProviderResumeCursor: async () => {},
           records,

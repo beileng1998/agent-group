@@ -2,15 +2,10 @@ import { Loader2Icon, MessageCircleIcon, TerminalIcon } from "../../../lib/icons
 import { cn } from "../../../lib/utils";
 import { useManagedAgentTerminal } from "../../agent-terminal/ManagedAgentTerminalContext";
 import {
-  canSwitchManagedTerminalToChat,
   managedTerminalProviderLabel,
   managedTerminalStatusLabel,
 } from "../../agent-terminal/managedTerminalPresentation";
 import { toastManager } from "../../ui/toast";
-import {
-  CHAT_SURFACE_CHIP_CLASS_NAME,
-  CHAT_SURFACE_CONTROL_ACTIVE_CLASS_NAME,
-} from "../chatHeaderControls";
 
 async function reportSwitch(
   action: () => Promise<void>,
@@ -27,11 +22,19 @@ async function reportSwitch(
   }
 }
 
-export function AgentTerminalControl() {
+const SEGMENT_CLASS_NAME =
+  "inline-flex h-6 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2 text-[length:var(--app-font-size-ui-sm,11px)] font-normal transition-[background-color,color,box-shadow] disabled:cursor-not-allowed disabled:opacity-50";
+const ACTIVE_SEGMENT_CLASS_NAME =
+  "bg-[var(--color-background-surface)] text-[var(--color-text-foreground)] shadow-sm";
+const IDLE_SEGMENT_CLASS_NAME =
+  "text-[var(--color-text-foreground-secondary)] hover:bg-[var(--color-background-button-secondary-hover)] hover:text-[var(--color-text-foreground)]";
+
+export function AgentTerminalControl({ compact = false }: { compact?: boolean }) {
   const controller = useManagedAgentTerminal();
   if (!controller?.available) return null;
 
   const state = controller.state;
+  const terminalSelected = controller.surface === "terminal";
   const terminalLabel = state
     ? managedTerminalProviderLabel(state.provider)
     : "Agent";
@@ -41,55 +44,61 @@ export function AgentTerminalControl() {
 
   return (
     <div
-      role="group"
+      role="tablist"
       aria-label="Session interface"
-      className="flex h-7 items-center rounded-lg bg-[var(--color-background-button-secondary)] p-0.5"
+      className="inline-flex h-7 shrink-0 items-center rounded-lg bg-[var(--color-background-button-secondary)] p-0.5 ring-1 ring-inset ring-border/40"
     >
       <button
         type="button"
-        aria-pressed={!controller.active}
-        disabled={
-          controller.busy ||
-          (controller.active && !canSwitchManagedTerminalToChat(state))
-        }
+        role="tab"
+        aria-selected={!terminalSelected}
+        disabled={controller.pendingAction === "switch-to-chat"}
+        title="Show Chat history"
         className={cn(
-          CHAT_SURFACE_CHIP_CLASS_NAME,
-          !controller.active && CHAT_SURFACE_CONTROL_ACTIVE_CLASS_NAME,
+          SEGMENT_CLASS_NAME,
+          terminalSelected
+            ? IDLE_SEGMENT_CLASS_NAME
+            : ACTIVE_SEGMENT_CLASS_NAME,
         )}
         onClick={() => {
-          if (controller.active) void reportSwitch(controller.switchToChat, "Chat");
+          controller.showSurface("chat");
         }}
       >
-        {controller.busy && controller.active ? (
-          <Loader2Icon className="size-3.5 animate-spin" />
-        ) : (
-          <MessageCircleIcon className="size-3.5" />
-        )}
-        Chat
+        <MessageCircleIcon className="size-3.5 shrink-0" />
+        <span className={cn(compact && "sr-only")}>Chat</span>
       </button>
       <button
         type="button"
-        aria-pressed={controller.active}
-        disabled={controller.busy || (!controller.active && !controller.featureEnabled)}
+        role="tab"
+        aria-selected={terminalSelected}
+        disabled={
+          controller.pendingAction === "start" ||
+          (!controller.active && !controller.featureEnabled)
+        }
         title={
           controller.active && state
-            ? `${terminalLabel} · ${managedTerminalStatusLabel(state)}`
+            ? `Show ${terminalLabel} Terminal · ${managedTerminalStatusLabel(state)}`
             : terminalTitle
         }
         className={cn(
-          CHAT_SURFACE_CHIP_CLASS_NAME,
-          controller.active && CHAT_SURFACE_CONTROL_ACTIVE_CLASS_NAME,
+          SEGMENT_CLASS_NAME,
+          terminalSelected
+            ? ACTIVE_SEGMENT_CLASS_NAME
+            : IDLE_SEGMENT_CLASS_NAME,
         )}
         onClick={() => {
-          if (!controller.active) void reportSwitch(controller.start, "Terminal");
+          controller.showSurface("terminal");
+          if (!controller.active) {
+            void reportSwitch(controller.start, "Terminal");
+          }
         }}
       >
-        {controller.busy && !controller.active ? (
-          <Loader2Icon className="size-3.5 animate-spin" />
+        {controller.pendingAction === "start" ? (
+          <Loader2Icon className="size-3.5 shrink-0 animate-spin" />
         ) : (
-          <TerminalIcon className="size-3.5" />
+          <TerminalIcon className="size-3.5 shrink-0" />
         )}
-        Terminal
+        <span className={cn(compact && "sr-only")}>Terminal</span>
       </button>
     </div>
   );

@@ -22,12 +22,16 @@ function persistedCursor(
   sessions: ReadonlyArray<ProviderSession>,
   threadId: ThreadId,
   provider: TerminalAgentProvider,
+  fallback: unknown,
 ): TerminalAgentProviderResumeCursor | null {
   const session = sessions.find(
     (candidate) =>
       candidate.threadId === threadId && candidate.provider === provider,
   );
-  return terminalProviderResumeCursor(provider, session?.resumeCursor);
+  return terminalProviderResumeCursor(
+    provider,
+    session?.resumeCursor ?? fallback,
+  );
 }
 
 export function resolveTerminalLaunchContinuity(input: {
@@ -37,11 +41,13 @@ export function resolveTerminalLaunchContinuity(input: {
   readonly operation: "start" | "restart";
   readonly providerSessionId: string | null;
   readonly resume: boolean;
+  readonly persistedResumeCursor?: unknown;
 }): TerminalAgentLaunchContinuity {
   const cursor = persistedCursor(
     input.sessions,
     input.threadId,
     input.provider,
+    input.persistedResumeCursor,
   );
   if (
     input.provider === "pi" &&
