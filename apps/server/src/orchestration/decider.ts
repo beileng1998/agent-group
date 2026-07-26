@@ -34,6 +34,7 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
     case "thread.archive":
     case "thread.unarchive":
     case "thread.meta.update":
+    case "thread.terminal-model.observe":
     case "thread.runtime-mode.set":
     case "thread.interaction-mode.set":
       return yield* decideThreadLifecycleCommand({ command, readModel });
@@ -67,6 +68,7 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
 
     case "thread.message.assistant.delta":
     case "thread.message.assistant.complete":
+    case "thread.terminal-message.observe":
     case "thread.proposed-plan.upsert":
     case "thread.turn.diff.complete":
     case "thread.revert.complete":

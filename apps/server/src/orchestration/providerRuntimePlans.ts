@@ -17,6 +17,7 @@ import {
   providerCommandId,
   sameId,
 } from "./providerRuntimeIngestionValues.ts";
+import { terminalRuntimeCommandFence } from "./providerRuntimeTerminalFence.ts";
 
 type Buffers = ReturnType<typeof makeProviderRuntimeBuffers>;
 
@@ -55,6 +56,7 @@ export function makeProviderRuntimePlans(input: {
           updatedAt: params.updatedAt,
         },
         createdAt: params.updatedAt,
+        ...terminalRuntimeCommandFence(params.event),
       });
     });
 

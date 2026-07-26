@@ -283,6 +283,33 @@ it.effect("keeps generic conversation rollback internal-only", () =>
   }),
 );
 
+it.effect("keeps terminal model observations internal and runtime-fenced", () =>
+  Effect.gen(function* () {
+    const command = {
+      type: "thread.terminal-model.observe",
+      commandId: "cmd-terminal-model",
+      threadId: "thread-1",
+      modelSelection: {
+        provider: "codex",
+        model: "gpt-5.3-codex",
+        options: { reasoningEffort: "xhigh", fastMode: true },
+      },
+      terminalRuntimeFence: { revision: 4, generation: "generation-4" },
+      createdAt: "2026-01-01T00:00:00.000Z",
+    };
+
+    const clientResult = yield* Effect.exit(decodeClientOrchestrationCommand(command));
+    assert.strictEqual(clientResult._tag, "Failure");
+
+    const parsedInternal = yield* decodeOrchestrationCommand(command);
+    assert.strictEqual(parsedInternal.type, "thread.terminal-model.observe");
+    assert.deepStrictEqual(parsedInternal.terminalRuntimeFence, {
+      revision: 4,
+      generation: "generation-4",
+    });
+  }),
+);
+
 it.effect("trims branded ids and command string fields at decode boundaries", () =>
   Effect.gen(function* () {
     const parsed = yield* decodeProjectCreateCommand({

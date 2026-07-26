@@ -39,6 +39,7 @@ export const ClaudeServerProviderSettings = Schema.Struct({
   launchArgs: Schema.String.check(Schema.isMaxLength(4096)).pipe(
     Schema.withDecodingDefault(() => ""),
   ),
+  maxTurnsEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(() => false)),
   maxTurns: ClaudeMaxTurns.pipe(Schema.withDecodingDefault(() => DEFAULT_CLAUDE_MAX_TURNS)),
   responseIdleTimeoutMs: ClaudeResponseIdleTimeoutMs.pipe(
     Schema.withDecodingDefault(() => DEFAULT_CLAUDE_RESPONSE_IDLE_TIMEOUT_MS),
@@ -142,6 +143,8 @@ export type AgentGroupServerSettings = typeof AgentGroupServerSettings.Type;
 export const ServerSettings = Schema.Struct({
   enableAssistantStreaming: Schema.Boolean.pipe(Schema.withDecodingDefault(() => true)),
   enableProviderUpdateChecks: Schema.Boolean.pipe(Schema.withDecodingDefault(() => true)),
+  /** Kept off until all managed-terminal providers pass the production gate. */
+  enableManagedAgentTerminal: Schema.Boolean.pipe(Schema.withDecodingDefault(() => false)),
   defaultThreadEnvMode: ThreadEnvironmentMode.pipe(Schema.withDecodingDefault(() => "local")),
   addProjectBaseDirectory: StringSetting.pipe(Schema.withDecodingDefault(() => "")),
   textGenerationModelSelection: ModelSelection.pipe(
@@ -184,6 +187,7 @@ const ProviderSettingsBasePatch = {
 export const ServerSettingsPatch = Schema.Struct({
   enableAssistantStreaming: Schema.optionalKey(Schema.Boolean),
   enableProviderUpdateChecks: Schema.optionalKey(Schema.Boolean),
+  enableManagedAgentTerminal: Schema.optionalKey(Schema.Boolean),
   defaultThreadEnvMode: Schema.optionalKey(ThreadEnvironmentMode),
   addProjectBaseDirectory: Schema.optionalKey(StringSetting),
   textGenerationModelSelection: Schema.optionalKey(ModelSelectionPatch),
@@ -199,6 +203,7 @@ export const ServerSettingsPatch = Schema.Struct({
         Schema.Struct({
           ...ProviderSettingsBasePatch,
           launchArgs: Schema.optionalKey(Schema.String.check(Schema.isMaxLength(4096))),
+          maxTurnsEnabled: Schema.optionalKey(Schema.Boolean),
           maxTurns: Schema.optionalKey(ClaudeMaxTurns),
           responseIdleTimeoutMs: Schema.optionalKey(ClaudeResponseIdleTimeoutMs),
         }),

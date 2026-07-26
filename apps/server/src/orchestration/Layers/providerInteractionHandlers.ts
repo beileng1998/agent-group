@@ -69,6 +69,8 @@ export function makeProviderInteractionHandlers<
   ProviderThreadError,
   FailureError,
   SessionError,
+  TerminalStopError,
+  ReleaseError,
 >(dependencies: {
   readonly providerService: ProviderServiceShape;
   readonly bootstrapState: ProviderTurnBootstrapState;
@@ -91,6 +93,11 @@ export function makeProviderInteractionHandlers<
     readonly session: OrchestrationSession;
     readonly createdAt: string;
   }) => Effect.Effect<unknown, SessionError>;
+  readonly stopCurrentAdapter: (
+    threadId: ThreadId,
+    stopStructured: () => Effect.Effect<void, unknown>,
+  ) => Effect.Effect<"structured" | "terminal", TerminalStopError>;
+  readonly releaseCanceledClaims: () => Effect.Effect<unknown, ReleaseError>;
 }) {
   const interruptProviderTurn = Effect.fnUntraced(function* (input: {
     readonly threadId: ThreadId;
@@ -215,48 +222,13 @@ export function makeProviderInteractionHandlers<
     event: Extract<InteractionEvent, { type: "thread.session-stop-requested" }>,
   ) {
     const thread = yield* dependencies.resolveThread(event.payload.threadId);
-    const providerThread = yield* dependencies.resolveProviderSessionThread(event.payload.threadId);
     if (!thread) return;
     dependencies.turnQueue.clearThread(thread.id);
+    yield* dependencies.releaseCanceledClaims();
     dependencies.bootstrapState.clearContext(thread.id);
     dependencies.bootstrapState.suppressNextStart(thread.id);
     const now = event.payload.createdAt;
-    const providerThreadId = providerThread
-      ? dependencies.resolveSubagentProviderThreadId(thread.id, providerThread.id)
-      : undefined;
-    const isChildProviderRuntime =
-      providerThread !== null && providerThread.id !== thread.id && providerThreadId !== undefined;
-    if (
-      isChildProviderRuntime &&
-      thread.session?.status === "running" &&
-      thread.session.activeTurnId !== null &&
-      providerThread.session?.status !== "stopped"
-    ) {
-      yield* dependencies.providerService.interruptTurn({
-        threadId: providerThread.id,
-        turnId: thread.session.activeTurnId,
-        providerThreadId,
-      });
-      yield* dependencies.setThreadSession({
-        threadId: thread.id,
-        session: {
-          threadId: thread.id,
-          status: "interrupted",
-          providerName: thread.session.providerName ?? null,
-          runtimeMode: thread.session.runtimeMode ?? DEFAULT_RUNTIME_MODE,
-          activeTurnId: thread.session.activeTurnId,
-          lastError: null,
-          updatedAt: now,
-        },
-        createdAt: now,
-      });
-      return;
-    }
-    const ownsProviderSession = providerThread !== null && providerThread.id === thread.id;
-    if (thread.session && thread.session.status !== "stopped" && ownsProviderSession) {
-      yield* dependencies.providerService.stopSession({ threadId: providerThread.id });
-    }
-    yield* dependencies.setThreadSession({
+    const setStoppedSession = dependencies.setThreadSession({
       threadId: thread.id,
       session: {
         threadId: thread.id,
@@ -269,6 +241,57 @@ export function makeProviderInteractionHandlers<
       },
       createdAt: now,
     });
+    let structuredProjection = setStoppedSession;
+    const owner = yield* dependencies.stopCurrentAdapter(thread.id, () =>
+      Effect.gen(function* () {
+        // Ownership can change while this event waits for the coordinator.
+        // Resolve the provider binding only after structured authority is
+        // atomically confirmed.
+        const providerThread = yield* dependencies.resolveProviderSessionThread(
+          event.payload.threadId,
+        );
+        const providerThreadId = providerThread
+          ? dependencies.resolveSubagentProviderThreadId(thread.id, providerThread.id)
+          : undefined;
+        const isChildProviderRuntime =
+          providerThread !== null &&
+          providerThread.id !== thread.id &&
+          providerThreadId !== undefined;
+        if (
+          isChildProviderRuntime &&
+          thread.session?.status === "running" &&
+          thread.session.activeTurnId !== null &&
+          providerThread.session?.status !== "stopped"
+        ) {
+          yield* dependencies.providerService.interruptTurn({
+            threadId: providerThread.id,
+            turnId: thread.session.activeTurnId,
+            providerThreadId,
+          });
+          structuredProjection = dependencies.setThreadSession({
+            threadId: thread.id,
+            session: {
+              threadId: thread.id,
+              status: "interrupted",
+              providerName: thread.session.providerName ?? null,
+              runtimeMode: thread.session.runtimeMode ?? DEFAULT_RUNTIME_MODE,
+              activeTurnId: thread.session.activeTurnId,
+              lastError: null,
+              updatedAt: now,
+            },
+            createdAt: now,
+          });
+          return;
+        }
+        const ownsProviderSession = providerThread !== null && providerThread.id === thread.id;
+        if (thread.session && thread.session.status !== "stopped" && ownsProviderSession) {
+          yield* dependencies.providerService.stopSession({
+            threadId: providerThread.id,
+          });
+        }
+      }),
+    );
+    yield* owner === "terminal" ? setStoppedSession : structuredProjection;
   });
 
   return {

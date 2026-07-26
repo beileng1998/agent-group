@@ -18,6 +18,7 @@ function hasCustomModels(settings: AppSettings): boolean {
 function hasInstallOverrides(settings: AppSettings, defaults: AppSettings): boolean {
   return (
     settings.claudeBinaryPath !== defaults.claudeBinaryPath ||
+    settings.claudeMaxTurnsEnabled !== defaults.claudeMaxTurnsEnabled ||
     settings.claudeMaxTurns !== defaults.claudeMaxTurns ||
     settings.claudeResponseIdleTimeoutMs !== defaults.claudeResponseIdleTimeoutMs ||
     settings.cursorBinaryPath !== defaults.cursorBinaryPath ||

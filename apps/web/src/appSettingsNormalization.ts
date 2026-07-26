@@ -110,6 +110,7 @@ export function normalizeAppSettings(settings: AppSettings): AppSettings {
 export function serverSettingsToAppSettings(settings: ServerSettings): Partial<AppSettings> {
   return {
     claudeBinaryPath: settings.providers.claudeAgent.binaryPath,
+    claudeMaxTurnsEnabled: settings.providers.claudeAgent.maxTurnsEnabled,
     claudeMaxTurns: settings.providers.claudeAgent.maxTurns,
     claudeResponseIdleTimeoutMs: settings.providers.claudeAgent.responseIdleTimeoutMs,
     codexBinaryPath: settings.providers.codex.binaryPath,
@@ -119,6 +120,7 @@ export function serverSettingsToAppSettings(settings: ServerSettings): Partial<A
     defaultThreadEnvMode: settings.defaultThreadEnvMode,
     enableAssistantStreaming: settings.enableAssistantStreaming,
     enableProviderUpdateChecks: settings.enableProviderUpdateChecks,
+    enableManagedAgentTerminal: settings.enableManagedAgentTerminal,
     antigravityBinaryPath: settings.providers.antigravity.binaryPath,
     grokBinaryPath: settings.providers.grok.binaryPath,
     droidBinaryPath: settings.providers.droid.binaryPath,

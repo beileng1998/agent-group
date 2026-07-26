@@ -10,6 +10,7 @@ import { CheckpointDiffQuery } from "../checkpointing/Services/CheckpointDiffQue
 import { ServerConfig } from "../config";
 import { makeOrchestrationCommandDispatcher } from "../orchestration/commandDispatcher";
 import { makeImportThreadHandler } from "../orchestration/importThreadRoute";
+import type { ExecutionAdapterAuthorityShape } from "../orchestration/Services/ExecutionAdapterAuthority";
 import { OrchestrationEngineService } from "../orchestration/Services/OrchestrationEngine";
 import { HighlightsQuery } from "../orchestration/Services/HighlightsQuery";
 import { ProjectionSnapshotQuery } from "../orchestration/Services/ProjectionSnapshotQuery";
@@ -30,6 +31,7 @@ import type { WsRpcHandlers } from "./types";
 export function makeOrchestrationHandlers(dependencies: {
   readonly checkpointDiffQuery: typeof CheckpointDiffQuery.Service;
   readonly config: typeof ServerConfig.Service;
+  readonly executionAdapterAuthority: ExecutionAdapterAuthorityShape;
   readonly fileSystem: FileSystem.FileSystem;
   readonly orchestrationEngine: typeof OrchestrationEngineService.Service;
   readonly path: Path.Path;
@@ -54,6 +56,7 @@ export function makeOrchestrationHandlers(dependencies: {
   });
 
   const importThread = makeImportThreadHandler({
+    executionAdapterAuthority: dependencies.executionAdapterAuthority,
     fileSystem: dependencies.fileSystem,
     orchestrationEngine: dependencies.orchestrationEngine,
     path: dependencies.path,
@@ -68,7 +71,10 @@ export function makeOrchestrationHandlers(dependencies: {
     [ORCHESTRATION_WS_METHODS.dispatchCommand]: (command) =>
       dependencies.rpcEffect(dispatchCommand(command), "Failed to dispatch orchestration command"),
     [ORCHESTRATION_WS_METHODS.importThread]: (input) =>
-      dependencies.rpcEffect(importThread(input), "Failed to import thread"),
+      dependencies.rpcEffect(
+        dependencies.runtimeStartup.enqueueCommand(importThread(input)),
+        "Failed to import thread",
+      ),
     [ORCHESTRATION_WS_METHODS.getSnapshot]: () =>
       dependencies.rpcEffect(
         dependencies.projectionReadModelQuery.getSnapshot(),
@@ -83,7 +89,7 @@ export function makeOrchestrationHandlers(dependencies: {
       dependencies.rpcEffect(dependencies.highlightsQuery.list(input), "Failed to load highlights"),
     [ORCHESTRATION_WS_METHODS.repairState]: () =>
       dependencies.rpcEffect(
-        dependencies.orchestrationEngine.repairState(),
+        dependencies.runtimeStartup.enqueueCommand(dependencies.orchestrationEngine.repairState()),
         "Failed to repair orchestration state",
       ),
     [ORCHESTRATION_WS_METHODS.getTurnDiff]: (input) =>

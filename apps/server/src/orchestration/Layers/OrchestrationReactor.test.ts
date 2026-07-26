@@ -29,6 +29,7 @@ describe("OrchestrationReactor", () => {
               started.push("provider-runtime-ingestion");
             }),
             drain: Effect.void,
+            publishTerminal: () => Effect.void,
           }),
         ),
         Layer.provideMerge(

@@ -4,9 +4,7 @@
 
 import type { AgentGroupPromptInstructions } from "@agent-group/contracts";
 
-export interface AgentGroupPromptInput {
-  readonly userText: string;
-  readonly attachments?: ReadonlyArray<AgentGroupPromptAttachment>;
+export interface AgentGroupContextEnvelopeInput {
   readonly contextPath: string;
   readonly parentContextPath?: string;
   readonly contextAwarenessCommand?: string;
@@ -16,6 +14,11 @@ export interface AgentGroupPromptInput {
   readonly globalRules: string;
   readonly groupRules?: string;
   readonly promptInstructions: AgentGroupPromptInstructions;
+}
+
+export interface AgentGroupPromptInput extends AgentGroupContextEnvelopeInput {
+  readonly userText: string;
+  readonly attachments?: ReadonlyArray<AgentGroupPromptAttachment>;
 }
 
 export interface AgentGroupPromptAttachment {
@@ -48,6 +51,14 @@ export function buildAgentGroupPrompt(input: AgentGroupPromptInput): string {
   return [
     `<user_request>\n${input.userText}\n</user_request>`,
     attachmentsBlock(input.attachments),
+    buildAgentGroupContextEnvelope(input),
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+export function buildAgentGroupContextEnvelope(input: AgentGroupContextEnvelopeInput): string {
+  return [
     sessionContextBlock(input),
     input.firstTurn && input.parentContextPath
       ? `<parent_context path="${promptXmlAttribute(input.parentContextPath)}">\n${input.promptInstructions.parentContext}\n</parent_context>`
@@ -127,7 +138,7 @@ function promptXmlAttribute(value: string): string {
   });
 }
 
-function sessionContextBlock(input: AgentGroupPromptInput): string {
+function sessionContextBlock(input: AgentGroupContextEnvelopeInput): string {
   const instruction = input.firstTurn
     ? input.promptInstructions.sessionContextFirstTurn
     : input.promptInstructions.sessionContextLaterTurn;

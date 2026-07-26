@@ -43,6 +43,7 @@ export type InstallProviderSettings = {
   agentDirKey?: "piAgentDir";
   agentDirPlaceholder?: string;
   agentDirDescription?: ReactNode;
+  maxTurnsEnabledKey?: "claudeMaxTurnsEnabled";
   maxTurnsKey?: "claudeMaxTurns";
   responseIdleTimeoutMsKey?: "claudeResponseIdleTimeoutMs";
 };
@@ -82,6 +83,7 @@ export const INSTALL_PROVIDER_SETTINGS: readonly InstallProviderSettings[] = [
         Leave blank to use <code>claude</code> from your PATH.
       </>
     ),
+    maxTurnsEnabledKey: "claudeMaxTurnsEnabled",
     maxTurnsKey: "claudeMaxTurns",
     responseIdleTimeoutMsKey: "claudeResponseIdleTimeoutMs",
   },

@@ -105,6 +105,10 @@
       "types": "./src/terminalThreads.ts",
       "import": "./src/terminalThreads.ts"
     },
+    "./terminalAgent": {
+      "types": "./src/terminalAgent.ts",
+      "import": "./src/terminalAgent.ts"
+    },
     "./threadEnvironment": {
       "types": "./src/threadEnvironment.ts",
       "import": "./src/threadEnvironment.ts"

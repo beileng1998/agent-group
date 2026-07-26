@@ -75,6 +75,15 @@ import {
   TerminalRestartInput,
   TerminalWriteInput,
 } from "./terminal";
+import {
+  TerminalAgentGetInput,
+  TerminalAgentResizeInput,
+  TerminalAgentRestartInput,
+  TerminalAgentStartInput,
+  TerminalAgentSubscribeInput,
+  TerminalAgentSwitchToChatInput,
+  TerminalAgentWriteInput,
+} from "./terminalAgent";
 import { KeybindingRule } from "./keybindings";
 import { HighlightsListInput } from "./highlights";
 import {
@@ -144,6 +153,14 @@ const tagRequestBody = <const Tag extends string, const Fields extends Schema.St
     // PreserveChecks is safe here. No existing schema should have checks depending on the tag
     { unsafePreserveChecks: true },
   );
+
+const tagStrictRequestBody = <const Tag extends string, const Fields extends Schema.Struct.Fields>(
+  tag: Tag,
+  schema: Schema.Struct<Fields>,
+) =>
+  tagRequestBody(tag, schema).annotate({
+    parseOptions: { onExcessProperty: "error" },
+  });
 
 const WebSocketRequestBody = Schema.Union([
   // Host dialogs
@@ -242,6 +259,13 @@ const WebSocketRequestBody = Schema.Union([
   tagRequestBody(WS_METHODS.terminalClear, TerminalClearInput),
   tagRequestBody(WS_METHODS.terminalRestart, TerminalRestartInput),
   tagRequestBody(WS_METHODS.terminalClose, TerminalCloseInput),
+  tagStrictRequestBody(WS_METHODS.terminalAgentStart, TerminalAgentStartInput),
+  tagStrictRequestBody(WS_METHODS.terminalAgentGet, TerminalAgentGetInput),
+  tagStrictRequestBody(WS_METHODS.terminalAgentWrite, TerminalAgentWriteInput),
+  tagStrictRequestBody(WS_METHODS.terminalAgentResize, TerminalAgentResizeInput),
+  tagStrictRequestBody(WS_METHODS.terminalAgentSwitchToChat, TerminalAgentSwitchToChatInput),
+  tagStrictRequestBody(WS_METHODS.terminalAgentRestart, TerminalAgentRestartInput),
+  tagStrictRequestBody(WS_METHODS.terminalAgentSubscribe, TerminalAgentSubscribeInput),
 
   // Server meta
   tagRequestBody(WS_METHODS.serverGetConfig, Schema.Struct({})),

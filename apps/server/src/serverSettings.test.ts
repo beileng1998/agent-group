@@ -32,12 +32,40 @@ describe("ServerSettingsService", () => {
 
     expect(settings.providers.codex.binaryPath).toBe("codex");
     expect(settings.providers.grok.binaryPath).toBe("grok");
+    expect(settings.providers.claudeAgent.maxTurnsEnabled).toBe(false);
     expect(settings.defaultThreadEnvMode).toBe("local");
     expect(settings.enableProviderUpdateChecks).toBe(true);
     expect(settings.agentGroup).toEqual({
       ...DEFAULT_SERVER_SETTINGS.agentGroup,
       contextTemplates: CONTEXT_TEMPLATE_PRESETS,
     });
+  });
+
+  it("keeps legacy Claude turn limits disabled until explicitly enabled", async () => {
+    const settings = await runWithSettings(
+      Effect.gen(function* () {
+        const service = yield* ServerSettingsService;
+        const { settingsPath } = yield* ServerConfig;
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        yield* fs.makeDirectory(path.dirname(settingsPath), { recursive: true });
+        yield* fs.writeFileString(
+          settingsPath,
+          JSON.stringify({
+            providers: {
+              claudeAgent: {
+                maxTurns: 64,
+              },
+            },
+          }),
+        );
+        yield* service.start;
+        return yield* service.getSettings;
+      }),
+    );
+
+    expect(settings.providers.claudeAgent.maxTurns).toBe(64);
+    expect(settings.providers.claudeAgent.maxTurnsEnabled).toBe(false);
   });
 
   it("upgrades legacy prompt defaults without replacing custom instructions", async () => {

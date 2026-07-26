@@ -84,6 +84,16 @@ const buildCmd = Command.make(
         })`bun tsdown`,
       );
 
+      yield* Effect.log("[cli] Verifying the Node ESM entrypoint...");
+      yield* runCommand(
+        ChildProcess.make({
+          cwd: serverDir,
+          stdout: config.verbose ? "inherit" : "ignore",
+          stderr: "inherit",
+          shell: process.platform === "win32",
+        })`node dist/index.mjs --help`,
+      );
+
       const webDist = path.join(repoRoot, "apps/web/dist");
       const clientTarget = path.join(serverDir, "dist/client");
 

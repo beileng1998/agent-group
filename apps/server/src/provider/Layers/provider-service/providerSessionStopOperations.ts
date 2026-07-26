@@ -1,6 +1,7 @@
 import { ProviderStopSessionInput } from "@agent-group/contracts";
 import { Effect, Option } from "effect";
 
+import { ProviderValidationError } from "../../Errors.ts";
 import { hasResumeCursor, runtimePayloadRecord } from "../../providerRuntimeBinding.ts";
 import type { ProviderServiceShape } from "../../Services/ProviderService.ts";
 import { decodeInputOrValidationError } from "./providerServiceInput.ts";
@@ -187,5 +188,62 @@ export function makeProviderSessionStopOperations(input: {
       input.idle.retireGeneration(request.threadId);
     });
 
-  return { stopSession, stopRuntimeSession, clearSessionResumeCursor };
+  const adoptSessionResumeCursor: ProviderServiceShape["adoptSessionResumeCursor"] = (request) =>
+    Effect.gen(function* () {
+      if (!hasResumeCursor(request.resumeCursor)) {
+        return yield* new ProviderValidationError({
+          operation: "ProviderService.adoptSessionResumeCursor",
+          issue: "resumeCursor must contain a provider-native session reference.",
+        });
+      }
+      yield* input.idle.waitForStop(request.threadId);
+      input.idle.clearTimer(request.threadId);
+      yield* lifecycle.run(request.threadId, () =>
+        Effect.gen(function* () {
+          const adapter = yield* registry.getByProvider(request.provider);
+          if (yield* adapter.hasSession(request.threadId)) {
+            return yield* new ProviderValidationError({
+              operation: "ProviderService.adoptSessionResumeCursor",
+              issue: "The structured provider runtime must be stopped before adopting a cursor.",
+            });
+          }
+          yield* input.withBindingWriteLock(
+            request.threadId,
+            Effect.gen(function* () {
+              const binding = Option.getOrUndefined(yield* directory.getBinding(request.threadId));
+              yield* directory.upsert({
+                threadId: request.threadId,
+                provider: request.provider,
+                ...(binding?.provider === request.provider && binding.adapterKey !== undefined
+                  ? { adapterKey: binding.adapterKey }
+                  : {}),
+                runtimeMode: request.runtimeMode,
+                status: "stopped",
+                resumeCursor: request.resumeCursor,
+                runtimePayload: {
+                  ...(binding?.provider === request.provider &&
+                  binding.runtimePayload &&
+                  typeof binding.runtimePayload === "object" &&
+                  !Array.isArray(binding.runtimePayload)
+                    ? binding.runtimePayload
+                    : {}),
+                  activeTurnId: null,
+                  lastRuntimeEvent: "terminal.session.started",
+                  lastRuntimeEventAt: new Date().toISOString(),
+                },
+              });
+            }),
+          );
+          boundProvidersByThread.set(request.threadId, request.provider);
+          input.idle.retireGeneration(request.threadId);
+        }),
+      );
+    });
+
+  return {
+    stopSession,
+    stopRuntimeSession,
+    clearSessionResumeCursor,
+    adoptSessionResumeCursor,
+  };
 }

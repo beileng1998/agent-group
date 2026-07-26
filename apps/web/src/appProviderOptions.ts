@@ -28,7 +28,9 @@ export function getProviderStartOptions(
     | "piAgentDir"
     | "piBinaryPath"
   > &
-    Partial<Pick<AppSettings, "claudeMaxTurns" | "claudeResponseIdleTimeoutMs">>,
+    Partial<
+      Pick<AppSettings, "claudeMaxTurnsEnabled" | "claudeMaxTurns" | "claudeResponseIdleTimeoutMs">
+    >,
 ): ProviderStartOptions | undefined {
   const claudeBinaryPath = normalizeProviderBinaryPathOverride(
     "claudeAgent",
@@ -50,7 +52,7 @@ export function getProviderStartOptions(
   const piBinaryPath = normalizeProviderBinaryPathOverride("pi", settings.piBinaryPath);
   const hasClaudeStartOptions =
     claudeBinaryPath !== "" ||
-    settings.claudeMaxTurns !== undefined ||
+    (settings.claudeMaxTurnsEnabled === true && settings.claudeMaxTurns !== undefined) ||
     settings.claudeResponseIdleTimeoutMs !== undefined;
   const hasOpenCodeStartOptions = Boolean(
     openCodeBinaryPath ||
@@ -71,7 +73,9 @@ export function getProviderStartOptions(
       ? {
           claudeAgent: {
             ...(claudeBinaryPath ? { binaryPath: claudeBinaryPath } : {}),
-            ...(settings.claudeMaxTurns !== undefined ? { maxTurns: settings.claudeMaxTurns } : {}),
+            ...(settings.claudeMaxTurnsEnabled === true && settings.claudeMaxTurns !== undefined
+              ? { maxTurns: settings.claudeMaxTurns }
+              : {}),
             ...(settings.claudeResponseIdleTimeoutMs !== undefined
               ? { responseIdleTimeoutMs: settings.claudeResponseIdleTimeoutMs }
               : {}),

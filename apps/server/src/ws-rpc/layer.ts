@@ -11,6 +11,7 @@ import { GitStatusBroadcaster } from "../git/Services/GitStatusBroadcaster";
 import { TextGeneration } from "../git/Services/TextGeneration";
 import { Keybindings } from "../keybindings";
 import { Open } from "../open";
+import { ExecutionAdapterAuthority } from "../orchestration/Services/ExecutionAdapterAuthority";
 import { HighlightsQuery } from "../orchestration/Services/HighlightsQuery";
 import { OrchestrationEngineService } from "../orchestration/Services/OrchestrationEngine";
 import { ProjectionSnapshotQuery } from "../orchestration/Services/ProjectionSnapshotQuery";
@@ -26,6 +27,7 @@ import { ServerLifecycleEvents } from "../serverLifecycleEvents";
 import { ServerRuntimeStartup } from "../serverRuntimeStartup";
 import { ServerSettingsService } from "../serverSettings";
 import { TerminalManager } from "../terminal/Services/Manager";
+import { TerminalAgentService } from "../terminalAgent/Services/TerminalAgentService";
 import { WorkspaceEntries } from "../workspace/Services/WorkspaceEntries";
 import { WorkspaceFileSystem } from "../workspace/Services/WorkspaceFileSystem";
 import { makeWorkspaceSupport } from "../workspace/workspaceSupport";
@@ -35,6 +37,7 @@ import { makeGitHandlers } from "./gitHandlers";
 import { makeOrchestrationHandlers } from "./orchestrationHandlers";
 import { makeProviderAutomationHandlers } from "./providerAutomationHandlers";
 import { makeServerHandlers } from "./serverHandlers";
+import { makeTerminalAgentHandlers } from "./terminalAgentHandlers";
 import { makeTerminalHandlers } from "./terminalHandlers";
 import { makeWorkspaceHandlers } from "./workspaceHandlers";
 
@@ -51,6 +54,7 @@ export const makeWsRpcLayer = () =>
       const gitStatusBroadcaster = yield* GitStatusBroadcaster;
       const keybindings = yield* Keybindings;
       const open = yield* Open;
+      const executionAdapterAuthority = yield* ExecutionAdapterAuthority;
       const orchestrationEngine = yield* OrchestrationEngineService;
       const path = yield* Path.Path;
       const pullRequests = yield* PullRequestService;
@@ -66,6 +70,7 @@ export const makeWsRpcLayer = () =>
       const runtimeStartup = yield* ServerRuntimeStartup;
       const serverEnvironment = yield* ServerEnvironment;
       const serverSettings = yield* ServerSettingsService;
+      const terminalAgentService = yield* TerminalAgentService;
       const terminalManager = yield* TerminalManager;
       const textGeneration = yield* TextGeneration;
       const workspaceEntries = yield* WorkspaceEntries;
@@ -90,6 +95,7 @@ export const makeWsRpcLayer = () =>
         ...makeOrchestrationHandlers({
           checkpointDiffQuery,
           config,
+          executionAdapterAuthority,
           fileSystem,
           orchestrationEngine,
           path,
@@ -109,6 +115,11 @@ export const makeWsRpcLayer = () =>
           rpcEffect,
         }),
         ...makeTerminalHandlers({ orchestrationEngine, terminalManager, rpcEffect }),
+        ...makeTerminalAgentHandlers({
+          runtimeStartup,
+          terminalAgentService,
+          rpcEffect,
+        }),
         ...makeServerHandlers({
           config,
           devServerManager,
@@ -127,8 +138,10 @@ export const makeWsRpcLayer = () =>
         ...makeProviderAutomationHandlers({
           automationService,
           config,
+          executionAdapterAuthority,
           providerDiscoveryService,
           providerService,
+          runtimeStartup,
           rpcEffect,
         }),
       });

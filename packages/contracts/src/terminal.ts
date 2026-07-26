@@ -14,11 +14,15 @@ export const TERMINAL_MAX_COLS = 2000;
 export const TERMINAL_MIN_ROWS = 5;
 export const TERMINAL_MAX_ROWS = 1000;
 
-const TerminalColsSchema = Schema.Int.check(Schema.isGreaterThanOrEqualTo(TERMINAL_MIN_COLS)).check(
-  Schema.isLessThanOrEqualTo(TERMINAL_MAX_COLS),
-);
-const TerminalRowsSchema = Schema.Int.check(Schema.isGreaterThanOrEqualTo(TERMINAL_MIN_ROWS)).check(
-  Schema.isLessThanOrEqualTo(TERMINAL_MAX_ROWS),
+export const TerminalColsSchema = Schema.Int.check(
+  Schema.isGreaterThanOrEqualTo(TERMINAL_MIN_COLS),
+).check(Schema.isLessThanOrEqualTo(TERMINAL_MAX_COLS));
+export const TerminalRowsSchema = Schema.Int.check(
+  Schema.isGreaterThanOrEqualTo(TERMINAL_MIN_ROWS),
+).check(Schema.isLessThanOrEqualTo(TERMINAL_MAX_ROWS));
+export const TERMINAL_MAX_WRITE_LENGTH = 65_536;
+export const TerminalWriteDataSchema = Schema.String.check(Schema.isNonEmpty()).check(
+  Schema.isMaxLength(TERMINAL_MAX_WRITE_LENGTH),
 );
 const TerminalIdSchema = TrimmedNonEmptyStringSchema.check(Schema.isMaxLength(128));
 const TerminalEnvSchema = ProcessEnvRecord;
@@ -54,7 +58,7 @@ export type TerminalOpenInput = Schema.Codec.Encoded<typeof TerminalOpenInput>;
 
 export const TerminalWriteInput = Schema.Struct({
   ...TerminalSessionInput.fields,
-  data: Schema.String.check(Schema.isNonEmpty()).check(Schema.isMaxLength(65_536)),
+  data: TerminalWriteDataSchema,
 });
 export type TerminalWriteInput = Schema.Codec.Encoded<typeof TerminalWriteInput>;
 

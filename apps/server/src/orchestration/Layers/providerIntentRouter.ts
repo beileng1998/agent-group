@@ -7,6 +7,7 @@ import {
 } from "@agent-group/contracts";
 import { Cause, Effect, Schema } from "effect";
 
+import type { StructuredAdmissionClaim } from "../Services/ExecutionAdapterAuthority.ts";
 import type { EnsureProviderSessionOptions } from "./providerSessionCoordinator.ts";
 import type { ProviderSessionSelectionState } from "./providerSessionSelectionState.ts";
 
@@ -63,6 +64,10 @@ export function makeProviderIntentRouter<Environment>(dependencies: {
     createdAt: string,
     options?: EnsureProviderSessionOptions,
   ) => Effect.Effect<unknown, unknown, Environment>;
+  readonly acquireStructured: (
+    threadId: ThreadId,
+    claimId: string,
+  ) => Effect.Effect<StructuredAdmissionClaim, unknown, Environment>;
   readonly hasLiveProviderTurn: (
     threadId: ThreadId,
   ) => Effect.Effect<boolean, unknown, Environment>;
@@ -93,6 +98,17 @@ export function makeProviderIntentRouter<Environment>(dependencies: {
   >;
   readonly processSessionStopRequested: Handler<"thread.session-stop-requested", Environment>;
 }) {
+  const withStructuredLease = (
+    threadId: ThreadId,
+    claimId: string,
+    operation: Effect.Effect<unknown, unknown, Environment>,
+  ) =>
+    Effect.acquireUseRelease(
+      dependencies.acquireStructured(threadId, claimId),
+      () => operation,
+      (claim) => claim.release,
+    );
+
   return (event: ProviderIntentEvent) =>
     Effect.gen(function* () {
       switch (event.type) {
@@ -117,49 +133,63 @@ export function makeProviderIntentRouter<Environment>(dependencies: {
           );
           return;
         case "thread.meta-updated": {
-          const thread = yield* dependencies.resolveThread(event.payload.threadId);
-          if (event.payload.modelSelection === undefined) return;
-          if (!thread?.session || thread.session.status === "stopped") {
-            dependencies.selectionState.setModelSelection(
-              event.payload.threadId,
-              event.payload.modelSelection,
-            );
+          const modelSelection = event.payload.modelSelection;
+          if (modelSelection === undefined) return;
+          if (event.metadata.adapterKey === "terminal") {
+            dependencies.selectionState.setModelSelection(event.payload.threadId, modelSelection);
             return;
           }
-          const currentProvider = Schema.is(ProviderKind)(thread.session.providerName)
-            ? thread.session.providerName
-            : thread.modelSelection.provider;
-          if (event.payload.modelSelection.provider !== currentProvider) return;
-          if (
-            thread.session.activeTurnId !== null ||
-            (yield* dependencies.hasLiveProviderTurn(event.payload.threadId))
-          ) {
-            return;
-          }
-          const cachedProviderOptions = dependencies.selectionState.getProviderOptions(
+          yield* withStructuredLease(
             event.payload.threadId,
-          );
-          yield* dependencies.ensureSessionForThread(event.payload.threadId, event.occurredAt, {
-            modelSelection: event.payload.modelSelection,
-            ...(cachedProviderOptions ? { providerOptions: cachedProviderOptions } : {}),
-          });
-          dependencies.selectionState.setModelSelection(
-            event.payload.threadId,
-            event.payload.modelSelection,
+            `event:${event.eventId}`,
+            Effect.gen(function* () {
+              const thread = yield* dependencies.resolveThread(event.payload.threadId);
+              if (!thread?.session || thread.session.status === "stopped") {
+                dependencies.selectionState.setModelSelection(
+                  event.payload.threadId,
+                  modelSelection,
+                );
+                return;
+              }
+              const currentProvider = Schema.is(ProviderKind)(thread.session.providerName)
+                ? thread.session.providerName
+                : thread.modelSelection.provider;
+              if (modelSelection.provider !== currentProvider) return;
+              if (
+                thread.session.activeTurnId !== null ||
+                (yield* dependencies.hasLiveProviderTurn(event.payload.threadId))
+              ) {
+                return;
+              }
+              const cachedProviderOptions = dependencies.selectionState.getProviderOptions(
+                event.payload.threadId,
+              );
+              yield* dependencies.ensureSessionForThread(event.payload.threadId, event.occurredAt, {
+                modelSelection,
+                ...(cachedProviderOptions ? { providerOptions: cachedProviderOptions } : {}),
+              });
+              dependencies.selectionState.setModelSelection(event.payload.threadId, modelSelection);
+            }),
           );
           return;
         }
         case "thread.runtime-mode-set": {
-          const thread = yield* dependencies.resolveThread(event.payload.threadId);
-          if (!thread?.session || thread.session.status === "stopped") return;
-          const cachedProviderOptions = dependencies.selectionState.getProviderOptions(
+          yield* withStructuredLease(
             event.payload.threadId,
+            `event:${event.eventId}`,
+            Effect.gen(function* () {
+              const thread = yield* dependencies.resolveThread(event.payload.threadId);
+              if (!thread?.session || thread.session.status === "stopped") return;
+              const cachedProviderOptions = dependencies.selectionState.getProviderOptions(
+                event.payload.threadId,
+              );
+              yield* dependencies.ensureSessionForThread(event.payload.threadId, event.occurredAt, {
+                ...(cachedProviderOptions ? { providerOptions: cachedProviderOptions } : {}),
+                modelSelection: thread.modelSelection,
+                runtimeMode: event.payload.runtimeMode,
+              });
+            }),
           );
-          yield* dependencies.ensureSessionForThread(event.payload.threadId, event.occurredAt, {
-            ...(cachedProviderOptions ? { providerOptions: cachedProviderOptions } : {}),
-            modelSelection: thread.modelSelection,
-            runtimeMode: event.payload.runtimeMode,
-          });
           return;
         }
         case "thread.turn-queued":
@@ -169,26 +199,46 @@ export function makeProviderIntentRouter<Environment>(dependencies: {
           yield* dependencies.processTurnStartRequested(event);
           return;
         case "thread.turn-interrupt-requested":
-          yield* dependencies.processTurnInterruptRequested(event);
+          yield* withStructuredLease(
+            event.payload.threadId,
+            `event:${event.eventId}`,
+            dependencies.processTurnInterruptRequested(event),
+          );
           return;
         case "thread.approval-response-requested":
-          yield* dependencies.processApprovalResponseRequested(event);
+          yield* withStructuredLease(
+            event.payload.threadId,
+            `event:${event.eventId}`,
+            dependencies.processApprovalResponseRequested(event),
+          );
           return;
         case "thread.user-input-response-requested":
-          yield* dependencies.processUserInputResponseRequested(event);
+          yield* withStructuredLease(
+            event.payload.threadId,
+            `event:${event.eventId}`,
+            dependencies.processUserInputResponseRequested(event),
+          );
           return;
         case "thread.conversation-rollback-requested":
-          yield* dependencies.processConversationRollbackRequested(event);
+          yield* withStructuredLease(
+            event.payload.threadId,
+            `event:${event.eventId}`,
+            dependencies.processConversationRollbackRequested(event),
+          );
           return;
         case "thread.message-edit-resend-requested":
-          yield* dependencies.processMessageEditResendRequested(event).pipe(
-            Effect.catchCause((cause) =>
-              dependencies.setThreadSessionError({
-                threadId: event.payload.threadId,
-                runtimeMode: event.payload.runtimeMode,
-                detail: Cause.pretty(cause),
-                createdAt: event.payload.createdAt,
-              }),
+          yield* withStructuredLease(
+            event.payload.threadId,
+            `event:${event.eventId}`,
+            dependencies.processMessageEditResendRequested(event).pipe(
+              Effect.catchCause((cause) =>
+                dependencies.setThreadSessionError({
+                  threadId: event.payload.threadId,
+                  runtimeMode: event.payload.runtimeMode,
+                  detail: Cause.pretty(cause),
+                  createdAt: event.payload.createdAt,
+                }),
+              ),
             ),
           );
           return;

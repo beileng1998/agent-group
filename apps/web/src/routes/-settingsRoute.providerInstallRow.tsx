@@ -84,6 +84,11 @@ export function isProviderInstallDirty(
         defaults[providerSettings.experimentalWebSocketsKey],
     ) ||
     Boolean(
+      providerSettings.maxTurnsEnabledKey &&
+      settings[providerSettings.maxTurnsEnabledKey] !==
+        defaults[providerSettings.maxTurnsEnabledKey],
+    ) ||
+    Boolean(
       providerSettings.maxTurnsKey &&
       settings[providerSettings.maxTurnsKey] !== defaults[providerSettings.maxTurnsKey],
     ) ||
@@ -280,11 +285,31 @@ export function ProviderInstallRow(props: ProviderInstallRowProps) {
                 updateSettings={updateSettings}
               />
 
-              {providerSettings.maxTurnsKey ? (
+              {providerSettings.maxTurnsEnabledKey ? (
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-xs font-medium text-foreground">
+                      Limit conversation turns
+                    </div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      Disabled by default so long-running Claude tasks can finish.
+                    </div>
+                  </div>
+                  <Switch
+                    checked={settings.claudeMaxTurnsEnabled}
+                    onCheckedChange={(claudeMaxTurnsEnabled) =>
+                      updateSettings({ claudeMaxTurnsEnabled })
+                    }
+                    aria-label="Limit Claude conversation turns"
+                  />
+                </div>
+              ) : null}
+
+              {providerSettings.maxTurnsKey && settings.claudeMaxTurnsEnabled ? (
                 <ProviderNumberSetting
                   id="provider-install-claudeMaxTurns"
                   label="Maximum conversation turns"
-                  description="Stops a Claude SDK query after this many user/assistant turns. A later message starts or resumes a fresh query."
+                  description="Stops a Claude SDK query after this many user/assistant turns."
                   value={settings.claudeMaxTurns}
                   min={MIN_CLAUDE_MAX_TURNS}
                   max={MAX_CLAUDE_MAX_TURNS}

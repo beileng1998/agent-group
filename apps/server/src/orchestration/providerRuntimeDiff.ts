@@ -9,6 +9,7 @@ import { parseCheckpointFilesFromUnifiedDiff } from "../checkpointing/Diffs.ts";
 import type { OrchestrationEngineShape } from "./Services/OrchestrationEngine.ts";
 import type { ProviderRuntimeBufferState } from "./providerRuntimeBufferState.ts";
 import { providerCommandId, providerTurnKey, toTurnId } from "./providerRuntimeIngestionValues.ts";
+import { terminalRuntimeCommandFence } from "./providerRuntimeTerminalFence.ts";
 
 function parseProviderTurnDiffFiles(unifiedDiff: string) {
   try {
@@ -83,6 +84,7 @@ export function makeProviderRuntimeDiff(input: {
         assistantMessageId: undefined,
         checkpointTurnCount,
         createdAt: event.createdAt,
+        ...terminalRuntimeCommandFence(event),
       });
       if (canParseLiveDiffPatch) {
         yield* Ref.update(input.state.providerDiffPlaceholdersRef, (placeholders) => {

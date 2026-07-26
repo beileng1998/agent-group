@@ -37,12 +37,14 @@ import {
 } from "../../studioOutputs.ts";
 import { diffStudioWorkspaceScans } from "../../studioOutputs.ts";
 import { ProviderService } from "../../provider/Services/ProviderService.ts";
+import { ExecutionAdapterAuthority } from "../Services/ExecutionAdapterAuthority.ts";
 import { OrchestrationEngineService } from "../Services/OrchestrationEngine.ts";
 import { ProjectionSnapshotQuery } from "../Services/ProjectionSnapshotQuery.ts";
 import {
   StudioOutputReactor,
   type StudioOutputReactorShape,
 } from "../Services/StudioOutputReactor.ts";
+import { withStructuredRuntimeLease } from "./executionAdapterStructuredLease.ts";
 
 // Baselines whose terminal event never arrives must not accumulate forever; one
 // entry per active turn stays far below this.
@@ -68,6 +70,7 @@ interface ActiveStudioTurnBaseline extends StudioTurnBaseline {
 const make = Effect.gen(function* () {
   const orchestrationEngine = yield* OrchestrationEngineService;
   const providerService = yield* ProviderService;
+  const authority = yield* ExecutionAdapterAuthority;
   const projectionSnapshotQuery = yield* ProjectionSnapshotQuery;
   const fileSystem = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -288,7 +291,12 @@ const make = Effect.gen(function* () {
   };
 
   const processEventSafely = (event: ProviderRuntimeEvent) =>
-    processEvent(event).pipe(
+    withStructuredRuntimeLease({
+      authority,
+      threadId: event.threadId,
+      operation: `studio-output:${event.type}`,
+      effect: processEvent(event),
+    }).pipe(
       Effect.catchCause((cause) => {
         if (Cause.hasInterruptsOnly(cause)) {
           return Effect.failCause(cause);

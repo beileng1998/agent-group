@@ -3,6 +3,7 @@ export * from "./automation";
 export * from "./baseSchemas";
 export * from "./ipc";
 export * from "./terminal";
+export * from "./terminalAgent";
 export * from "./provider";
 export * from "./providerDiscovery";
 export * from "./providerRuntime";

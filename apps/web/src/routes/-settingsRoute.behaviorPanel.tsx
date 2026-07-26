@@ -40,6 +40,17 @@ export function BehaviorSettingsPanel(props: BehaviorSettingsPanelProps) {
           settings={props.settings}
           defaults={props.defaults}
           updateSettings={props.updateSettings}
+          settingKey="enableManagedAgentTerminal"
+          title="Agent Terminal"
+          description="Run Codex, Claude Code, or Pi in a managed embedded terminal for supported Threads."
+          resetLabel="Agent Terminal"
+          ariaLabel="Enable managed Agent Terminal"
+        />
+
+        <SettingsBooleanRow
+          settings={props.settings}
+          defaults={props.defaults}
+          updateSettings={props.updateSettings}
           settingKey="confirmTerminalTabClose"
           title="Terminal close confirmation"
           description="Ask before closing a terminal tab and clearing its history."

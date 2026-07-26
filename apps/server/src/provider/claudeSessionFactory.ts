@@ -1,6 +1,5 @@
 import type { Options as ClaudeQueryOptions, SettingSource } from "@anthropic-ai/claude-agent-sdk";
 import {
-  DEFAULT_CLAUDE_MAX_TURNS,
   DEFAULT_CLAUDE_RESPONSE_IDLE_TIMEOUT_MS,
   type ModelCapabilities,
   type ProviderRuntimeEvent,
@@ -174,7 +173,7 @@ export function makeClaudeSessionFactory(input: {
         (sessionInput.runtimeMode === "full-access" ? "bypassPermissions" : undefined);
       const subagents = buildClaudeSdkSubagents();
       const env = yield* input.resolveSdkEnv;
-      const maxTurns = providerOptions?.maxTurns ?? DEFAULT_CLAUDE_MAX_TURNS;
+      const maxTurns = providerOptions?.maxTurns;
       const responseIdleTimeoutMs =
         providerOptions?.responseIdleTimeoutMs ?? DEFAULT_CLAUDE_RESPONSE_IDLE_TIMEOUT_MS;
 
@@ -195,7 +194,7 @@ export function makeClaudeSessionFactory(input: {
         ...(providerOptions?.maxThinkingTokens !== undefined
           ? { maxThinkingTokens: providerOptions.maxThinkingTokens }
           : {}),
-        maxTurns,
+        ...(maxTurns !== undefined ? { maxTurns } : {}),
         settings: {
           autoCompactEnabled: true,
           ...(requestedAutoCompactWindowTokens !== undefined
@@ -337,7 +336,7 @@ export function makeClaudeSessionFactory(input: {
                   ...(providerOptions?.maxThinkingTokens !== undefined
                     ? { maxThinkingTokens: providerOptions.maxThinkingTokens }
                     : {}),
-                  maxTurns,
+                  ...(maxTurns !== undefined ? { maxTurns } : {}),
                   responseIdleTimeoutMs,
                   ...(fastMode ? { fastMode: true } : {}),
                   ...(ultracode ? { ultracode: true } : {}),

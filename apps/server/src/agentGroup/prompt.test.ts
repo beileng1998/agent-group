@@ -1,9 +1,35 @@
 import { DEFAULT_AGENT_GROUP_PROMPT_INSTRUCTIONS } from "@agent-group/contracts";
 import { describe, expect, it } from "vitest";
 
-import { buildAgentGroupPrompt } from "./prompt";
+import { buildAgentGroupContextEnvelope, buildAgentGroupPrompt } from "./prompt";
 
 describe("buildAgentGroupPrompt", () => {
+  it("builds the structured prompt from the exact context envelope", () => {
+    const input = {
+      userText: "Keep this request exact.",
+      attachments: [{ kind: "file" as const, path: "/tmp/input.txt" }],
+      contextPath: ".agent-group/sessions/current/context.md",
+      parentContextPath: ".agent-group/sessions/parent/context.md",
+      firstTurn: true,
+      globalRules: "Keep this Global rule exact.",
+      groupRules: "Keep this Group rule exact.",
+      promptInstructions: DEFAULT_AGENT_GROUP_PROMPT_INSTRUCTIONS,
+    };
+
+    const contextEnvelope = buildAgentGroupContextEnvelope(input);
+    const prompt = buildAgentGroupPrompt(input);
+
+    expect(contextEnvelope).not.toContain("<user_request>");
+    expect(contextEnvelope).not.toContain("<attachments>");
+    expect(prompt).toBe(
+      [
+        "<user_request>\nKeep this request exact.\n</user_request>",
+        '<attachments>\n<attachment kind="file">/tmp/input.txt</attachment>\n</attachments>',
+        contextEnvelope,
+      ].join("\n\n"),
+    );
+  });
+
   it("keeps the first-turn envelope minimal and preserves user text and global rules", () => {
     const prompt = buildAgentGroupPrompt({
       userText: "  Implement it.  \n",

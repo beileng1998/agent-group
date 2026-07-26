@@ -138,6 +138,60 @@ it.effect("accepts automation run action requests", () =>
   }),
 );
 
+it.effect("accepts fenced managed terminal requests and subscription", () =>
+  Effect.gen(function* () {
+    const start = yield* decode(WebSocketRequest, {
+      id: "req-terminal-agent-start",
+      body: {
+        _tag: WS_METHODS.terminalAgentStart,
+        threadId: "thread-1",
+        cols: 120,
+        rows: 40,
+      },
+    });
+    const write = yield* decode(WebSocketRequest, {
+      id: "req-terminal-agent-write",
+      body: {
+        _tag: WS_METHODS.terminalAgentWrite,
+        threadId: "thread-1",
+        revision: 2,
+        generation: "generation-1",
+        data: "hello",
+      },
+    });
+    const subscribe = yield* decode(WebSocketRequest, {
+      id: "req-terminal-agent-subscribe",
+      body: {
+        _tag: WS_METHODS.terminalAgentSubscribe,
+        threadId: "thread-1",
+      },
+    });
+
+    assert.strictEqual(start.body._tag, WS_METHODS.terminalAgentStart);
+    assert.strictEqual(write.body._tag, WS_METHODS.terminalAgentWrite);
+    assert.strictEqual(subscribe.body._tag, WS_METHODS.terminalAgentSubscribe);
+  }),
+);
+
+it.effect("rejects server-owned process fields on managed terminal requests", () =>
+  Effect.gen(function* () {
+    const result = yield* Effect.exit(
+      decode(WebSocketRequest, {
+        id: "req-terminal-agent-forbidden",
+        body: {
+          _tag: WS_METHODS.terminalAgentStart,
+          threadId: "thread-1",
+          cols: 120,
+          rows: 40,
+          cwd: "/tmp/attacker-selected",
+        },
+      }),
+    );
+
+    assert.strictEqual(result._tag, "Failure");
+  }),
+);
+
 it.effect("accepts typed websocket push envelopes with sequence", () =>
   Effect.gen(function* () {
     const parsed = yield* decode(WsResponse, {

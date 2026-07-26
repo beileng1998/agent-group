@@ -3,11 +3,14 @@ import { useChatRuntimeGraphOwner } from "../hooks/useChatRuntimeGraphOwner";
 import { useChatViewExecutionGraphOwner } from "../hooks/useChatViewExecutionGraphOwner";
 import { useChatViewFoundationOwner } from "../hooks/useChatViewFoundationOwner";
 import { useChatViewInteractionGraphOwner } from "../hooks/useChatViewInteractionGraphOwner";
+import { useManagedAgentTerminalController } from "../hooks/useManagedAgentTerminalController";
 import { buildChatComposerSurfaceGraph } from "./chat/buildChatComposerSurfaceGraph";
 import { buildChatShellSurfaceGraph } from "./chat/buildChatShellSurfaceGraph";
 import type { ChatViewProps } from "./chat/ChatView.types";
 import { ChatViewSurface } from "./chat/ChatViewSurface";
 import { NoActiveThreadView } from "./chat/NoActiveThreadView";
+import { ManagedAgentTerminalControllerProvider } from "./agent-terminal/ManagedAgentTerminalContext";
+import { managedTerminalStartBlockedReason } from "./agent-terminal/managedTerminalPresentation";
 
 export default function ChatView(props: ChatViewProps) {
   const surfaceMode = props.surfaceMode ?? "single";
@@ -29,6 +32,18 @@ export default function ChatView(props: ChatViewProps) {
       onOpenBrowserUrl: props.onOpenBrowserUrl,
     },
     onSidechatPromoted: props.onSidechatPromoted,
+  });
+  const managedAgentTerminal = useManagedAgentTerminalController({
+    threadId: props.threadId,
+    serverBacked: foundation.thread.isServerThread,
+    provider:
+      foundation.thread.activeThread?.session?.provider ??
+      foundation.thread.activeThread?.modelSelection.provider,
+    startBlockedReason: managedTerminalStartBlockedReason({
+      hasLiveTurn: runtimeGraph.runtimeActivity.session.hasLiveTurn,
+      isConnecting: runtimeGraph.runtimeActivity.session.isConnecting,
+      isSendBusy: runtimeGraph.runtimeActivity.dispatch.isSendBusy,
+    }),
   });
   const interactionGraph = useChatViewInteractionGraphOwner({
     foundation,
@@ -54,6 +69,7 @@ export default function ChatView(props: ChatViewProps) {
     interactionGraph,
     executionGraph,
     paneScopeId,
+    readOnly: managedAgentTerminal.active,
   });
   const shellSurface = buildChatShellSurfaceGraph({
     foundation,
@@ -75,27 +91,33 @@ export default function ChatView(props: ChatViewProps) {
   const dropzone = interactionGraph.composerInteraction.references.dropzone;
 
   return (
-    <ChatViewSurface
-      drag={{
-        active: interactionGraph.composerInteraction.drag.isDragOverComposer,
-        dropzone: {
-          onDragEnter: dropzone.onComposerDragEnter,
-          onDragLeave: dropzone.onComposerDragLeave,
-          onDragOver: dropzone.onComposerDragOver,
-          onDrop: dropzone.onComposerDrop,
-        },
-      }}
-      header={shellSurface.headerSurfaceModel}
-      dialogs={shellSurface.dialogLayerModel}
-      workspace={shellSurface.workspaceSurfaceModel}
-      overlays={shellSurface.overlayLayerModel}
-      banners={{
-        providerStatus: shellSurface.banners.providerStatus,
-        onDismissProvider: shellSurface.banners.dismissProvider,
-        threadError: shellSurface.banners.threadError,
-        rateLimitStatus: shellSurface.banners.rateLimitStatus,
-        onDismissRateLimit: shellSurface.banners.dismissRateLimit,
-      }}
-    />
+    <ManagedAgentTerminalControllerProvider controller={managedAgentTerminal}>
+      <ChatViewSurface
+        drag={{
+          active:
+            !managedAgentTerminal.active &&
+            interactionGraph.composerInteraction.drag.isDragOverComposer,
+          dropzone: managedAgentTerminal.active
+            ? {}
+            : {
+                onDragEnter: dropzone.onComposerDragEnter,
+                onDragLeave: dropzone.onComposerDragLeave,
+                onDragOver: dropzone.onComposerDragOver,
+                onDrop: dropzone.onComposerDrop,
+              },
+        }}
+        header={shellSurface.headerSurfaceModel}
+        dialogs={shellSurface.dialogLayerModel}
+        workspace={shellSurface.workspaceSurfaceModel}
+        overlays={shellSurface.overlayLayerModel}
+        banners={{
+          providerStatus: shellSurface.banners.providerStatus,
+          onDismissProvider: shellSurface.banners.dismissProvider,
+          threadError: shellSurface.banners.threadError,
+          rateLimitStatus: shellSurface.banners.rateLimitStatus,
+          onDismissRateLimit: shellSurface.banners.dismissRateLimit,
+        }}
+      />
+    </ManagedAgentTerminalControllerProvider>
   );
 }

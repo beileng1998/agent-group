@@ -13,7 +13,11 @@ import { ProviderCommandReactorLive } from "./orchestration/Layers/ProviderComma
 import { ProviderRuntimeIngestionLive } from "./orchestration/Layers/ProviderRuntimeIngestion";
 import { RuntimeReceiptBusLive } from "./orchestration/Layers/RuntimeReceiptBus";
 import { ThreadDeletionReactorLive } from "./orchestration/Layers/ThreadDeletionReactor";
+import { ExecutionAdapterCoordinatorLive } from "./orchestration/Layers/ExecutionAdapterCoordinator";
 import { OrchestrationLayerLive } from "./orchestration/runtimeLayer";
+import { TerminalHostLayerLive } from "./terminalHost/runtimeLayer";
+import { TerminalAgentBridgeLive } from "./terminalAgent/Layers/TerminalAgentBridge";
+import { TerminalAgentServiceLive } from "./terminalAgent/Layers/TerminalAgentService";
 
 import { DevServerManagerLive } from "./devServerManager";
 import { KeybindingsLive } from "./keybindings";
@@ -42,29 +46,41 @@ import { RemoteAccessLive } from "./remoteAccess/Layers/RemoteAccess";
 
 export { makeServerProviderLayer } from "./provider/runtimeLayer";
 
+/**
+ * One composition root owns the durable authority shared by the orchestration
+ * engine, coordinator, RPC handlers, and reactors.
+ */
+export const ExecutionAdapterRuntimeLayerLive = ExecutionAdapterCoordinatorLive.pipe(
+  Layer.provide(TerminalHostLayerLive),
+  Layer.provideMerge(OrchestrationLayerLive),
+);
+
 export function makeServerRuntimeServicesLayer() {
   const checkpointStoreLayer = CheckpointStoreLive.pipe(Layer.provide(GitCoreLive));
 
   const checkpointDiffQueryLayer = CheckpointDiffQueryLive.pipe(
-    Layer.provideMerge(OrchestrationLayerLive),
+    Layer.provideMerge(ExecutionAdapterRuntimeLayerLive),
     Layer.provideMerge(checkpointStoreLayer),
   );
 
-  const runtimeServicesLayer = Layer.mergeAll(
-    OrchestrationLayerLive,
-    checkpointStoreLayer,
-    checkpointDiffQueryLayer,
-    RuntimeReceiptBusLive,
-  );
+  const runtimeServicesLayer = Layer.mergeAll(checkpointDiffQueryLayer, RuntimeReceiptBusLive);
   const runtimeIngestionLayer = ProviderRuntimeIngestionLive.pipe(
     Layer.provideMerge(runtimeServicesLayer),
   );
   const studioOutputReactorLayer = StudioOutputReactorLive.pipe(
     Layer.provideMerge(runtimeServicesLayer),
   );
+  const terminalAgentBridgeLayer = TerminalAgentBridgeLive;
+  const terminalAgentServiceLayer = TerminalAgentServiceLive.pipe(
+    Layer.provideMerge(runtimeServicesLayer),
+    Layer.provideMerge(runtimeIngestionLayer),
+    Layer.provideMerge(terminalAgentBridgeLayer),
+    Layer.provideMerge(ServerSettingsLive),
+  );
   const providerCommandReactorLayer = ProviderCommandReactorLive.pipe(
     Layer.provideMerge(runtimeServicesLayer),
     Layer.provideMerge(studioOutputReactorLayer),
+    Layer.provideMerge(terminalAgentServiceLayer),
     Layer.provideMerge(GitCoreLive),
     Layer.provideMerge(TextGenerationLayerLive),
     Layer.provideMerge(ServerSettingsLive),
@@ -83,8 +99,9 @@ export function makeServerRuntimeServicesLayer() {
   );
   const threadDeletionReactorLayer = ThreadDeletionReactorLive.pipe(
     Layer.provideMerge(profileStatsArchiveLayer),
-    Layer.provideMerge(OrchestrationLayerLive),
+    Layer.provideMerge(runtimeServicesLayer),
     Layer.provideMerge(TerminalLayerLive),
+    Layer.provideMerge(terminalAgentServiceLayer),
   );
   // Shares the single memoized TerminalManager with the top-level TerminalLayerLive.
   const devServerManagerLayer = DevServerManagerLive.pipe(Layer.provide(TerminalLayerLive));
@@ -127,7 +144,7 @@ export function makeServerRuntimeServicesLayer() {
   const pullRequestServiceLayer = PullRequestServiceLive.pipe(
     Layer.provideMerge(GitLayerLive),
     Layer.provideMerge(ProjectPullRequestPinsLive),
-    Layer.provideMerge(OrchestrationLayerLive),
+    Layer.provideMerge(runtimeServicesLayer),
   );
   const remoteAccessLayer = RemoteAccessLive.pipe(Layer.provideMerge(ServerSettingsLive));
 
@@ -141,6 +158,8 @@ export function makeServerRuntimeServicesLayer() {
     remoteAccessLayer,
     orchestrationReactorLayer,
     threadDeletionReactorLayer,
+    terminalAgentBridgeLayer,
+    terminalAgentServiceLayer,
     devServerManagerLayer,
     GitLayerLive,
     TextGenerationLayerLive,

@@ -25,6 +25,7 @@ import type {
   ProviderSession,
   ProviderSessionStartInput,
   ProviderStopSessionInput,
+  RuntimeMode,
   ThreadId,
   ProviderTurnStartResult,
 } from "@agent-group/contracts";
@@ -122,11 +123,30 @@ export interface ProviderServiceShape {
   }) => Effect.Effect<void, ProviderServiceError>;
 
   /**
+   * Adopt a provider-native cursor produced by a managed terminal session.
+   * This persists continuity without starting a structured runtime.
+   */
+  readonly adoptSessionResumeCursor: (input: {
+    readonly threadId: ThreadId;
+    readonly provider: ProviderKind;
+    readonly runtimeMode: RuntimeMode;
+    readonly resumeCursor: unknown;
+  }) => Effect.Effect<void, ProviderServiceError>;
+
+  /**
    * List active provider sessions.
    *
    * Aggregates runtime session lists from all registered adapters.
    */
   readonly listSessions: () => Effect.Effect<ReadonlyArray<ProviderSession>>;
+
+  /** Read durable provider continuity without starting a runtime. */
+  readonly getSessionContinuity?: (input: {
+    readonly threadId: ThreadId;
+  }) => Effect.Effect<
+    { readonly provider: ProviderKind; readonly resumeCursor: unknown | null } | null,
+    ProviderServiceError
+  >;
 
   /** Best-effort provider-native transcript path; never starts the target runtime. */
   readonly resolveTranscriptPath?: (input: {

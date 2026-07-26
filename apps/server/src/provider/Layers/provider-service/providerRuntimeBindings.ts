@@ -146,6 +146,13 @@ export function makeProviderRuntimeBindings(input: {
           return true;
         }
         if (binding.provider !== event.provider) return false;
+        const bindingPayload = runtimePayloadRecord(binding.runtimePayload);
+        if (
+          binding.status === "stopped" &&
+          bindingPayload.lastRuntimeEvent === "terminal.session.started"
+        ) {
+          return false;
+        }
 
         if (
           (event.type === "turn.completed" || event.type === "turn.aborted") &&
@@ -154,8 +161,7 @@ export function makeProviderRuntimeBindings(input: {
           bindingCoordinator.recordSettledTurn(event.threadId, String(event.turnId));
         }
 
-        const currentActiveTurnId =
-          runtimePayloadRecord(binding.runtimePayload).activeTurnId ?? null;
+        const currentActiveTurnId = bindingPayload.activeTurnId ?? null;
         if (
           event.type === "turn.started" &&
           !isStartedTurnApplicable({

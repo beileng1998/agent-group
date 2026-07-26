@@ -5,6 +5,7 @@ import { ProjectionTurnRepositoryLive } from "../../persistence/Layers/Projectio
 import { ProjectionTurnRepository } from "../../persistence/Services/ProjectionTurns.ts";
 import { ProviderService } from "../../provider/Services/ProviderService.ts";
 import { CheckpointReactor } from "../Services/CheckpointReactor.ts";
+import { ExecutionAdapterAuthority } from "../Services/ExecutionAdapterAuthority.ts";
 import { OrchestrationEngineService } from "../Services/OrchestrationEngine.ts";
 import { ProjectionSnapshotQuery } from "../Services/ProjectionSnapshotQuery.ts";
 import { RuntimeReceiptBus } from "../Services/RuntimeReceiptBus.ts";
@@ -23,6 +24,7 @@ const make = Effect.gen(function* () {
   const projectionSnapshotQuery = yield* ProjectionSnapshotQuery;
   const projectionTurnRepository = yield* ProjectionTurnRepository;
   const receiptBus = yield* RuntimeReceiptBus;
+  const executionAdapterAuthority = yield* ExecutionAdapterAuthority;
 
   const state = makeCheckpointReactorState();
   const lookup = makeCheckpointLookup({ projectionSnapshotQuery, providerService });
@@ -47,9 +49,11 @@ const make = Effect.gen(function* () {
     orchestrationEngine,
     providerService,
     status,
+    acquireStructured: executionAdapterAuthority.acquireStructured,
   });
 
   return yield* makeCheckpointReactorRuntime({
+    authority: executionAdapterAuthority,
     capture,
     orchestrationEngine,
     providerService,

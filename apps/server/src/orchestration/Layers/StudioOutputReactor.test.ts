@@ -28,6 +28,7 @@ import {
   type ProjectionSnapshotQueryShape,
 } from "../Services/ProjectionSnapshotQuery.ts";
 import { StudioOutputReactor } from "../Services/StudioOutputReactor.ts";
+import { ExecutionAdapterAuthorityMemoryLive } from "./ExecutionAdapterAuthorityMemoryLive.ts";
 import { StudioOutputReactorLive } from "./StudioOutputReactor.ts";
 
 async function waitFor(predicate: () => boolean, timeoutMs = 2_000): Promise<void> {
@@ -103,6 +104,7 @@ describe("StudioOutputReactor", () => {
       Layer.provideMerge(Layer.succeed(ProviderService, providerService)),
       Layer.provideMerge(Layer.succeed(OrchestrationEngineService, orchestrationEngine)),
       Layer.provideMerge(Layer.succeed(ProjectionSnapshotQuery, projectionSnapshotQuery)),
+      Layer.provideMerge(ExecutionAdapterAuthorityMemoryLive),
       Layer.provideMerge(NodeServices.layer),
     );
     runtime = ManagedRuntime.make(layer);

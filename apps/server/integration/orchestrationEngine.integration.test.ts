@@ -11,10 +11,11 @@ import {
   ProjectId,
   ProviderKind,
   ThreadId,
+  TurnId,
   ModelSelection,
 } from "@agent-group/contracts";
 import { assert, it } from "@effect/vitest";
-import { Effect, Option, Schema } from "effect";
+import { Effect, Exit, Option, Schema } from "effect";
 
 import type { TestTurnResponse } from "./TestProviderAdapter.integration.ts";
 import {
@@ -252,6 +253,237 @@ it.live("runs a single turn end-to-end and persists checkpoint state in sqlite +
       assert.equal(gitRefExists(harness.workspaceDir, ref1), true);
       assert.equal(gitShowFileAtRef(harness.workspaceDir, ref0, "README.md"), "v1\n");
       assert.equal(gitShowFileAtRef(harness.workspaceDir, ref1, "README.md"), "v1\n");
+    }),
+  ),
+);
+
+it.live("shares execution-adapter authority across structured and terminal projections", () =>
+  withHarness((harness) =>
+    Effect.gen(function* () {
+      yield* seedProjectAndThread(harness);
+      yield* harness.adapterHarness!.queueTurnResponseForNextSession({
+        events: [
+          {
+            type: "turn.started",
+            ...runtimeBase("evt-authority-structured-start", "2026-07-25T01:00:00.000Z"),
+            threadId: THREAD_ID,
+            turnId: "authority-structured-turn",
+          },
+          {
+            type: "turn.completed",
+            ...runtimeBase("evt-authority-structured-complete", "2026-07-25T01:00:00.100Z"),
+            threadId: THREAD_ID,
+            turnId: "authority-structured-turn",
+            status: "completed",
+          },
+        ],
+      });
+      yield* startTurn({
+        harness,
+        commandId: "cmd-authority-structured-start",
+        messageId: "msg-authority-structured-start",
+        text: "Complete before switching adapters.",
+      });
+      yield* harness.waitForThread(THREAD_ID, (thread) => thread.session?.status === "ready");
+      yield* harness.providerCommandReactor.drain;
+      yield* harness.executionAdapterAuthority.awaitClaimsDrained(THREAD_ID);
+
+      const terminalStarting = yield* harness.executionAdapterAuthority.beginTerminalSwitch({
+        threadId: THREAD_ID,
+        provider: "codex",
+        runtimeInstanceId: "runtime-authority-current",
+        providerSessionId: "provider-session-authority-current",
+        startedAt: "2026-07-25T01:01:00.000Z",
+      });
+      const generation = "generation-authority-current";
+      const terminalReady = yield* harness.executionAdapterAuthority.completeTerminalStart({
+        threadId: THREAD_ID,
+        revision: terminalStarting.revision,
+        generation,
+        pid: 32101,
+        ownerIdentity: {
+          pid: 32101,
+          startTime: "2026-07-25T01:01:00.000Z",
+          commandFingerprint: "0".repeat(64),
+        },
+        processGroupIdentity: null,
+      });
+      const currentFence = {
+        revision: terminalReady.revision,
+        generation,
+      };
+
+      const blockedStructuredStart = yield* Effect.exit(
+        startTurn({
+          harness,
+          commandId: "cmd-authority-blocked-structured-start",
+          messageId: "msg-authority-blocked-structured-start",
+          text: "This structured turn must not start.",
+        }),
+      );
+      assert.equal(Exit.isFailure(blockedStructuredStart), true);
+
+      yield* harness.engine.dispatch({
+        type: "thread.terminal-model.observe",
+        commandId: CommandId.makeUnsafe("cmd-authority-terminal-model-current"),
+        threadId: THREAD_ID,
+        modelSelection: {
+          provider: "codex",
+          model: "gpt-5.3-codex",
+          options: { reasoningEffort: "xhigh" },
+        },
+        terminalRuntimeFence: currentFence,
+        createdAt: "2026-07-25T01:02:00.000Z",
+      });
+      yield* harness.engine.dispatch({
+        type: "thread.terminal-message.observe",
+        commandId: CommandId.makeUnsafe("cmd-authority-terminal-message-current"),
+        threadId: THREAD_ID,
+        messageId: asMessageId("msg-authority-terminal-current"),
+        role: "assistant",
+        text: "Current terminal output.",
+        turnId: TurnId.makeUnsafe("turn-authority-terminal"),
+        terminalRuntimeFence: currentFence,
+        createdAt: "2026-07-25T01:02:00.100Z",
+      });
+      yield* harness.runtimeIngestion.publishTerminal({
+        type: "session.state.changed",
+        ...runtimeBase("evt-authority-runtime-current", "2026-07-25T01:02:00.200Z"),
+        threadId: THREAD_ID,
+        terminalRuntimeFence: currentFence,
+        payload: {
+          state: "error",
+          reason: "Current terminal runtime projection.",
+        },
+      });
+
+      const projected = yield* harness.waitForThread(
+        THREAD_ID,
+        (thread) =>
+          thread.modelSelection.model === "gpt-5.3-codex" &&
+          thread.messages.some(
+            (message) =>
+              message.id === asMessageId("msg-authority-terminal-current") &&
+              message.source === "terminal",
+          ) &&
+          thread.session?.status === "error",
+      );
+      assert.deepEqual(projected.modelSelection, {
+        provider: "codex",
+        model: "gpt-5.3-codex",
+        options: { reasoningEffort: "xhigh" },
+      });
+      assert.equal(projected.session?.lastError, "Current terminal runtime projection.");
+
+      const staleFence = {
+        revision: currentFence.revision,
+        generation: "generation-authority-stale",
+      };
+      const staleModel = yield* Effect.exit(
+        harness.engine.dispatch({
+          type: "thread.terminal-model.observe",
+          commandId: CommandId.makeUnsafe("cmd-authority-terminal-model-stale"),
+          threadId: THREAD_ID,
+          modelSelection: {
+            provider: "codex",
+            model: "stale-model",
+          },
+          terminalRuntimeFence: {
+            revision: currentFence.revision - 1,
+            generation,
+          },
+          createdAt: "2026-07-25T01:02:59.000Z",
+        }),
+      );
+      const staleMessage = yield* Effect.exit(
+        harness.engine.dispatch({
+          type: "thread.terminal-message.observe",
+          commandId: CommandId.makeUnsafe("cmd-authority-terminal-message-stale"),
+          threadId: THREAD_ID,
+          messageId: asMessageId("msg-authority-terminal-stale"),
+          role: "assistant",
+          text: "Stale terminal output.",
+          turnId: TurnId.makeUnsafe("turn-authority-terminal"),
+          terminalRuntimeFence: staleFence,
+          createdAt: "2026-07-25T01:03:00.000Z",
+        }),
+      );
+      const staleRuntime = yield* Effect.exit(
+        harness.runtimeIngestion.publishTerminal({
+          type: "session.state.changed",
+          ...runtimeBase("evt-authority-runtime-stale", "2026-07-25T01:03:00.100Z"),
+          threadId: THREAD_ID,
+          terminalRuntimeFence: staleFence,
+          payload: { state: "ready" },
+        }),
+      );
+      assert.equal(Exit.isFailure(staleModel), true);
+      assert.equal(Exit.isFailure(staleMessage), true);
+      assert.equal(Exit.isFailure(staleRuntime), true);
+
+      const afterStale = yield* harness.snapshotQuery.getSnapshot();
+      const threadAfterStale = afterStale.threads.find((thread) => thread.id === THREAD_ID);
+      assert.equal(
+        threadAfterStale?.messages.some(
+          (message) => message.id === asMessageId("msg-authority-terminal-stale"),
+        ),
+        false,
+      );
+      assert.equal(threadAfterStale?.modelSelection.model, "gpt-5.3-codex");
+      assert.equal(threadAfterStale?.session?.status, "error");
+
+      const stopping = yield* harness.executionAdapterAuthority.beginTerminalStop(THREAD_ID);
+      yield* harness.executionAdapterAuthority.updateTerminal({
+        threadId: THREAD_ID,
+        revision: stopping.revision,
+        generation,
+        patch: {
+          status: "stopped",
+          activeTurnId: null,
+          exitCode: null,
+          exitSignal: null,
+          error: null,
+        },
+      });
+      yield* harness.engine.dispatch({
+        type: "thread.session.set",
+        commandId: CommandId.makeUnsafe("cmd-authority-terminal-stop-complete"),
+        threadId: THREAD_ID,
+        session: {
+          threadId: THREAD_ID,
+          status: "stopped",
+          providerName: "codex",
+          runtimeMode: "full-access",
+          activeTurnId: null,
+          lastError: null,
+          updatedAt: "2026-07-25T01:04:00.000Z",
+        },
+        createdAt: "2026-07-25T01:04:00.000Z",
+      });
+      const stoppedThread = yield* harness.waitForThread(
+        THREAD_ID,
+        (thread) => thread.session?.status === "stopped",
+      );
+      assert.equal(stoppedThread.session?.activeTurnId, null);
+
+      const blockedReadyProjection = yield* Effect.exit(
+        harness.engine.dispatch({
+          type: "thread.session.set",
+          commandId: CommandId.makeUnsafe("cmd-authority-terminal-ready-without-fence"),
+          threadId: THREAD_ID,
+          session: {
+            threadId: THREAD_ID,
+            status: "ready",
+            providerName: "codex",
+            runtimeMode: "full-access",
+            activeTurnId: null,
+            lastError: null,
+            updatedAt: "2026-07-25T01:04:01.000Z",
+          },
+          createdAt: "2026-07-25T01:04:01.000Z",
+        }),
+      );
+      assert.equal(Exit.isFailure(blockedReadyProjection), true);
     }),
   ),
 );

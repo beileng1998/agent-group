@@ -14,6 +14,7 @@ import {
   OrchestrationProposedPlan,
   OrchestrationSession,
 } from "./readModelCore";
+import { ModelSelection } from "./protocol";
 import {
   ProjectCreateCommand,
   ProjectDeleteCommand,
@@ -53,6 +54,7 @@ import {
   ThreadTurnStartCommand,
   ThreadUserInputRespondCommand,
 } from "./turnCommandSchemas";
+import { TerminalAgentRuntimeFence } from "../terminalAgent";
 
 const DispatchableClientOrchestrationCommand = Schema.Union([
   ProjectCreateCommand,
@@ -131,6 +133,7 @@ const ThreadSessionSetCommand = Schema.Struct({
   threadId: ThreadId,
   session: OrchestrationSession,
   createdAt: IsoDateTime,
+  terminalRuntimeFence: Schema.optional(TerminalAgentRuntimeFence),
 });
 
 const ThreadMessagesImportCommand = Schema.Struct({
@@ -149,6 +152,7 @@ const ThreadMessageAssistantDeltaCommand = Schema.Struct({
   delta: Schema.String,
   turnId: Schema.optional(TurnId),
   createdAt: IsoDateTime,
+  terminalRuntimeFence: Schema.optional(TerminalAgentRuntimeFence),
 });
 
 const ThreadMessageAssistantCompleteCommand = Schema.Struct({
@@ -158,6 +162,28 @@ const ThreadMessageAssistantCompleteCommand = Schema.Struct({
   messageId: MessageId,
   turnId: Schema.optional(TurnId),
   createdAt: IsoDateTime,
+  terminalRuntimeFence: Schema.optional(TerminalAgentRuntimeFence),
+});
+
+const ThreadTerminalMessageObserveCommand = Schema.Struct({
+  type: Schema.Literal("thread.terminal-message.observe"),
+  commandId: CommandId,
+  threadId: ThreadId,
+  messageId: MessageId,
+  role: Schema.Literals(["user", "assistant"]),
+  text: Schema.String,
+  turnId: TurnId,
+  terminalRuntimeFence: TerminalAgentRuntimeFence,
+  createdAt: IsoDateTime,
+});
+
+const ThreadTerminalModelObserveCommand = Schema.Struct({
+  type: Schema.Literal("thread.terminal-model.observe"),
+  commandId: CommandId,
+  threadId: ThreadId,
+  modelSelection: ModelSelection,
+  terminalRuntimeFence: TerminalAgentRuntimeFence,
+  createdAt: IsoDateTime,
 });
 
 const ThreadProposedPlanUpsertCommand = Schema.Struct({
@@ -166,6 +192,7 @@ const ThreadProposedPlanUpsertCommand = Schema.Struct({
   threadId: ThreadId,
   proposedPlan: OrchestrationProposedPlan,
   createdAt: IsoDateTime,
+  terminalRuntimeFence: Schema.optional(TerminalAgentRuntimeFence),
 });
 
 const ThreadTurnDiffCompleteCommand = Schema.Struct({
@@ -181,6 +208,7 @@ const ThreadTurnDiffCompleteCommand = Schema.Struct({
   checkpointTurnCount: NonNegativeInt,
   preserveLatestTurn: Schema.optional(Schema.Boolean),
   createdAt: IsoDateTime,
+  terminalRuntimeFence: Schema.optional(TerminalAgentRuntimeFence),
 });
 
 const ThreadRevertCompleteCommand = Schema.Struct({
@@ -207,6 +235,8 @@ const InternalOrchestrationCommand = Schema.Union([
   ThreadMessagesImportCommand,
   ThreadMessageAssistantDeltaCommand,
   ThreadMessageAssistantCompleteCommand,
+  ThreadTerminalMessageObserveCommand,
+  ThreadTerminalModelObserveCommand,
   ThreadProposedPlanUpsertCommand,
   ThreadTurnDiffCompleteCommand,
   ThreadActivityAppendCommand,

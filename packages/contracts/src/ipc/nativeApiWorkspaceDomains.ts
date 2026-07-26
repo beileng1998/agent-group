@@ -46,6 +46,17 @@ import type {
   TerminalWriteInput,
 } from "../terminal";
 import type {
+  TerminalAgentEvent,
+  TerminalAgentGetInput,
+  TerminalAgentResizeInput,
+  TerminalAgentRestartInput,
+  TerminalAgentRuntimeState,
+  TerminalAgentStartInput,
+  TerminalAgentSubscribeInput,
+  TerminalAgentSwitchToChatInput,
+  TerminalAgentWriteInput,
+} from "../terminalAgent";
+import type {
   BrowserAttachWebviewInput,
   BrowserCaptureScreenshotResult,
   BrowserCopyLinkEvent,
@@ -80,6 +91,18 @@ export interface NativeApiWorkspaceDomains {
     restart: (input: TerminalRestartInput) => Promise<TerminalSessionSnapshot>;
     close: (input: TerminalCloseInput) => Promise<void>;
     onEvent: (callback: (event: TerminalEvent) => void) => () => void;
+  };
+  terminalAgent: {
+    start: (input: TerminalAgentStartInput) => Promise<TerminalAgentRuntimeState>;
+    get: (input: TerminalAgentGetInput) => Promise<TerminalAgentRuntimeState>;
+    write: (input: TerminalAgentWriteInput) => Promise<void>;
+    resize: (input: TerminalAgentResizeInput) => Promise<void>;
+    switchToChat: (input: TerminalAgentSwitchToChatInput) => Promise<TerminalAgentRuntimeState>;
+    restart: (input: TerminalAgentRestartInput) => Promise<TerminalAgentRuntimeState>;
+    subscribe: (
+      input: TerminalAgentSubscribeInput,
+      callback: (event: TerminalAgentEvent) => void,
+    ) => () => void;
   };
   projects: {
     discoverScripts: (input: ProjectDiscoverScriptsInput) => Promise<ProjectDiscoverScriptsResult>;

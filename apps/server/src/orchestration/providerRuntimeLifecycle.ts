@@ -16,6 +16,7 @@ import {
   sameId,
   STRICT_PROVIDER_LIFECYCLE_GUARD,
 } from "./providerRuntimeIngestionValues.ts";
+import { terminalRuntimeCommandFence } from "./providerRuntimeTerminalFence.ts";
 
 type Plans = ReturnType<typeof makeProviderRuntimePlans>;
 
@@ -149,6 +150,7 @@ export function makeProviderRuntimeLifecycle(input: {
               updatedAt: event.createdAt,
             },
             createdAt: event.createdAt,
+            ...terminalRuntimeCommandFence(event),
           });
         }
       }

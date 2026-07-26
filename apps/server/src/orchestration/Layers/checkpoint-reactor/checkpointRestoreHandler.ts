@@ -1,4 +1,4 @@
-import type { OrchestrationEvent } from "@agent-group/contracts";
+import type { OrchestrationEvent, ThreadId } from "@agent-group/contracts";
 import { Effect, Option } from "effect";
 
 import {
@@ -11,6 +11,10 @@ import {
 import type { CheckpointStoreShape } from "../../../checkpointing/Services/CheckpointStore.ts";
 import type { ProviderServiceShape } from "../../../provider/Services/ProviderService.ts";
 import { clearWorkspaceIndexCache } from "../../../workspaceEntries.ts";
+import type {
+  ExecutionAdapterAuthorityError,
+  StructuredAdmissionClaim,
+} from "../../Services/ExecutionAdapterAuthority.ts";
 import type { OrchestrationEngineShape } from "../../Services/OrchestrationEngine.ts";
 import type { CheckpointLookup } from "./checkpointLookup.ts";
 import type { CheckpointStatus } from "./checkpointStatus.ts";
@@ -22,12 +26,16 @@ export interface CheckpointRestoreDependencies {
   readonly orchestrationEngine: OrchestrationEngineShape;
   readonly providerService: ProviderServiceShape;
   readonly status: CheckpointStatus;
+  readonly acquireStructured: (
+    threadId: ThreadId,
+    claimId: string,
+  ) => Effect.Effect<StructuredAdmissionClaim, ExecutionAdapterAuthorityError>;
 }
 
 export function makeCheckpointRestoreHandler(dependencies: CheckpointRestoreDependencies) {
   const { checkpointStore, lookup, orchestrationEngine, providerService, status } = dependencies;
 
-  return Effect.fnUntraced(function* (
+  const restore = Effect.fnUntraced(function* (
     event: Extract<OrchestrationEvent, { type: "thread.checkpoint-revert-requested" }>,
   ) {
     const now = new Date().toISOString();
@@ -330,6 +338,13 @@ export function makeCheckpointRestoreHandler(dependencies: CheckpointRestoreDepe
         Effect.asVoid,
       );
   });
+
+  return (event: Extract<OrchestrationEvent, { type: "thread.checkpoint-revert-requested" }>) =>
+    Effect.acquireUseRelease(
+      dependencies.acquireStructured(event.payload.threadId, `checkpoint-revert:${event.eventId}`),
+      () => restore(event),
+      (claim) => claim.release,
+    );
 }
 
 export type CheckpointRestoreHandler = ReturnType<typeof makeCheckpointRestoreHandler>;

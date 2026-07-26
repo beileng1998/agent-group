@@ -5,8 +5,10 @@ import { Cause, Effect, Layer, Stream } from "effect";
 import { ProfileStatsArchive } from "../../profileStatsArchive";
 import { ProviderService } from "../../provider/Services/ProviderService";
 import { TerminalManager } from "../../terminal/Services/Manager";
+import { TerminalAgentService } from "../../terminalAgent/Services/TerminalAgentService";
 import { THREAD_RETENTION_COMMAND_ID_PREFIX } from "../../threadRetention";
 import { OrchestrationEngineService } from "../Services/OrchestrationEngine";
+import { ExecutionAdapterCoordinator } from "../Services/ExecutionAdapterCoordinator";
 import {
   ThreadDeletionReactor,
   type ThreadDeletionReactorShape,
@@ -68,6 +70,8 @@ const make = Effect.gen(function* () {
   const profileStatsArchive = yield* ProfileStatsArchive;
   const providerService = yield* ProviderService;
   const terminalManager = yield* TerminalManager;
+  const terminalAgentService = yield* TerminalAgentService;
+  const executionAdapterCoordinator = yield* ExecutionAdapterCoordinator;
 
   const refreshCommandReadModelAfterPurge = (threadId: string) =>
     orchestrationEngine.refreshCommandReadModel().pipe(
@@ -119,6 +123,22 @@ const make = Effect.gen(function* () {
       threadId,
     });
 
+  // Deletion must never bypass the managed terminal runtime: any live agent
+  // PTY for the thread is torn down here regardless of turn state.
+  const teardownManagedAgentTerminal = (threadId: ThreadDeletedEvent["payload"]["threadId"]) =>
+    cleanupSucceededUnlessInterrupted({
+      effect: terminalAgentService.teardownThread(threadId),
+      message: "thread deletion cleanup skipped managed agent terminal teardown",
+      threadId,
+    });
+
+  const finalizeExecutionAdapterDeletion = (threadId: ThreadDeletedEvent["payload"]["threadId"]) =>
+    cleanupSucceededUnlessInterrupted({
+      effect: executionAdapterCoordinator.finalizeThreadDeletion(threadId),
+      message: "thread deletion cleanup retained execution-adapter tombstone",
+      threadId,
+    });
+
   // Retention deletes only hide the thread (its rows keep feeding profile
   // stats directly). Explicit deletes snapshot the stat aggregates and then
   // hard-delete the thread's rows so disk space is actually reclaimed.
@@ -146,9 +166,15 @@ const make = Effect.gen(function* () {
   const cleanupThreadBeforePurge = Effect.fn(function* (
     threadId: ThreadDeletedEvent["payload"]["threadId"],
   ) {
+    // This acquires the managed terminal's per-Thread operation lock. Waiting
+    // here first closes the start/delete race before provider bindings or
+    // persisted Thread data can be removed.
+    const managedTerminalCleanupSucceeded = yield* teardownManagedAgentTerminal(threadId);
+    if (!managedTerminalCleanupSucceeded) return false;
     const providerCleanupSucceeded = yield* stopProviderSession(threadId);
     const terminalCleanupSucceeded = yield* closeThreadTerminals(threadId);
-    return providerCleanupSucceeded && terminalCleanupSucceeded;
+    if (!providerCleanupSucceeded || !terminalCleanupSucceeded) return false;
+    return yield* finalizeExecutionAdapterDeletion(threadId);
   });
 
   const processThreadDeleted = Effect.fn(function* (event: ThreadDeletedEvent) {

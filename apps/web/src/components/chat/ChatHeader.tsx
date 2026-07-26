@@ -14,6 +14,7 @@ import { useSidebar } from "../ui/sidebar";
 import { EnvironmentToggle } from "./environment/EnvironmentToggle";
 import { OpenInPicker } from "./OpenInPicker";
 import { ChatHeaderDiffToggle } from "./header/ChatHeaderDiffToggle";
+import { AgentTerminalControl } from "./header/AgentTerminalControl";
 import { ChatHeaderEditorRail } from "./header/ChatHeaderEditorRail";
 import { ChatHeaderHandoffBadge, ChatHeaderHandoffMenu } from "./header/ChatHeaderHandoffControls";
 import { ChatHeaderIdentity } from "./header/ChatHeaderIdentity";
@@ -149,6 +150,7 @@ export const ChatHeader = memo(function ChatHeader({
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-2 [-webkit-app-region:no-drag]">
+        <AgentTerminalControl compact={compact || editorChatControls !== null} />
         {!hideHandoffControls && !environment ? (
           <ProviderUsageMenuControl provider={activeProvider} />
         ) : null}

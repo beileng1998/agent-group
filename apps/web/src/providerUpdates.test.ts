@@ -58,6 +58,7 @@ function serverSettings(overrides: Partial<ServerSettings["providers"]> = {}): S
   return {
     enableAssistantStreaming: false,
     enableProviderUpdateChecks: true,
+    enableManagedAgentTerminal: false,
     defaultThreadEnvMode: "local",
     addProjectBaseDirectory: "",
     textGenerationModelSelection: { provider: "codex", model: "gpt-5.4-mini" },
@@ -67,6 +68,7 @@ function serverSettings(overrides: Partial<ServerSettings["providers"]> = {}): S
         ...provider,
         binaryPath: "claude",
         launchArgs: "",
+        maxTurnsEnabled: DEFAULT_SERVER_SETTINGS.providers.claudeAgent.maxTurnsEnabled,
         maxTurns: DEFAULT_SERVER_SETTINGS.providers.claudeAgent.maxTurns,
         responseIdleTimeoutMs: DEFAULT_SERVER_SETTINGS.providers.claudeAgent.responseIdleTimeoutMs,
       },
