@@ -9,11 +9,13 @@
 // thread id and have the dock invoke it. Only threads that can offer /side register.
 
 import type { ThreadId } from "@agent-group/contracts";
+import type { KnowledgeSidechatSource } from "./knowledgeSidechat";
 import type { SidechatTextSelection } from "./sidechatCreation";
 
 export interface SidechatCreatorOptions {
   initialPrompt?: string;
   selection?: SidechatTextSelection;
+  knowledgeSource?: KnowledgeSidechatSource;
 }
 
 export type SidechatCreator = (options?: SidechatCreatorOptions) => Promise<unknown>;

@@ -135,6 +135,12 @@ describe("ServerSettingsService", () => {
                 description: "A custom context template",
                 content: "# Custom\n",
               },
+              {
+                id: "learning",
+                name: "Shadow Learning",
+                description: "Must not replace the fixed template",
+                content: "# Mutable\n",
+              },
             ],
             globalRules: "Keep the user's request verbatim.",
             promptInstructions: {
@@ -154,6 +160,7 @@ describe("ServerSettingsService", () => {
     expect(result.updated.agentGroup.globalRules).toBe("Keep the user's request verbatim.");
     expect(result.updated.agentGroup.defaultModelSelection.provider).toBe("claudeAgent");
     expect(result.updated.agentGroup.contextTemplates[0]?.content).toBe("# Custom\n");
+    expect(result.updated.agentGroup.contextTemplates).toHaveLength(1);
     expect(result.updated.agentGroup.promptInstructions.mentionedSessions).toBe(
       "Inspect these Sessions only when relevant.",
     );

@@ -1,10 +1,12 @@
 import type { AgentGroupSessionDocument, ThreadId } from "@agent-group/contracts";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { parseLearningContext } from "@agent-group/shared/learningContext";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useGroupSettingsStore } from "~/groupSettingsStore";
 import { FileIcon, Loader2Icon, RefreshCwIcon, SettingsIcon } from "~/lib/icons";
 import { readNativeApi } from "~/nativeApi";
 import ChatMarkdown from "./ChatMarkdown";
+import { AgentGroupKnowledgeView } from "./AgentGroupKnowledgeView";
 import { Button } from "./ui/button";
 
 interface AgentGroupContextPaneProps {
@@ -16,10 +18,15 @@ export default function AgentGroupContextPane(props: AgentGroupContextPaneProps)
   const [document, setDocument] = useState<AgentGroupSessionDocument | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showRaw, setShowRaw] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const observedThreadVersionRef = useRef<string | undefined>(props.threadUpdatedAt);
   const latestThreadVersionRef = useRef<string | undefined>(props.threadUpdatedAt);
   latestThreadVersionRef.current = props.threadUpdatedAt;
+  const learningContext = useMemo(
+    () => (document ? parseLearningContext(document.context) : null),
+    [document],
+  );
 
   const load = useCallback(
     async (background = false) => {
@@ -46,6 +53,7 @@ export default function AgentGroupContextPane(props: AgentGroupContextPaneProps)
 
   useEffect(() => {
     setDocument(null);
+    setShowRaw(false);
     observedThreadVersionRef.current = latestThreadVersionRef.current;
     void load();
   }, [load]);
@@ -92,12 +100,22 @@ export default function AgentGroupContextPane(props: AgentGroupContextPaneProps)
           <div className="flex items-center gap-2 text-sm font-medium">
             <FileIcon className="size-3.5 text-muted-foreground" /> Session
             <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-normal text-muted-foreground">
-              Inspector
+              {learningContext && !showRaw ? "Learning" : "Inspector"}
             </span>
           </div>
           <div className="mt-1 text-[10px] text-muted-foreground">Current Session context</div>
         </div>
         <div className="flex items-center gap-1">
+          {learningContext ? (
+            <Button
+              variant="ghost"
+              size="xs"
+              aria-pressed={showRaw}
+              onClick={() => setShowRaw((current) => !current)}
+            >
+              {showRaw ? "Cards" : "Raw"}
+            </Button>
+          ) : null}
           <Button
             variant="ghost"
             size="icon-xs"
@@ -133,7 +151,13 @@ export default function AgentGroupContextPane(props: AgentGroupContextPaneProps)
             Read-only
           </span>
         </div>
-        {document.context.trim() ? (
+        {learningContext && !showRaw ? (
+          <AgentGroupKnowledgeView
+            document={document}
+            projection={learningContext}
+            onDocumentChange={setDocument}
+          />
+        ) : document.context.trim() ? (
           // Same typography as the chat transcript/composer: the shared chat font
           // size var (Appearance setting) with the transcript's leading-relaxed.
           <ChatMarkdown

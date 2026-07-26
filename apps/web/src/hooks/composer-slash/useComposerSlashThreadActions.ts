@@ -13,6 +13,7 @@ import {
 import { useComposerDraftStore } from "../../composerDraftStore";
 import { requestComposerFocus } from "../../composerFocusRequestStore";
 import { createAssistantSelectionAttachment } from "../../lib/assistantSelections";
+import { buildKnowledgeSourceImportedMessage } from "../../lib/knowledgeSidechat";
 import { buildSidechatInitialMessage } from "../../lib/sidechatCreation";
 import {
   registerSidechatCreator,
@@ -121,6 +122,13 @@ export function useComposerSlashThreadActions(input: Input) {
         prompt: initialPrompt,
         ...(selection ? { selection } : {}),
       });
+      const createdAt = new Date().toISOString();
+      const importedMessages = [...buildThreadHandoffImportedMessages(input.activeThread)];
+      if (options?.knowledgeSource) {
+        importedMessages.push(
+          buildKnowledgeSourceImportedMessage(options.knowledgeSource, createdAt),
+        );
+      }
       await api.orchestration.dispatchCommand({
         type: "thread.fork.create",
         commandId: newCommandId(),
@@ -139,8 +147,8 @@ export function useComposerSlashThreadActions(input: Input) {
         associatedWorktreePath: input.activeThread.associatedWorktreePath ?? null,
         associatedWorktreeBranch: input.activeThread.associatedWorktreeBranch ?? null,
         associatedWorktreeRef: input.activeThread.associatedWorktreeRef ?? null,
-        importedMessages: [...buildThreadHandoffImportedMessages(input.activeThread)],
-        createdAt: new Date().toISOString(),
+        importedMessages,
+        createdAt,
       });
 
       const snapshot = await api.orchestration.getShellSnapshot().catch(() => null);

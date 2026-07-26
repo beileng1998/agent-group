@@ -43,7 +43,7 @@ export function AgentGroupContextTemplatePicker(props: {
         ) : null}
       </div>
       <p className="mt-2 text-[10px] text-muted-foreground">
-        Templates are managed in Settings → Agent Groups.
+        Learning is built in. Custom templates are managed in Settings → Agent Groups.
       </p>
     </div>
   );

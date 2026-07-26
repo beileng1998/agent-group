@@ -11,6 +11,7 @@ import {
   type AgentGroupUpdateSessionInput,
   type AgentGroupWriteContextInput,
 } from "@agent-group/contracts";
+import { resolveContextTemplateById } from "@agent-group/shared/learningContext";
 
 import { commitSessionContext, ensureContextRepository, prepareSessionContext } from "./contextGit";
 import {
@@ -43,6 +44,7 @@ import {
   writeContext,
   writeGroupState,
 } from "./state";
+import { applySessionLearningUpdate } from "./sessionLearning";
 
 export { isAgentGroupWorkspace } from "./state";
 
@@ -82,7 +84,13 @@ type UpdateAgentGroupConfigInput = AgentGroupUpdateConfigInput &
   GlobalAgentGroupSettings & { readonly workspaceRoot: string };
 type UpdateAgentGroupSessionInput = AgentGroupCoordinates &
   GlobalAgentGroupSettings &
-  Pick<AgentGroupUpdateSessionInput, "contextAwarenessEnabled" | "expectedRevision">;
+  Pick<
+    AgentGroupUpdateSessionInput,
+    | "contextAwarenessEnabled"
+    | "knowledgeAcknowledgement"
+    | "learningOrigin"
+    | "expectedRevision"
+  >;
 type GlobalAgentGroupSettings = { readonly globalSettings?: AgentGroupServerSettings };
 
 export async function getAgentGroupConfig(
@@ -173,9 +181,7 @@ export async function updateAgentGroupConfig(
     }
     if (input.contextTemplateId !== undefined) {
       const template = input.contextTemplateId
-        ? globalSettings.contextTemplates.find(
-            (candidate) => candidate.id === input.contextTemplateId,
-          )
+        ? resolveContextTemplateById(globalSettings.contextTemplates, input.contextTemplateId)
         : undefined;
       if (input.contextTemplateId && !template) {
         throw new Error("Selected context template is unavailable");
@@ -231,10 +237,17 @@ export async function updateAgentGroupSession(
       input,
       resolveContextTemplate(state, globalSettings),
     );
-    const changed = ensured.session.contextAwarenessEnabled !== input.contextAwarenessEnabled;
-    if (changed) {
+    let changed = false;
+    if (
+      input.contextAwarenessEnabled !== undefined &&
+      ensured.session.contextAwarenessEnabled !== input.contextAwarenessEnabled
+    ) {
       ensured.session.contextAwarenessEnabled = input.contextAwarenessEnabled;
-      if (!ensured.created) state.revision += 1;
+      changed = true;
+    }
+    changed = applySessionLearningUpdate(ensured.session, input) || changed;
+    if (changed && !ensured.created) {
+      state.revision += 1;
     }
     if (ensured.created || changed) await writeGroupState(layout, state);
     if (ensured.created) {

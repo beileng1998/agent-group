@@ -36,6 +36,23 @@ export interface StoredSessionState {
   activeContextTurnId: string | null;
   activeContextAwarenessHead: string | null;
   activeContextRuntimeId: string | null;
+  knowledgeAcknowledgements: StoredKnowledgeAcknowledgement[];
+  learningOrigin: StoredLearningOrigin | null;
+}
+
+export interface StoredKnowledgeAcknowledgement {
+  cardKey: string;
+  cardMarkdown: string;
+  acknowledgedAt: string;
+}
+
+export interface StoredLearningOrigin {
+  sourceSessionId: string;
+  sourceContextRevision: string;
+  cardKey: string;
+  cardTitle: string;
+  cardMarkdown: string;
+  selectedText: string | null;
 }
 
 export interface StoredGroupState {
@@ -211,6 +228,8 @@ export async function ensureSession(
       activeContextTurnId: null,
       activeContextAwarenessHead: null,
       activeContextRuntimeId: null,
+      knowledgeAcknowledgements: [],
+      learningOrigin: null,
     };
     state.sessions[input.sessionId] = session;
     state.revision += 1;
@@ -303,6 +322,11 @@ function validateStoredGroupState(input: unknown): StoredGroupState {
       value.activeContextAwarenessHead === undefined ? null : value.activeContextAwarenessHead;
     const activeContextRuntimeId =
       value.activeContextRuntimeId === undefined ? null : value.activeContextRuntimeId;
+    const knowledgeAcknowledgements = validateKnowledgeAcknowledgements(
+      value.knowledgeAcknowledgements,
+      sessionId,
+    );
+    const learningOrigin = validateLearningOrigin(value.learningOrigin, sessionId);
     if (parentSessionId !== null && typeof parentSessionId !== "string") {
       throw new Error(`Invalid parent session for '${sessionId}'`);
     }
@@ -330,6 +354,8 @@ function validateStoredGroupState(input: unknown): StoredGroupState {
       activeContextTurnId,
       activeContextAwarenessHead,
       activeContextRuntimeId,
+      knowledgeAcknowledgements,
+      learningOrigin,
     };
   }
 
@@ -344,6 +370,55 @@ function validateStoredGroupState(input: unknown): StoredGroupState {
     contextTemplateId,
     contextAwarenessDefaultEnabled,
     sessions,
+  };
+}
+
+function validateKnowledgeAcknowledgements(
+  input: unknown,
+  sessionId: string,
+): StoredKnowledgeAcknowledgement[] {
+  if (input === undefined) return [];
+  if (!Array.isArray(input) || input.length > 2_048) {
+    throw new Error(`Invalid knowledge progress for '${sessionId}'`);
+  }
+  return input.map((value) => {
+    if (
+      !isRecord(value) ||
+      typeof value.cardKey !== "string" ||
+      typeof value.cardMarkdown !== "string" ||
+      typeof value.acknowledgedAt !== "string"
+    ) {
+      throw new Error(`Invalid knowledge progress for '${sessionId}'`);
+    }
+    return {
+      cardKey: value.cardKey,
+      cardMarkdown: value.cardMarkdown,
+      acknowledgedAt: value.acknowledgedAt,
+    };
+  });
+}
+
+function validateLearningOrigin(input: unknown, sessionId: string): StoredLearningOrigin | null {
+  if (input === undefined || input === null) return null;
+  if (
+    !isRecord(input) ||
+    typeof input.sourceSessionId !== "string" ||
+    typeof input.sourceContextRevision !== "string" ||
+    typeof input.cardKey !== "string" ||
+    typeof input.cardTitle !== "string" ||
+    typeof input.cardMarkdown !== "string" ||
+    (input.selectedText !== null && typeof input.selectedText !== "string")
+  ) {
+    throw new Error(`Invalid learning origin for '${sessionId}'`);
+  }
+  assertAgentGroupId(input.sourceSessionId, "source session id");
+  return {
+    sourceSessionId: input.sourceSessionId,
+    sourceContextRevision: input.sourceContextRevision,
+    cardKey: input.cardKey,
+    cardTitle: input.cardTitle,
+    cardMarkdown: input.cardMarkdown,
+    selectedText: input.selectedText,
   };
 }
 
