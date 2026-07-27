@@ -266,6 +266,7 @@ export function buildChatTranscriptSurface(
       content: <ChatTranscriptSurface model={transcriptSurfaceModel} />,
       terminalWorkspaceActive: input.workspace.terminalWorkspaceTerminalTabActive,
     },
+    ...(input.knowledge ? { knowledge: input.knowledge } : {}),
     terminal: {
       open: terminalState.terminalOpen,
       drawerProps: input.workspace.drawerProps,

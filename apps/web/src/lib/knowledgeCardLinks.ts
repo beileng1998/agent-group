@@ -23,7 +23,7 @@ export function resolveVisibleKnowledgeLinks(input: {
   sourceSessionId: ThreadId;
   summaries: Readonly<Record<string, SidebarThreadSummary>>;
 }): VisibleKnowledgeLink[] {
-  return input.links.flatMap((link) => {
+  return input.links.flatMap((link): VisibleKnowledgeLink[] => {
     const target = input.summaries[link.targetThreadId];
     if (!target || target.sidechatSourceThreadId !== input.sourceSessionId) return [];
     if (isPromotedSidechatThread(target)) {

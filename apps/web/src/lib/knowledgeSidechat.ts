@@ -37,8 +37,8 @@ export function buildKnowledgeSourceImportedMessage(
     cardKey: source.cardKey,
     cardTitle: source.cardTitle,
     hasSelection: source.selectedText !== null,
-    selectionStartOffset: source.selectionStartOffset,
-    selectionEndOffset: source.selectionEndOffset,
+    selectionStartOffset: source.selectionStartOffset ?? null,
+    selectionEndOffset: source.selectionEndOffset ?? null,
   };
   const selection = source.selectedText
     ? [

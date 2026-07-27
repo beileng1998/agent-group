@@ -4,6 +4,7 @@ import {
   type AgentGroupKnowledgeAcknowledgement,
   type AgentGroupKnowledgeLink,
   type AgentGroupSessionDocument,
+  ThreadMarkerId,
   type ThreadId,
 } from "@agent-group/contracts";
 import type {
@@ -16,6 +17,7 @@ import {
   buildKnowledgeLinkMarkers,
   type VisibleKnowledgeLink,
 } from "~/lib/knowledgeCardLinks";
+import { cn } from "~/lib/utils";
 import { getSidechatCreator } from "~/lib/sidechatCreatorRegistry";
 import { makeLearningOrigin } from "~/lib/knowledgeSidechat";
 import {
@@ -40,6 +42,9 @@ interface AgentGroupKnowledgeViewProps {
   links: readonly VisibleKnowledgeLink[];
   onDocumentChange: (document: AgentGroupSessionDocument) => void;
   onOpenLink: (link: VisibleKnowledgeLink) => void;
+  /** Defaults to the transcript-footer chrome; embedded surfaces can restyle or hide it. */
+  className?: string;
+  showHeader?: boolean;
 }
 
 interface CardSelection {
@@ -52,26 +57,32 @@ type CardStatus = "unlearned" | "learned" | "updated";
 
 export function AgentGroupKnowledgeView(props: AgentGroupKnowledgeViewProps) {
   const knowledgeLead = visibleMarkdown(props.projection.knowledgeLead);
+  const acknowledgements = props.document.session.knowledgeAcknowledgements ?? [];
   const learnedCount = props.projection.cards.filter(
-    (card) => cardStatus(card, props.document.session.knowledgeAcknowledgements) === "learned",
+    (card) => knowledgeCardStatus(card, acknowledgements) === "learned",
   ).length;
 
   return (
     <section
       data-session-knowledge-footer="true"
-      className="mx-auto mt-8 w-full max-w-[46rem] border-t border-border/70 pt-5"
+      className={cn(
+        "w-full",
+        props.className ?? "mx-auto mt-8 max-w-[46rem] border-t border-border/70 pt-5",
+      )}
     >
-      <div className="mb-4 flex items-end justify-between gap-3">
-        <div>
-          <h2 className="text-sm font-semibold">Knowledge</h2>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">
-            The latest cards from this Session. Select a passage to explore it in Side.
-          </p>
+      {props.showHeader !== false ? (
+        <div className="mb-4 flex items-end justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold">Knowledge</h2>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              The latest cards from this Session. Select a passage to explore it in Side.
+            </p>
+          </div>
+          <span className="shrink-0 rounded-full bg-muted px-2 py-1 text-[10px] text-muted-foreground">
+            {learnedCount}/{props.projection.cards.length} learned
+          </span>
         </div>
-        <span className="shrink-0 rounded-full bg-muted px-2 py-1 text-[10px] text-muted-foreground">
-          {learnedCount}/{props.projection.cards.length} learned
-        </span>
-      </div>
+      ) : null}
 
       {knowledgeLead ? (
         <ChatMarkdown
@@ -110,7 +121,7 @@ function KnowledgeCard(props: {
   const [marking, setMarking] = useState(false);
   const [asking, setAsking] = useState(false);
   const status = useMemo(
-    () => cardStatus(props.card, props.document.session.knowledgeAcknowledgements),
+    () => knowledgeCardStatus(props.card, props.document.session.knowledgeAcknowledgements ?? []),
     [props.card, props.document.session.knowledgeAcknowledgements],
   );
   const markerTargets = useMemo(
@@ -162,7 +173,7 @@ function KnowledgeCard(props: {
     if (!(event.target instanceof Element)) return;
     const marker = event.target.closest<HTMLElement>("[data-thread-marker-id]");
     const markerId = marker?.dataset.threadMarkerId;
-    const target = markerId ? markerTargetById.get(markerId) : undefined;
+    const target = markerId ? markerTargetById.get(ThreadMarkerId.makeUnsafe(markerId)) : undefined;
     if (!target) return;
     event.preventDefault();
     props.onOpenLink(target);
@@ -371,7 +382,7 @@ async function appendKnowledgeLink(
   }
 }
 
-function cardStatus(
+export function knowledgeCardStatus(
   card: LearningContextCard,
   acknowledgements: readonly AgentGroupKnowledgeAcknowledgement[],
 ): CardStatus {

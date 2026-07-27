@@ -9,6 +9,7 @@ import { cn } from "~/lib/utils";
 import PlanSidebar from "../PlanSidebar";
 import TerminalWorkspaceTabs from "../TerminalWorkspaceTabs";
 import ThreadTerminalDrawer from "../ThreadTerminalDrawer";
+import { AgentGroupTerminalKnowledgePanel } from "../AgentGroupTerminalKnowledgePanel";
 import { Loader2Icon, TerminalIcon } from "../../lib/icons";
 import { useManagedAgentTerminal } from "../agent-terminal/ManagedAgentTerminalContext";
 import { canSwitchManagedTerminalToChat } from "../agent-terminal/managedTerminalPresentation";
@@ -39,6 +40,7 @@ export interface ChatWorkspaceSurfaceModel {
     readonly content: ReactNode;
     readonly terminalWorkspaceActive: boolean;
   };
+  readonly knowledge?: ComponentProps<typeof AgentGroupTerminalKnowledgePanel> | undefined;
   readonly terminal: {
     readonly open: boolean;
     readonly drawerProps: TerminalDrawerBaseProps;
@@ -62,7 +64,7 @@ export interface ChatWorkspaceSurfaceModel {
 }
 
 export function ChatWorkspaceSurface({ model }: { model: ChatWorkspaceSurfaceModel }) {
-  const { tabs, chat, terminal, environment, plan } = model;
+  const { tabs, chat, knowledge, terminal, environment, plan } = model;
   const terminalThreadId = terminal.drawerProps.threadId;
   const managedAgentTerminal = useManagedAgentTerminal();
   const managedTerminalActive = managedAgentTerminal?.active === true;
@@ -144,6 +146,9 @@ export function ChatWorkspaceSurface({ model }: { model: ChatWorkspaceSurfaceMod
                 managedTerminalVisible ? "z-[2]" : "pointer-events-none invisible z-0",
               )}
             >
+              {managedTerminalVisible && knowledge ? (
+                <AgentGroupTerminalKnowledgePanel {...knowledge} />
+              ) : null}
               <Suspense fallback={<PanelStateMessage>Loading Terminal...</PanelStateMessage>}>
                 <ManagedAgentTerminalSurface />
               </Suspense>
