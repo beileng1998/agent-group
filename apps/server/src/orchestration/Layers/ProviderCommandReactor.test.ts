@@ -44,6 +44,7 @@ import {
 import { GitCore, type GitCoreShape } from "../../git/Services/GitCore.ts";
 import { TextGeneration, type TextGenerationShape } from "../../git/Services/TextGeneration.ts";
 import { OrchestrationEngineLive } from "./OrchestrationEngine.ts";
+import { FirstTurnThreadTitleLive } from "./FirstTurnThreadTitle.ts";
 import { OrchestrationProjectionPipelineLive } from "./ProjectionPipeline.ts";
 import { OrchestrationProjectionSnapshotQueryLive } from "./ProjectionSnapshotQuery.ts";
 import { ProviderCommandReactorLive } from "./ProviderCommandReactor.ts";
@@ -492,9 +493,23 @@ describe("ProviderCommandReactor", () => {
       Layer.provide(OrchestrationEventStoreLive),
       Layer.provide(OrchestrationCommandReceiptRepositoryLive),
     );
+    const textGenerationLayer = Layer.succeed(TextGeneration, {
+      generateBranchName,
+      generateThreadTitle,
+    } as unknown as TextGenerationShape);
+    const serverSettingsLayer = ServerSettingsService.layerTest(
+      input?.agentGroupSettings ? { agentGroup: input.agentGroupSettings } : {},
+    );
+    const firstTurnThreadTitleLayer = FirstTurnThreadTitleLive.pipe(
+      Layer.provideMerge(orchestrationLayer),
+      Layer.provideMerge(OrchestrationProjectionSnapshotQueryLive),
+      Layer.provideMerge(textGenerationLayer),
+      Layer.provideMerge(serverSettingsLayer),
+    );
     const layer = ProviderCommandReactorLive.pipe(
       Layer.provideMerge(orchestrationLayer),
       Layer.provideMerge(OrchestrationProjectionSnapshotQueryLive),
+      Layer.provideMerge(firstTurnThreadTitleLayer),
       Layer.provideMerge(Layer.succeed(ProviderService, service)),
       Layer.provideMerge(Layer.succeed(ExecutionAdapterAuthority, executionAdapterAuthority)),
       Layer.provideMerge(Layer.succeed(TerminalAgentService, terminalAgentService)),
@@ -503,17 +518,8 @@ describe("ProviderCommandReactor", () => {
       Layer.provideMerge(
         Layer.succeed(GitCore, { renameBranch, publishBranch } as unknown as GitCoreShape),
       ),
-      Layer.provideMerge(
-        Layer.succeed(TextGeneration, {
-          generateBranchName,
-          generateThreadTitle,
-        } as unknown as TextGenerationShape),
-      ),
-      Layer.provideMerge(
-        ServerSettingsService.layerTest(
-          input?.agentGroupSettings ? { agentGroup: input.agentGroupSettings } : {},
-        ),
-      ),
+      Layer.provideMerge(textGenerationLayer),
+      Layer.provideMerge(serverSettingsLayer),
       Layer.provideMerge(ServerConfig.layerTest(process.cwd(), baseDir)),
       Layer.provideMerge(NodeServices.layer),
       Layer.provideMerge(SqlitePersistenceMemory),
@@ -2887,50 +2893,53 @@ describe("ProviderCommandReactor", () => {
     });
   });
 
-  it("renames a generic first-turn thread title using text generation", async () => {
-    const harness = await createHarness();
-    const now = new Date().toISOString();
-    harness.generateThreadTitle.mockImplementation(() =>
-      Effect.succeed({
-        title: "Polish loading states",
-      }),
-    );
-
-    await Effect.runPromise(
-      harness.engine.dispatch({
-        type: "thread.meta.update",
-        commandId: CommandId.makeUnsafe("cmd-thread-title-generic"),
-        threadId: ThreadId.makeUnsafe("thread-1"),
-        title: "New thread",
-      }),
-    );
-
-    await Effect.runPromise(
-      harness.engine.dispatch({
-        type: "thread.turn.start",
-        commandId: CommandId.makeUnsafe("cmd-turn-start-title"),
-        threadId: ThreadId.makeUnsafe("thread-1"),
-        message: {
-          messageId: asMessageId("user-message-title-1"),
-          role: "user",
-          text: "Polish the loading states across the sidebar and composer",
-          attachments: [],
-        },
-        interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
-        runtimeMode: "approval-required",
-        createdAt: now,
-      }),
-    );
-
-    await waitFor(() => harness.generateThreadTitle.mock.calls.length === 1);
-    await waitFor(async () => {
-      const readModel = await Effect.runPromise(harness.engine.getReadModel());
-      return (
-        readModel.threads.find((entry) => entry.id === ThreadId.makeUnsafe("thread-1"))?.title ===
-        "Polish loading states"
+  it.each(["New thread", "New terminal"])(
+    "renames a generic first-turn thread title from %s using text generation",
+    async (initialTitle) => {
+      const harness = await createHarness();
+      const now = new Date().toISOString();
+      harness.generateThreadTitle.mockImplementation(() =>
+        Effect.succeed({
+          title: "Polish loading states",
+        }),
       );
-    });
-  });
+
+      await Effect.runPromise(
+        harness.engine.dispatch({
+          type: "thread.meta.update",
+          commandId: CommandId.makeUnsafe("cmd-thread-title-generic"),
+          threadId: ThreadId.makeUnsafe("thread-1"),
+          title: initialTitle,
+        }),
+      );
+
+      await Effect.runPromise(
+        harness.engine.dispatch({
+          type: "thread.turn.start",
+          commandId: CommandId.makeUnsafe("cmd-turn-start-title"),
+          threadId: ThreadId.makeUnsafe("thread-1"),
+          message: {
+            messageId: asMessageId("user-message-title-1"),
+            role: "user",
+            text: "Polish the loading states across the sidebar and composer",
+            attachments: [],
+          },
+          interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
+          runtimeMode: "approval-required",
+          createdAt: now,
+        }),
+      );
+
+      await waitFor(() => harness.generateThreadTitle.mock.calls.length === 1);
+      await waitFor(async () => {
+        const readModel = await Effect.runPromise(harness.engine.getReadModel());
+        return (
+          readModel.threads.find((entry) => entry.id === ThreadId.makeUnsafe("thread-1"))?.title ===
+          "Polish loading states"
+        );
+      });
+    },
+  );
 
   it("renames a temporary sidechat from its first question and preserves the prefix", async () => {
     const harness = await createHarness();

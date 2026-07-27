@@ -9,6 +9,7 @@ import { Effect } from "effect";
 
 import type { OrchestrationEngineShape } from "../orchestration/Services/OrchestrationEngine";
 import type { ExecutionAdapterCoordinatorShape } from "../orchestration/Services/ExecutionAdapterCoordinator";
+import type { FirstTurnTitleInput } from "../orchestration/Services/FirstTurnThreadTitle";
 import type { ProviderRuntimeIngestionShape } from "../orchestration/Services/ProviderRuntimeIngestion";
 import type { ActiveTerminalTurn, TerminalAgentRuntimeRecord } from "./terminalAgentRuntimeTypes";
 import type { TerminalAgentProviderResumeCursor } from "./terminalAgentProtocol";
@@ -19,6 +20,9 @@ export interface RuntimeEventDependencies {
   readonly coordinator: ExecutionAdapterCoordinatorShape;
   readonly engine: OrchestrationEngineShape;
   readonly ingestion: ProviderRuntimeIngestionShape;
+  readonly maybeGenerateAndRenameThreadTitleForFirstTurn: (
+    input: FirstTurnTitleInput,
+  ) => Promise<void>;
   readonly adoptProviderResumeCursor: (
     cursor: TerminalAgentProviderResumeCursor,
     providerSessionId: string,
@@ -89,6 +93,9 @@ export async function observeTerminalMessage(
   role: "user" | "assistant",
   text: string,
 ): Promise<void> {
+  const messageId = MessageId.makeUnsafe(
+    terminalEventKey(dependencies.runtime, id, `${role}:message`),
+  );
   await Effect.runPromise(
     dependencies.engine.dispatch({
       type: "thread.terminal-message.observe",
@@ -96,9 +103,7 @@ export async function observeTerminalMessage(
         terminalEventKey(dependencies.runtime, id, `${role}:command`),
       ),
       threadId: dependencies.runtime.threadId,
-      messageId: MessageId.makeUnsafe(
-        terminalEventKey(dependencies.runtime, id, `${role}:message`),
-      ),
+      messageId,
       role,
       text,
       turnId: turn.turnId,
@@ -109,6 +114,15 @@ export async function observeTerminalMessage(
       createdAt: new Date().toISOString(),
     }),
   );
+  if (role === "user") {
+    void dependencies
+      .maybeGenerateAndRenameThreadTitleForFirstTurn({
+        threadId: dependencies.runtime.threadId,
+        messageId,
+        messageText: text,
+      })
+      .catch(() => undefined);
+  }
 }
 
 export async function publishTerminalRuntimeEvent(

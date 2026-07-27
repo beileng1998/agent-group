@@ -16,6 +16,7 @@ import {
   terminalThemeFromApp,
 } from "../terminalRuntimeAppearance";
 import type { TerminalRuntimeConfig, TerminalRuntimeEntry } from "../terminalRuntimeTypes";
+import { installTerminalInputCompatibility } from "./terminalInputCompatibility";
 import {
   type AgentGroupTerminalOptions,
   TERMINAL_CURSOR_STYLE,
@@ -120,6 +121,7 @@ export function createRuntimeEntry(config: TerminalRuntimeConfig): TerminalRunti
   }
 
   scheduleTerminalFontSettleRefit(entry);
+  entry.persistentDisposables.push(installTerminalInputCompatibility(terminal, wrapper));
   entry.querySuppressionDispose = suppressQueryResponses(terminal);
   installTerminalRuntimeEventBridges(entry);
 

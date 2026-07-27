@@ -139,6 +139,7 @@ function makeHarness(
     coordinator,
     engine,
     ingestion,
+    maybeGenerateAndRenameThreadTitleForFirstTurn: async () => {},
     adoptProviderResumeCursor: async () => {},
   });
   const invoke = (input: unknown, eventId: string, mode?: string) =>

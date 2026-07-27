@@ -5,6 +5,7 @@ import { Effect, Layer, Result, Stream } from "effect";
 import { ChildProcessSpawner } from "effect/unstable/process";
 
 import { ServerConfig } from "../../config";
+import { FirstTurnThreadTitle } from "../../orchestration/Services/FirstTurnThreadTitle";
 import { OrchestrationEngineService } from "../../orchestration/Services/OrchestrationEngine";
 import { ExecutionAdapterAuthority } from "../../orchestration/Services/ExecutionAdapterAuthority";
 import { ExecutionAdapterCoordinator } from "../../orchestration/Services/ExecutionAdapterCoordinator";
@@ -65,6 +66,7 @@ const make = Effect.gen(function* () {
   const ingestion = yield* ProviderRuntimeIngestionService;
   const providerService = yield* ProviderService;
   const bridge = yield* TerminalAgentBridge;
+  const firstTurnThreadTitle = yield* FirstTurnThreadTitle;
   const childProcessSpawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   const records = new Map<ThreadId, TerminalAgentRuntimeRecord>();
   const persistedRecovery = makeTerminalAgentPersistedRecovery({
@@ -108,6 +110,8 @@ const make = Effect.gen(function* () {
     coordinator,
     engine,
     ingestion,
+    maybeGenerateAndRenameThreadTitleForFirstTurn: (input) =>
+      Effect.runPromise(firstTurnThreadTitle.maybeGenerateAndRename(input)),
     adoptProviderResumeCursor: (cursor, providerSessionId) =>
       adoptProviderResumeCursor(runtime, cursor, providerSessionId),
   });

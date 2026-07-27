@@ -17,6 +17,7 @@ import {
   terminalThemeFromApp,
 } from "../terminal/terminalRuntimeAppearance";
 import type { AgentGroupTerminalOptions } from "../terminal/runtime/terminalRuntimeContract";
+import { installTerminalInputCompatibility } from "../terminal/runtime/terminalInputCompatibility";
 import { getTerminalParkingContainer } from "../terminal/runtime/terminalRuntimePresentation";
 import { observeManagedAgentTerminalAppearance } from "./managedAgentTerminalAppearance";
 import {
@@ -42,6 +43,7 @@ export class ManagedAgentTerminalRuntime {
   private readonly terminal: Terminal;
   private readonly fitAddon = new FitAddon();
   private readonly transport: ManagedAgentTerminalTransport;
+  private readonly disposeInputCompatibility: () => void;
   private container: HTMLDivElement | null = null;
   private callbacks: ManagedAgentTerminalRuntimeCallbacks | null = null;
   private resizeObserver: ResizeObserver | null = null;
@@ -72,6 +74,7 @@ export class ManagedAgentTerminalRuntime {
     this.terminal.loadAddon(new Unicode11Addon());
     this.terminal.unicode.activeVersion = "11";
     this.terminal.open(this.wrapper);
+    this.disposeInputCompatibility = installTerminalInputCompatibility(this.terminal, this.wrapper);
     this.transport = new ManagedAgentTerminalTransport(
       threadId,
       this.terminal,
@@ -134,6 +137,7 @@ export class ManagedAgentTerminalRuntime {
     this.disposed = true;
     this.detach();
     this.transport.dispose();
+    this.disposeInputCompatibility();
     this.appearanceObserver?.disconnect();
     this.appearanceObserver = null;
     this.terminal.dispose();

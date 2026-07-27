@@ -77,6 +77,7 @@ describe("managed terminal runtime events", () => {
       "Agent Group manages this Turn. Follow the user request.",
     );
     expect(harness.commands).toHaveLength(0);
+    expect(harness.firstTurnTitles).toHaveLength(0);
     expect(harness.runtime.activeTurn?.accepted).toBe(false);
 
     await expect(
@@ -92,6 +93,13 @@ describe("managed terminal runtime events", () => {
       text: "Keep this user text exact.",
       terminalRuntimeFence: { revision: 3, generation: "generation-1" },
     });
+    expect(harness.firstTurnTitles).toEqual([
+      {
+        threadId: harness.runtime.threadId,
+        messageId: "terminal:runtime-1:prompt-1:user:message",
+        messageText: "Keep this user text exact.",
+      },
+    ]);
     expect(harness.events.map((event) => event.type)).toEqual(["session.started", "turn.started"]);
     expect(harness.getState()).toMatchObject({
       status: "running",

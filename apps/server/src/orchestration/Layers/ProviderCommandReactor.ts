@@ -21,6 +21,7 @@ import { resolveTextGenerationInputForSelection } from "../../git/textGeneration
 import { ProviderService } from "../../provider/Services/ProviderService.ts";
 import { ServerSettingsService } from "../../serverSettings.ts";
 import { TerminalAgentService } from "../../terminalAgent/Services/TerminalAgentService.ts";
+import { FirstTurnThreadTitle } from "../Services/FirstTurnThreadTitle.ts";
 import { OrchestrationEngineService } from "../Services/OrchestrationEngine.ts";
 import { ProjectionSnapshotQuery } from "../Services/ProjectionSnapshotQuery.ts";
 import {
@@ -78,6 +79,7 @@ const make = Effect.gen(function* () {
   const serverSettings = yield* ServerSettingsService;
   const serverConfig = yield* ServerConfig;
   const terminalAgentService = yield* TerminalAgentService;
+  const firstTurnThreadTitle = yield* FirstTurnThreadTitle;
   const authority = yield* makeProviderReactorAuthority;
 
   const selectionState = new ProviderSessionSelectionState();
@@ -163,10 +165,7 @@ const make = Effect.gen(function* () {
     },
   });
 
-  const {
-    maybeGenerateAndRenameThreadTitleForFirstTurn,
-    maybeGenerateAndRenameWorktreeBranchForFirstTurn,
-  } = makeProviderFirstTurnMetadata({
+  const { maybeGenerateAndRenameWorktreeBranchForFirstTurn } = makeProviderFirstTurnMetadata({
     orchestrationEngine,
     git,
     textGeneration,
@@ -387,7 +386,8 @@ const make = Effect.gen(function* () {
       setThreadSession,
       setThreadSessionError,
       maybeGenerateAndRenameWorktreeBranchForFirstTurn,
-      maybeGenerateAndRenameThreadTitleForFirstTurn,
+      maybeGenerateAndRenameThreadTitleForFirstTurn:
+        firstTurnThreadTitle.maybeGenerateAndRename,
       dispatchTurnForThread,
       interruptProviderTurn,
       drainQueuedTurnsForThread,
