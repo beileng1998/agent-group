@@ -9,7 +9,7 @@ import { cn } from "~/lib/utils";
 import PlanSidebar from "../PlanSidebar";
 import TerminalWorkspaceTabs from "../TerminalWorkspaceTabs";
 import ThreadTerminalDrawer from "../ThreadTerminalDrawer";
-import { AgentGroupTerminalKnowledgePanel } from "../AgentGroupTerminalKnowledgePanel";
+import { AgentGroupKnowledgePanel } from "../AgentGroupKnowledgePanel";
 import { Loader2Icon, TerminalIcon } from "../../lib/icons";
 import { useManagedAgentTerminal } from "../agent-terminal/ManagedAgentTerminalContext";
 import { canSwitchManagedTerminalToChat } from "../agent-terminal/managedTerminalPresentation";
@@ -40,7 +40,7 @@ export interface ChatWorkspaceSurfaceModel {
     readonly content: ReactNode;
     readonly terminalWorkspaceActive: boolean;
   };
-  readonly knowledge?: ComponentProps<typeof AgentGroupTerminalKnowledgePanel> | undefined;
+  readonly knowledge?: ComponentProps<typeof AgentGroupKnowledgePanel> | undefined;
   readonly terminal: {
     readonly open: boolean;
     readonly drawerProps: TerminalDrawerBaseProps;
@@ -147,7 +147,7 @@ export function ChatWorkspaceSurface({ model }: { model: ChatWorkspaceSurfaceMod
               )}
             >
               {managedTerminalVisible && knowledge ? (
-                <AgentGroupTerminalKnowledgePanel {...knowledge} />
+                <AgentGroupKnowledgePanel {...knowledge} />
               ) : null}
               <Suspense fallback={<PanelStateMessage>Loading Terminal...</PanelStateMessage>}>
                 <ManagedAgentTerminalSurface />

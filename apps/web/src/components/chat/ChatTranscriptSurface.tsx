@@ -5,6 +5,7 @@
 import type { ComponentProps, ReactNode } from "react";
 
 import BranchToolbar from "../BranchToolbar";
+import { AgentGroupKnowledgePanel } from "../AgentGroupKnowledgePanel";
 import { PullRequestThreadDialog } from "../PullRequestThreadDialog";
 import { CenteredEmptyLanding } from "./CenteredEmptyLanding";
 import { ComposerLeadingControls, type ComposerLeadingControlsModel } from "./ChatComposerSection";
@@ -30,13 +31,14 @@ export interface ChatTranscriptSurfaceModel {
   visibility: ChatTranscriptSurfaceVisibility;
   landing: Omit<ComponentProps<typeof CenteredEmptyLanding>, "children">;
   transcript: Omit<ComponentProps<typeof ChatTranscriptPane>, "contentInsetRightPx">;
+  knowledge?: ComponentProps<typeof AgentGroupKnowledgePanel> | undefined;
   composer: ReactNode;
   accessory: ChatTranscriptSurfaceAccessoryModel;
   pullRequest: ComponentProps<typeof PullRequestThreadDialog> | null;
 }
 
 export function ChatTranscriptSurface({ model }: { model: ChatTranscriptSurfaceModel }) {
-  const { visibility, landing, transcript, composer, accessory, pullRequest } = model;
+  const { visibility, landing, transcript, knowledge, composer, accessory, pullRequest } = model;
   const relocatedLeadingControls = accessory.relocateLeadingControls ? (
     <ComposerLeadingControls model={accessory.leadingControls} iconOnly />
   ) : null;
@@ -60,6 +62,7 @@ export function ChatTranscriptSurface({ model }: { model: ChatTranscriptSurfaceM
 
       {visibility.shouldRenderContent && !visibility.centeredEmptyLanding ? (
         <div className="flex min-h-0 flex-1 flex-col">
+          {knowledge ? <AgentGroupKnowledgePanel {...knowledge} /> : null}
           <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
             <ChatTranscriptPane
               {...transcript}

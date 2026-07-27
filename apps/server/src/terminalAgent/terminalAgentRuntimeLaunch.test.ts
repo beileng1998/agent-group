@@ -122,6 +122,7 @@ describe("launchTerminalRuntime compensation", () => {
           ingestion: {} as never,
           childProcessSpawner: {} as never,
           getSettings: async () => DEFAULT_SERVER_SETTINGS,
+          maybeGenerateAndRenameThreadTitleForFirstTurn: async () => {},
           listProviderSessions: async () => [],
           readPersistedProviderResumeCursor: async () => null,
           revalidateLaunchContext: async () => ({
@@ -258,6 +259,7 @@ describe("launchTerminalRuntime compensation", () => {
           ingestion: {} as never,
           childProcessSpawner: {} as never,
           getSettings: async () => settings,
+          maybeGenerateAndRenameThreadTitleForFirstTurn: async () => {},
           listProviderSessions: async () => [],
           readPersistedProviderResumeCursor: async () => null,
           revalidateLaunchContext: async () => ({
@@ -407,6 +409,7 @@ describe("launchTerminalRuntime compensation", () => {
           ingestion: {} as never,
           childProcessSpawner: {} as never,
           getSettings: async () => settings,
+          maybeGenerateAndRenameThreadTitleForFirstTurn: async () => {},
           listProviderSessions: async () => [],
           readPersistedProviderResumeCursor: async () => null,
           revalidateLaunchContext: async () => ({ target, settings }),

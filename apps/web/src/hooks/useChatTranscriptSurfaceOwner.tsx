@@ -2,9 +2,10 @@
 // Purpose: Assemble transcript and workspace presentation models from grouped chat owners.
 // Layer: Web chat presentation owner
 
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 
 import { AGENT_GROUP_CAPABILITIES } from "../agentGroupCapabilities";
+import type { AgentGroupKnowledgePanel } from "../components/AgentGroupKnowledgePanel";
 import {
   type ChatTranscriptSurfaceModel,
   ChatTranscriptSurface,
@@ -94,7 +95,7 @@ export interface ChatTranscriptSurfaceOwnerInput {
     readonly workspaceRoot: string | null | undefined;
   };
   readonly timeline: TranscriptTimelineInput;
-  readonly knowledge?: NonNullable<TranscriptModel["knowledge"]>;
+  readonly knowledge?: ComponentProps<typeof AgentGroupKnowledgePanel>;
   readonly interactions: TranscriptInteractionInput;
   readonly composer: {
     readonly content: ReactNode;
@@ -155,6 +156,7 @@ export function buildChatTranscriptSurface(
       isHomeLanding: input.thread.isHomeLanding,
       projectDisplayName: input.thread.activeProjectDisplayName,
     },
+    ...(input.knowledge ? { knowledge: input.knowledge } : {}),
     transcript: {
       activeThreadId: input.thread.activeThreadId,
       ...(input.thread.activeTurnId !== undefined
@@ -220,7 +222,6 @@ export function buildChatTranscriptSurface(
       chatFontSizePx: input.timeline.chatFontSizePx,
       timestampFormat: input.timeline.timestampFormat,
       workspaceRoot: input.thread.workspaceRoot ?? undefined,
-      ...(input.knowledge ? { knowledge: input.knowledge } : {}),
       ...(input.thread.isEditorRail ? { emptyStateContent: <span aria-hidden="true" /> } : {}),
       emptyStateProjectName: input.thread.activeProjectDisplayName,
       terminalWorkspaceTerminalTabActive: input.workspace.terminalWorkspaceTerminalTabActive,

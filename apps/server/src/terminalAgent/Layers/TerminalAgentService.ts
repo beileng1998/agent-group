@@ -90,6 +90,8 @@ const make = Effect.gen(function* () {
     ingestion,
     childProcessSpawner,
     getSettings,
+    maybeGenerateAndRenameThreadTitleForFirstTurn: (input) =>
+      Effect.runPromise(firstTurnThreadTitle.maybeGenerateAndRename(input)),
     listProviderSessions: () => Effect.runPromise(providerService.listSessions()),
     readPersistedProviderResumeCursor: (threadId, provider) =>
       readPersistedProviderResumeCursor(providerService, threadId, provider),

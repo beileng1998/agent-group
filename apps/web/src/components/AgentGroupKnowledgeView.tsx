@@ -18,7 +18,7 @@ import {
   type VisibleKnowledgeLink,
 } from "~/lib/knowledgeCardLinks";
 import { cn } from "~/lib/utils";
-import { getSidechatCreator } from "~/lib/sidechatCreatorRegistry";
+import { getKnowledgeChildCreator } from "~/lib/knowledgeChildCreatorRegistry";
 import { makeLearningOrigin } from "~/lib/knowledgeSidechat";
 import {
   CheckIcon,
@@ -64,7 +64,7 @@ export function AgentGroupKnowledgeView(props: AgentGroupKnowledgeViewProps) {
 
   return (
     <section
-      data-session-knowledge-footer="true"
+      data-session-knowledge-panel="true"
       className={cn(
         "w-full",
         props.className ?? "mx-auto mt-8 max-w-[46rem] border-t border-border/70 pt-5",
@@ -208,8 +208,8 @@ function KnowledgeCard(props: {
 
   const askInSide = async () => {
     if (asking) return;
-    const createSidechat = getSidechatCreator(props.document.session.sessionId);
-    if (!createSidechat) {
+    const createKnowledgeChild = getKnowledgeChildCreator(props.document.session.sessionId);
+    if (!createKnowledgeChild) {
       toastManager.add({
         type: "warning",
         title: "Side is unavailable",
@@ -230,8 +230,8 @@ function KnowledgeCard(props: {
     let targetThreadId: ThreadId | null = null;
     setAsking(true);
     try {
-      await createSidechat({
-        knowledgeSource: source,
+      await createKnowledgeChild({
+        origin: source,
         onCreated: (threadId) => {
           targetThreadId = threadId;
         },

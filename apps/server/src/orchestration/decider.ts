@@ -28,6 +28,7 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
     case "thread.handoff.create":
     case "thread.fork.create":
     case "thread.sidechat.promote":
+    case "thread.knowledge-child.create":
       return yield* decideThreadCreationCommand({ command, readModel });
 
     case "thread.delete":

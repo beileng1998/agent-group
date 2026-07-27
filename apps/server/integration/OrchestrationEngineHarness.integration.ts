@@ -51,6 +51,10 @@ import { OrchestrationProjectionSnapshotQueryLive } from "../src/orchestration/L
 import { RuntimeReceiptBusLive } from "../src/orchestration/Layers/RuntimeReceiptBus.ts";
 import { OrchestrationReactorLive } from "../src/orchestration/Layers/OrchestrationReactor.ts";
 import { ProviderCommandReactorLive } from "../src/orchestration/Layers/ProviderCommandReactor.ts";
+import {
+  FirstTurnThreadTitle,
+  type FirstTurnThreadTitleShape,
+} from "../src/orchestration/Services/FirstTurnThreadTitle.ts";
 import { ProviderRuntimeIngestionLive } from "../src/orchestration/Layers/ProviderRuntimeIngestion.ts";
 import { ExecutionAdapterAuthorityMemoryLive } from "../src/orchestration/Layers/ExecutionAdapterAuthorityMemoryLive.ts";
 import {
@@ -349,7 +353,11 @@ export const makeOrchestrationIntegrationHarness = (
       teardownThread: unavailableManagedTerminal,
       recover: Effect.void,
     } satisfies TerminalAgentServiceShape);
+    const firstTurnTitleLayer = Layer.succeed(FirstTurnThreadTitle, {
+      maybeGenerateAndRename: () => Effect.void,
+    } satisfies FirstTurnThreadTitleShape);
     const providerCommandReactorLayer = ProviderCommandReactorLive.pipe(
+      Layer.provideMerge(firstTurnTitleLayer),
       Layer.provideMerge(runtimeServicesLayer),
       Layer.provideMerge(studioOutputReactorLayer),
       Layer.provideMerge(terminalAgentServiceLayer),

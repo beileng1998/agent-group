@@ -82,7 +82,8 @@ export function installTerminalInputCompatibility(
       handledBeforeInput = false;
     });
   };
-  const onInput = (event: InputEvent) => {
+  const onInput = (event: Event) => {
+    const inputEvent = event as InputEvent;
     const nextValue = textarea.value;
     const valueBeforeInput = previousValue;
     previousValue = nextValue;
@@ -90,13 +91,14 @@ export function installTerminalInputCompatibility(
       handledBeforeInput ||
       composing ||
       compositionSettling ||
-      event.isComposing ||
-      !shouldBridgeInput(event)
+      inputEvent.isComposing ||
+      !shouldBridgeInput(inputEvent)
     ) {
       return;
     }
 
-    const insertedText = event.data || insertedTextFromValueChange(valueBeforeInput, nextValue);
+    const insertedText =
+      inputEvent.data || insertedTextFromValueChange(valueBeforeInput, nextValue);
     if (insertedText) terminal.input(insertedText, true);
   };
 

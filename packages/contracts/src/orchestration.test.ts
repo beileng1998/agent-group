@@ -968,3 +968,27 @@ it.effect("accepts the client command that promotes a sidechat", () =>
     assert.strictEqual(command.threadId, "thread-sidechat");
   }),
 );
+
+it.effect("accepts the client command that creates a knowledge child session", () =>
+  Effect.gen(function* () {
+    const command = yield* decodeClientOrchestrationCommand({
+      type: "thread.knowledge-child.create",
+      commandId: "cmd-knowledge-child",
+      threadId: "thread-knowledge-child",
+      sourceThreadId: "thread-main",
+      projectId: "project-knowledge",
+      title: "Async rendering",
+      modelSelection: { provider: "codex", model: "gpt-5-codex" },
+      runtimeMode: "full-access",
+      branch: null,
+      worktreePath: null,
+      importedMessages: [],
+      createdAt: "2026-07-27T00:00:00.000Z",
+    });
+
+    assert.strictEqual(command.type, "thread.knowledge-child.create");
+    assert.strictEqual(command.sourceThreadId, "thread-main");
+    assert.strictEqual(command.interactionMode, "default");
+    assert.strictEqual(command.envMode, "local");
+  }),
+);

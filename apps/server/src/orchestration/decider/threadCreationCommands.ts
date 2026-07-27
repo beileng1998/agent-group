@@ -26,7 +26,8 @@ type ThreadCreationCommand = Extract<
       | "thread.create"
       | "thread.handoff.create"
       | "thread.fork.create"
-      | "thread.sidechat.promote";
+      | "thread.sidechat.promote"
+      | "thread.knowledge-child.create";
   }
 >;
 
@@ -273,6 +274,106 @@ export const decideThreadCreationCommand = Effect.fn("decideThreadCreationComman
           subagentRole: null,
           forkSourceThreadId: command.sourceThreadId,
           sidechatSourceThreadId: command.sidechatSourceThreadId,
+          handoff: null,
+          createdAt: command.createdAt,
+          updatedAt: command.createdAt,
+        },
+      };
+
+      const importedMessageEvents: ReadonlyArray<Omit<OrchestrationEvent, "sequence">> =
+        command.importedMessages.map((message) => ({
+          ...withEventBase({
+            aggregateKind: "thread",
+            aggregateId: command.threadId,
+            occurredAt: command.createdAt,
+            commandId: command.commandId,
+          }),
+          type: "thread.message-sent",
+          payload: {
+            threadId: command.threadId,
+            messageId: message.messageId,
+            role: message.role,
+            text: message.text,
+            ...(message.attachments !== undefined ? { attachments: message.attachments } : {}),
+            turnId: null,
+            streaming: false,
+            source: "fork-import",
+            createdAt: message.createdAt,
+            updatedAt: message.updatedAt,
+          },
+        }));
+
+      return [createdEvent, ...importedMessageEvents];
+    }
+
+    case "thread.knowledge-child.create": {
+      yield* requireProject({
+        readModel,
+        command,
+        projectId: command.projectId,
+      });
+      yield* requireThreadAbsent({
+        readModel,
+        command,
+        threadId: command.threadId,
+      });
+      const sourceThread = yield* requireThread({
+        readModel,
+        command,
+        threadId: command.sourceThreadId,
+      });
+      if (sourceThread.projectId !== command.projectId) {
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: `Source thread '${command.sourceThreadId}' belongs to a different project.`,
+        });
+      }
+      if (!isAgentGroupSessionThread(sourceThread)) {
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: `Source thread '${command.sourceThreadId}' is not an Agent Group session.`,
+        });
+      }
+
+      const createdEvent: Omit<OrchestrationEvent, "sequence"> = {
+        ...withEventBase({
+          aggregateKind: "thread",
+          aggregateId: command.threadId,
+          occurredAt: command.createdAt,
+          commandId: command.commandId,
+        }),
+        type: "thread.created",
+        payload: {
+          threadId: command.threadId,
+          projectId: command.projectId,
+          title: command.title,
+          modelSelection: command.modelSelection,
+          runtimeMode: command.runtimeMode,
+          interactionMode: command.interactionMode,
+          envMode: command.envMode,
+          branch: command.branch,
+          worktreePath: command.worktreePath,
+          ...deriveCommandAssociatedWorktreeMetadata({
+            branch: command.branch,
+            worktreePath: command.worktreePath,
+            ...(command.associatedWorktreePath !== undefined
+              ? { associatedWorktreePath: command.associatedWorktreePath }
+              : {}),
+            ...(command.associatedWorktreeBranch !== undefined
+              ? { associatedWorktreeBranch: command.associatedWorktreeBranch }
+              : {}),
+            ...(command.associatedWorktreeRef !== undefined
+              ? { associatedWorktreeRef: command.associatedWorktreeRef }
+              : {}),
+          }),
+          createBranchFlowCompleted: command.createBranchFlowCompleted,
+          isPinned: false,
+          parentThreadId: command.sourceThreadId,
+          subagentAgentId: null,
+          subagentNickname: null,
+          subagentRole: null,
+          forkSourceThreadId: null,
+          sidechatSourceThreadId: command.sourceThreadId,
           handoff: null,
           createdAt: command.createdAt,
           updatedAt: command.createdAt,
