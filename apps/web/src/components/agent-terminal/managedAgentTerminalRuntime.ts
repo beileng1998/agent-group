@@ -19,6 +19,10 @@ import {
 import type { AgentGroupTerminalOptions } from "../terminal/runtime/terminalRuntimeContract";
 import { installTerminalInputCompatibility } from "../terminal/runtime/terminalInputCompatibility";
 import { getTerminalParkingContainer } from "../terminal/runtime/terminalRuntimePresentation";
+import {
+  installTerminalScrollCompatibility,
+  TERMINAL_SCROLL_SENSITIVITY,
+} from "../terminal/runtime/terminalScrollCompatibility";
 import { observeManagedAgentTerminalAppearance } from "./managedAgentTerminalAppearance";
 import {
   ManagedAgentTerminalTransport,
@@ -44,6 +48,7 @@ export class ManagedAgentTerminalRuntime {
   private readonly fitAddon = new FitAddon();
   private readonly transport: ManagedAgentTerminalTransport;
   private readonly disposeInputCompatibility: () => void;
+  private readonly disposeScrollCompatibility: () => void;
   private container: HTMLDivElement | null = null;
   private callbacks: ManagedAgentTerminalRuntimeCallbacks | null = null;
   private resizeObserver: ResizeObserver | null = null;
@@ -65,6 +70,7 @@ export class ManagedAgentTerminalRuntime {
       fontWeight: getTerminalFontWeight(),
       fontWeightBold: getTerminalBoldFontWeight(),
       scrollback: TERMINAL_AGENT_SCROLLBACK_ROWS,
+      scrollSensitivity: TERMINAL_SCROLL_SENSITIVITY,
       theme: terminalThemeFromApp(),
       vtExtensions: { kittyKeyboard: true },
       scrollbar: { showScrollbar: false },
@@ -75,6 +81,7 @@ export class ManagedAgentTerminalRuntime {
     this.terminal.unicode.activeVersion = "11";
     this.terminal.open(this.wrapper);
     this.disposeInputCompatibility = installTerminalInputCompatibility(this.terminal, this.wrapper);
+    this.disposeScrollCompatibility = installTerminalScrollCompatibility(this.terminal);
     this.transport = new ManagedAgentTerminalTransport(
       threadId,
       this.terminal,
@@ -138,6 +145,7 @@ export class ManagedAgentTerminalRuntime {
     this.detach();
     this.transport.dispose();
     this.disposeInputCompatibility();
+    this.disposeScrollCompatibility();
     this.appearanceObserver?.disconnect();
     this.appearanceObserver = null;
     this.terminal.dispose();

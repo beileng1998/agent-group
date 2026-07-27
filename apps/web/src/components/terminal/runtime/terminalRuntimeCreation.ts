@@ -25,6 +25,10 @@ import {
 } from "./terminalRuntimeContract";
 import { installTerminalRuntimeEventBridges } from "./terminalRuntimeEventBridge";
 import { scheduleTerminalFontSettleRefit } from "./terminalRuntimePresentation";
+import {
+  installTerminalScrollCompatibility,
+  TERMINAL_SCROLL_SENSITIVITY,
+} from "./terminalScrollCompatibility";
 
 export function createRuntimeEntry(config: TerminalRuntimeConfig): TerminalRuntimeEntry {
   const wrapper = document.createElement("div");
@@ -41,6 +45,7 @@ export function createRuntimeEntry(config: TerminalRuntimeConfig): TerminalRunti
     fontWeight: getTerminalFontWeight(),
     fontWeightBold: getTerminalBoldFontWeight(),
     scrollback: 5_000,
+    scrollSensitivity: TERMINAL_SCROLL_SENSITIVITY,
     fontFamily: getTerminalFontFamily(),
     theme: terminalThemeFromApp(),
     allowProposedApi: true,
@@ -122,6 +127,7 @@ export function createRuntimeEntry(config: TerminalRuntimeConfig): TerminalRunti
 
   scheduleTerminalFontSettleRefit(entry);
   entry.persistentDisposables.push(installTerminalInputCompatibility(terminal, wrapper));
+  entry.persistentDisposables.push(installTerminalScrollCompatibility(terminal));
   entry.querySuppressionDispose = suppressQueryResponses(terminal);
   installTerminalRuntimeEventBridges(entry);
 
