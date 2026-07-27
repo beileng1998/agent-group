@@ -54,6 +54,7 @@ interface ChatTranscriptPaneProps {
   isWorking: boolean;
   followLiveOutput: boolean;
   initialScrollOffsetPx?: number;
+  knowledge?: ComponentProps<typeof MessagesTimeline>["knowledge"];
   listRef: RefObject<LegendListRef | null>;
   timelineControllerRef?: RefObject<MessagesTimelineController | null>;
   pinnedMessageIds?: ReadonlySet<MessageId>;
@@ -114,6 +115,7 @@ export const ChatTranscriptPane = memo(function ChatTranscriptPane({
   isWorking,
   followLiveOutput,
   initialScrollOffsetPx,
+  knowledge,
   listRef,
   timelineControllerRef,
   pinnedMessageIds,
@@ -240,6 +242,7 @@ export const ChatTranscriptPane = memo(function ChatTranscriptPane({
             {...(onVisualizationFollowUp ? { onVisualizationFollowUp } : {})}
             followLiveOutput={followLiveOutput}
             {...(initialScrollOffsetPx !== undefined ? { initialScrollOffsetPx } : {})}
+            {...(knowledge ? { knowledge } : {})}
             onIsAtEndChange={onIsAtEndChange}
             onTrailHighlightsChange={activeTrailStore.set}
             onMessagesScroll={onMessagesScroll}

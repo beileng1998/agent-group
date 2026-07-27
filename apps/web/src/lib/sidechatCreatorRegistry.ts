@@ -16,6 +16,7 @@ export interface SidechatCreatorOptions {
   initialPrompt?: string;
   selection?: SidechatTextSelection;
   knowledgeSource?: KnowledgeSidechatSource;
+  onCreated?: (threadId: ThreadId) => void;
 }
 
 export type SidechatCreator = (options?: SidechatCreatorOptions) => Promise<unknown>;

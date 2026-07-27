@@ -186,6 +186,7 @@ export function useComposerSlashThreadActions(input: Input) {
           throw error;
         }
       }
+      options?.onCreated?.(nextThreadId);
       return true;
     },
     [

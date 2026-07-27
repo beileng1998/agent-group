@@ -41,6 +41,7 @@ import {
 } from "./useMessagesTimelineViewport";
 import { useMessagesTimelineUiState } from "./useMessagesTimelineUiState";
 import { getChatMessageFooterTextStyle, getChatTranscriptTextStyle } from "./chatTypography";
+import { AgentGroupKnowledgeFooter } from "../AgentGroupKnowledgeFooter";
 
 // The composer overlaps the transcript by design, so the list needs extra tail
 // space beyond the overlap to keep final cards from sitting flush against it.
@@ -124,6 +125,7 @@ interface MessagesTimelineProps {
    * far right; only the content is inset.
    */
   contentInsetRightPx?: number | undefined;
+  knowledge?: ComponentProps<typeof AgentGroupKnowledgeFooter> | undefined;
 }
 
 export const MessagesTimeline = memo(function MessagesTimeline({
@@ -180,6 +182,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
   emptyStateContent,
   bottomContentInsetPx,
   contentInsetRightPx,
+  knowledge,
 }: MessagesTimelineProps) {
   const normalizedChatFontSizePx = normalizeChatFontSizePx(chatFontSizePx);
   // Inset rows from the right (overriding the gutter's right padding) without moving the
@@ -202,9 +205,28 @@ export const MessagesTimeline = memo(function MessagesTimeline({
     [normalizedChatFontSizePx],
   );
   const bottomSpacerHeightPx = Math.max(bottomContentInsetPx ?? 0, MIN_BOTTOM_CONTENT_INSET_PX);
+  const knowledgeSessionId = knowledge?.sessionId;
+  const knowledgeThreadUpdatedAt = knowledge?.threadUpdatedAt;
+  const knowledgeOnOpenThread = knowledge?.onOpenThread;
   const listFooter = useMemo(
-    () => <div aria-hidden="true" style={{ height: bottomSpacerHeightPx }} />,
-    [bottomSpacerHeightPx],
+    () => (
+      <>
+        {knowledgeSessionId && knowledgeOnOpenThread ? (
+          <AgentGroupKnowledgeFooter
+            sessionId={knowledgeSessionId}
+            threadUpdatedAt={knowledgeThreadUpdatedAt}
+            onOpenThread={knowledgeOnOpenThread}
+          />
+        ) : null}
+        <div aria-hidden="true" style={{ height: bottomSpacerHeightPx }} />
+      </>
+    ),
+    [
+      bottomSpacerHeightPx,
+      knowledgeOnOpenThread,
+      knowledgeSessionId,
+      knowledgeThreadUpdatedAt,
+    ],
   );
 
   const presentedWorktreeSetup = useWorktreeSetupPresentation(worktreeSetup);

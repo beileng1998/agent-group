@@ -30,8 +30,26 @@ export const AgentGroupLearningOrigin = Schema.Struct({
   cardTitle: KnowledgeCardTitle,
   cardMarkdown: KnowledgeCardMarkdown,
   selectedText: Schema.NullOr(Schema.String.check(Schema.isMaxLength(1_048_576))),
+  selectionStartOffset: Schema.optional(Schema.NullOr(NonNegativeInt)).pipe(
+    Schema.withDecodingDefault(() => null),
+  ),
+  selectionEndOffset: Schema.optional(Schema.NullOr(NonNegativeInt)).pipe(
+    Schema.withDecodingDefault(() => null),
+  ),
 });
 export type AgentGroupLearningOrigin = typeof AgentGroupLearningOrigin.Type;
+
+export const AgentGroupKnowledgeLink = Schema.Struct({
+  targetThreadId: ThreadId,
+  sourceContextRevision: ContextRevision,
+  cardKey: KnowledgeCardKey,
+  cardTitle: KnowledgeCardTitle,
+  selectedText: Schema.NullOr(Schema.String.check(Schema.isMaxLength(16_384))),
+  selectionStartOffset: Schema.NullOr(NonNegativeInt),
+  selectionEndOffset: Schema.NullOr(NonNegativeInt),
+  createdAt: IsoDateTime,
+});
+export type AgentGroupKnowledgeLink = typeof AgentGroupKnowledgeLink.Type;
 
 export const AgentGroupContextTemplateId = TrimmedNonEmptyString.check(
   Schema.isMaxLength(64),
@@ -119,6 +137,9 @@ export const AgentGroupSessionState = Schema.Struct({
   knowledgeAcknowledgements: Schema.optional(
     Schema.Array(AgentGroupKnowledgeAcknowledgement).check(Schema.isMaxLength(2_048)),
   ).pipe(Schema.withDecodingDefault(() => [])),
+  knowledgeLinks: Schema.optional(
+    Schema.Array(AgentGroupKnowledgeLink).check(Schema.isMaxLength(128)),
+  ).pipe(Schema.withDecodingDefault(() => [])),
   learningOrigin: Schema.optional(Schema.NullOr(AgentGroupLearningOrigin)).pipe(
     Schema.withDecodingDefault(() => null),
   ),
@@ -173,6 +194,7 @@ export const AgentGroupUpdateSessionInput = Schema.Struct({
   ...AgentGroupSessionSelector.fields,
   contextAwarenessEnabled: Schema.optional(Schema.Boolean),
   knowledgeAcknowledgement: Schema.optional(AgentGroupKnowledgeAcknowledgement),
+  knowledgeLink: Schema.optional(AgentGroupKnowledgeLink),
   learningOrigin: Schema.optional(AgentGroupLearningOrigin),
   expectedRevision: NonNegativeInt,
 });

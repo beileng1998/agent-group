@@ -1,160 +1,171 @@
-// Renders the derived Knowledge-card view while context.md remains canonical.
+// Renders the latest Knowledge cards at the bottom of the main Session transcript.
 
-import type {
-  AgentGroupKnowledgeAcknowledgement,
-  AgentGroupSessionDocument,
+import {
+  type AgentGroupKnowledgeAcknowledgement,
+  type AgentGroupKnowledgeLink,
+  type AgentGroupSessionDocument,
+  type ThreadId,
 } from "@agent-group/contracts";
 import type {
   LearningContextCard,
   LearningContextProjection,
 } from "@agent-group/shared/learningContext";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type MouseEvent } from "react";
 
+import {
+  buildKnowledgeLinkMarkers,
+  type VisibleKnowledgeLink,
+} from "~/lib/knowledgeCardLinks";
 import { getSidechatCreator } from "~/lib/sidechatCreatorRegistry";
 import { makeLearningOrigin } from "~/lib/knowledgeSidechat";
 import {
   CheckIcon,
   CircleCheckIcon,
+  GitBranchIcon,
   MessageCircleIcon,
   RefreshCwIcon,
 } from "~/lib/icons";
 import { readNativeApi } from "~/nativeApi";
-import { toastManager } from "./ui/toast";
+import {
+  resolveTranscriptMarkerRange,
+  resolveTranscriptSelectionSourceRange,
+} from "./chat/chatSelectionActions";
 import ChatMarkdown from "./ChatMarkdown";
 import { Button } from "./ui/button";
+import { toastManager } from "./ui/toast";
 
 interface AgentGroupKnowledgeViewProps {
   document: AgentGroupSessionDocument;
   projection: LearningContextProjection;
+  links: readonly VisibleKnowledgeLink[];
   onDocumentChange: (document: AgentGroupSessionDocument) => void;
+  onOpenLink: (link: VisibleKnowledgeLink) => void;
+}
+
+interface CardSelection {
+  text: string;
+  startOffset: number | null;
+  endOffset: number | null;
 }
 
 type CardStatus = "unlearned" | "learned" | "updated";
 
 export function AgentGroupKnowledgeView(props: AgentGroupKnowledgeViewProps) {
-  const goal = visibleMarkdown(props.projection.goal);
   const knowledgeLead = visibleMarkdown(props.projection.knowledgeLead);
-  const state = visibleMarkdown(props.projection.state);
   const learnedCount = props.projection.cards.filter(
     (card) => cardStatus(card, props.document.session.knowledgeAcknowledgements) === "learned",
   ).length;
 
   return (
-    <div className="space-y-5">
-      <section className="rounded-xl border border-border bg-muted/15 px-4 py-3">
-        <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-          Goal
+    <section
+      data-session-knowledge-footer="true"
+      className="mx-auto mt-8 w-full max-w-[46rem] border-t border-border/70 pt-5"
+    >
+      <div className="mb-4 flex items-end justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold">Knowledge</h2>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            The latest cards from this Session. Select a passage to explore it in Side.
+          </p>
         </div>
-        {goal ? (
-          <ChatMarkdown
-            text={goal}
-            cwd={props.document.workspaceRoot}
-            isStreaming={false}
-            className="mt-2 text-[length:var(--app-font-size-chat,12px)] leading-relaxed"
-          />
-        ) : (
-          <p className="mt-2 text-xs text-muted-foreground">The learning goal is not written yet.</p>
-        )}
-      </section>
+        <span className="shrink-0 rounded-full bg-muted px-2 py-1 text-[10px] text-muted-foreground">
+          {learnedCount}/{props.projection.cards.length} learned
+        </span>
+      </div>
 
-      <section>
-        <div className="mb-3 flex items-end justify-between gap-3">
-          <div>
-            <h2 className="text-sm font-semibold">Knowledge</h2>
-            <p className="mt-0.5 text-[10px] text-muted-foreground">
-              Select a passage to take only that part into Side.
-            </p>
-          </div>
-          <span className="shrink-0 rounded-full bg-muted px-2 py-1 text-[10px] text-muted-foreground">
-            {learnedCount}/{props.projection.cards.length} learned
-          </span>
-        </div>
-
-        {knowledgeLead ? (
-          <ChatMarkdown
-            text={knowledgeLead}
-            cwd={props.document.workspaceRoot}
-            isStreaming={false}
-            className="mb-3 text-[length:var(--app-font-size-chat,12px)] leading-relaxed"
-          />
-        ) : null}
-
-        <div className="space-y-3">
-          {props.projection.cards.map((card) => (
-            <KnowledgeCard
-              key={card.key}
-              card={card}
-              document={props.document}
-              onDocumentChange={props.onDocumentChange}
-            />
-          ))}
-          {props.projection.cards.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-xs text-muted-foreground">
-              Knowledge cards will grow here as the conversation develops.
-            </div>
-          ) : null}
-        </div>
-      </section>
-
-      <section className="border-t border-border pt-4">
-        <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-          State
-        </div>
-        {state ? (
-          <ChatMarkdown
-            text={state}
-            cwd={props.document.workspaceRoot}
-            isStreaming={false}
-            className="mt-2 text-[length:var(--app-font-size-chat,12px)] leading-relaxed"
-          />
-        ) : (
-          <p className="mt-2 text-xs text-muted-foreground">No open learning state.</p>
-        )}
-      </section>
-
-      {props.projection.otherContext ? (
-        <section className="border-t border-border pt-4">
-          <div className="mb-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-            Other context
-          </div>
-          <ChatMarkdown
-            text={props.projection.otherContext}
-            cwd={props.document.workspaceRoot}
-            isStreaming={false}
-            className="text-[length:var(--app-font-size-chat,12px)] leading-relaxed"
-          />
-        </section>
+      {knowledgeLead ? (
+        <ChatMarkdown
+          text={knowledgeLead}
+          cwd={props.document.workspaceRoot}
+          isStreaming={false}
+          className="mb-3 text-[length:var(--app-font-size-chat,12px)] leading-relaxed"
+        />
       ) : null}
-    </div>
+
+      <div className="space-y-3">
+        {props.projection.cards.map((card) => (
+          <KnowledgeCard
+            key={card.key}
+            card={card}
+            document={props.document}
+            links={props.links.filter((target) => target.link.cardKey === card.key)}
+            onDocumentChange={props.onDocumentChange}
+            onOpenLink={props.onOpenLink}
+          />
+        ))}
+      </div>
+    </section>
   );
 }
 
 function KnowledgeCard(props: {
   card: LearningContextCard;
   document: AgentGroupSessionDocument;
+  links: readonly VisibleKnowledgeLink[];
   onDocumentChange: (document: AgentGroupSessionDocument) => void;
+  onOpenLink: (link: VisibleKnowledgeLink) => void;
 }) {
   const contentRef = useRef<HTMLDivElement>(null);
-  const [selectedText, setSelectedText] = useState<string | null>(null);
+  const [selection, setSelection] = useState<CardSelection | null>(null);
   const [marking, setMarking] = useState(false);
   const [asking, setAsking] = useState(false);
   const status = useMemo(
     () => cardStatus(props.card, props.document.session.knowledgeAcknowledgements),
     [props.card, props.document.session.knowledgeAcknowledgements],
   );
+  const markerTargets = useMemo(
+    () =>
+      buildKnowledgeLinkMarkers({
+        cardKey: props.card.key,
+        cardBody: props.card.body,
+        links: props.links,
+      }),
+    [props.card.body, props.card.key, props.links],
+  );
+  const markerTargetById = useMemo(
+    () => new Map(markerTargets.map((entry) => [entry.marker.id, entry.target])),
+    [markerTargets],
+  );
 
   const captureSelection = () => {
-    const selection = window.getSelection();
-    if (!selection || selection.isCollapsed || !selection.rangeCount || !contentRef.current) {
-      setSelectedText(null);
+    const browserSelection = window.getSelection();
+    if (
+      !browserSelection ||
+      browserSelection.isCollapsed ||
+      !browserSelection.rangeCount ||
+      !contentRef.current
+    ) {
+      setSelection(null);
       return;
     }
-    const range = selection.getRangeAt(0);
+    const range = browserSelection.getRangeAt(0);
     if (!contentRef.current.contains(range.commonAncestorContainer)) {
-      setSelectedText(null);
+      setSelection(null);
       return;
     }
-    setSelectedText(selection.toString().trim() || null);
+    const text = browserSelection.toString().trim();
+    if (!text) {
+      setSelection(null);
+      return;
+    }
+    const exactRange =
+      resolveTranscriptSelectionSourceRange(range, contentRef.current) ??
+      resolveTranscriptMarkerRange({ messageText: props.card.body, selectedText: text });
+    setSelection({
+      text,
+      startOffset: exactRange?.startOffset ?? null,
+      endOffset: exactRange?.endOffset ?? null,
+    });
+  };
+
+  const openLinkedMarker = (event: MouseEvent<HTMLDivElement>) => {
+    if (!(event.target instanceof Element)) return;
+    const marker = event.target.closest<HTMLElement>("[data-thread-marker-id]");
+    const markerId = marker?.dataset.threadMarkerId;
+    const target = markerId ? markerTargetById.get(markerId) : undefined;
+    if (!target) return;
+    event.preventDefault();
+    props.onOpenLink(target);
   };
 
   const markLearned = async () => {
@@ -195,22 +206,54 @@ function KnowledgeCard(props: {
       });
       return;
     }
+    const source = makeLearningOrigin({
+      sourceSessionId: props.document.session.sessionId,
+      sourceContextRevision: props.document.contextRevision,
+      cardKey: props.card.key,
+      cardTitle: props.card.title,
+      cardMarkdown: props.card.markdown,
+      selectedText: selection?.text ?? null,
+      selectionStartOffset: selection?.startOffset ?? null,
+      selectionEndOffset: selection?.endOffset ?? null,
+    });
+    let targetThreadId: ThreadId | null = null;
     setAsking(true);
     try {
       await createSidechat({
-        knowledgeSource: makeLearningOrigin({
-          sourceSessionId: props.document.session.sessionId,
-          sourceContextRevision: props.document.contextRevision,
-          cardKey: props.card.key,
-          cardTitle: props.card.title,
-          cardMarkdown: props.card.markdown,
-          selectedText,
-        }),
+        knowledgeSource: source,
+        onCreated: (threadId) => {
+          targetThreadId = threadId;
+        },
       });
     } catch (error) {
       toastManager.add({
         type: "error",
         title: "Could not open Side",
+        description: error instanceof Error ? error.message : undefined,
+      });
+      setAsking(false);
+      return;
+    }
+
+    try {
+      if (!targetThreadId) throw new Error("The new Side could not be identified.");
+      const link: AgentGroupKnowledgeLink = {
+        targetThreadId,
+        sourceContextRevision: props.document.contextRevision,
+        cardKey: props.card.key,
+        cardTitle: props.card.title,
+        selectedText: selection?.text ?? null,
+        selectionStartOffset: selection?.startOffset ?? null,
+        selectionEndOffset: selection?.endOffset ?? null,
+        createdAt: new Date().toISOString(),
+      };
+      props.onDocumentChange(await appendKnowledgeLink(props.document, link));
+      setSelection(null);
+      window.getSelection()?.removeAllRanges();
+    } catch (error) {
+      toastManager.add({
+        type: "warning",
+        title: "Side opened, but its card link could not be saved",
         description: error instanceof Error ? error.message : undefined,
       });
     } finally {
@@ -238,11 +281,11 @@ function KnowledgeCard(props: {
             variant="ghost"
             size="xs"
             disabled={asking}
-            title={selectedText ? "Ask about the selected passage" : "Ask about this card"}
+            title={selection ? "Ask about the selected passage" : "Ask about this card"}
             onClick={() => void askInSide()}
           >
             <MessageCircleIcon className="size-3.5" />
-            {selectedText ? "Ask selection" : "Ask in Side"}
+            {selection ? "Ask selection" : "Ask in Side"}
           </Button>
           <Button
             variant={status === "learned" ? "secondary" : "outline"}
@@ -261,7 +304,9 @@ function KnowledgeCard(props: {
       </div>
       <div
         ref={contentRef}
-        className="px-4 py-3 selection:bg-amber-200/60 dark:selection:bg-amber-500/30"
+        data-knowledge-card-content="true"
+        className="px-4 py-3 selection:bg-amber-200/60 [&_.thread-marker]:cursor-pointer dark:selection:bg-amber-500/30"
+        onClick={openLinkedMarker}
         onMouseUp={captureSelection}
         onKeyUp={captureSelection}
       >
@@ -270,14 +315,60 @@ function KnowledgeCard(props: {
             text={props.card.body}
             cwd={props.document.workspaceRoot}
             isStreaming={false}
+            markers={markerTargets.map((entry) => entry.marker)}
             className="text-[length:var(--app-font-size-chat,12px)] leading-relaxed"
           />
         ) : (
           <p className="text-xs text-muted-foreground">This card is waiting for an explanation.</p>
         )}
       </div>
+      {props.links.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-1.5 border-t border-border/60 px-4 py-2">
+          <span className="mr-1 text-[10px] text-muted-foreground">Related</span>
+          {props.links.map((target) => (
+            <Button
+              key={`${target.link.targetThreadId}:${target.link.cardKey}`}
+              variant="ghost"
+              size="xs"
+              title={`Open ${target.kind === "side" ? "Side" : "child session"}: ${target.title}`}
+              onClick={() => props.onOpenLink(target)}
+            >
+              {target.kind === "side" ? (
+                <MessageCircleIcon className="size-3.5" />
+              ) : (
+                <GitBranchIcon className="size-3.5" />
+              )}
+              <span className="max-w-44 truncate">
+                {target.kind === "side" ? "Side" : "Child"} · {target.title}
+              </span>
+            </Button>
+          ))}
+        </div>
+      ) : null}
     </article>
   );
+}
+
+async function appendKnowledgeLink(
+  document: AgentGroupSessionDocument,
+  link: AgentGroupKnowledgeLink,
+): Promise<AgentGroupSessionDocument> {
+  const api = readNativeApi();
+  if (!api) throw new Error("The Agent Group service is unavailable.");
+  try {
+    return await api.agentGroup.updateSession({
+      sessionId: document.session.sessionId,
+      knowledgeLink: link,
+      expectedRevision: document.config.revision,
+    });
+  } catch {
+    const latest = await api.agentGroup.getSession({ sessionId: document.session.sessionId });
+    return api.agentGroup.updateSession({
+      sessionId: latest.session.sessionId,
+      knowledgeLink: link,
+      expectedRevision: latest.config.revision,
+    });
+  }
 }
 
 function cardStatus(

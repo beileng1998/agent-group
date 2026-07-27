@@ -94,6 +94,7 @@ export interface ChatTranscriptSurfaceOwnerInput {
     readonly workspaceRoot: string | null | undefined;
   };
   readonly timeline: TranscriptTimelineInput;
+  readonly knowledge?: NonNullable<TranscriptModel["knowledge"]>;
   readonly interactions: TranscriptInteractionInput;
   readonly composer: {
     readonly content: ReactNode;
@@ -219,6 +220,7 @@ export function buildChatTranscriptSurface(
       chatFontSizePx: input.timeline.chatFontSizePx,
       timestampFormat: input.timeline.timestampFormat,
       workspaceRoot: input.thread.workspaceRoot ?? undefined,
+      ...(input.knowledge ? { knowledge: input.knowledge } : {}),
       ...(input.thread.isEditorRail ? { emptyStateContent: <span aria-hidden="true" /> } : {}),
       emptyStateProjectName: input.thread.activeProjectDisplayName,
       terminalWorkspaceTerminalTabActive: input.workspace.terminalWorkspaceTerminalTabActive,

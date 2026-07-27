@@ -235,6 +235,15 @@ export function buildChatShellSurfaceGraph(input: ChatShellSurfaceGraphInput) {
       timestampFormat: app.timestampFormat,
       turnDiffSummaryByAssistantMessageId: timeline.diff.turnDiffSummaryByAssistantMessageId,
     },
+    ...(!thread.isTemporarySidechat && !app.shell.isEditorRail
+      ? {
+          knowledge: {
+            sessionId: activeThread.id,
+            ...(activeThread.updatedAt ? { threadUpdatedAt: activeThread.updatedAt } : {}),
+            onOpenThread: timeline.navigation.navigation.toThread,
+          },
+        }
+      : {}),
     interactions: {
       isPendingSetupBubbleId: runtimeActivity.automation.isPendingSetupBubbleId,
       isRevertingCheckpoint: runtimeActivity.checkpoint.isRevertingCheckpoint,

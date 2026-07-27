@@ -88,6 +88,7 @@ type UpdateAgentGroupSessionInput = AgentGroupCoordinates &
     AgentGroupUpdateSessionInput,
     | "contextAwarenessEnabled"
     | "knowledgeAcknowledgement"
+    | "knowledgeLink"
     | "learningOrigin"
     | "expectedRevision"
   >;

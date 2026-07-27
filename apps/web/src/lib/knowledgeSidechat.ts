@@ -21,6 +21,8 @@ interface KnowledgeSourceMetadata {
   cardKey: string;
   cardTitle: string;
   hasSelection: boolean;
+  selectionStartOffset: number | null;
+  selectionEndOffset: number | null;
 }
 
 export type KnowledgeSidechatSource = AgentGroupLearningOrigin;
@@ -35,6 +37,8 @@ export function buildKnowledgeSourceImportedMessage(
     cardKey: source.cardKey,
     cardTitle: source.cardTitle,
     hasSelection: source.selectedText !== null,
+    selectionStartOffset: source.selectionStartOffset,
+    selectionEndOffset: source.selectionEndOffset,
   };
   const selection = source.selectedText
     ? [
@@ -103,6 +107,8 @@ export function parseKnowledgeSourceMessage(text: string): KnowledgeSidechatSour
       cardTitle: value.cardTitle,
       cardMarkdown,
       selectedText,
+      selectionStartOffset: value.selectionStartOffset ?? null,
+      selectionEndOffset: value.selectionEndOffset ?? null,
     };
   } catch {
     return null;
@@ -132,7 +138,18 @@ function isKnowledgeSourceMetadata(value: unknown): value is KnowledgeSourceMeta
     typeof source.sourceContextRevision === "string" &&
     typeof source.cardKey === "string" &&
     typeof source.cardTitle === "string" &&
-    typeof source.hasSelection === "boolean"
+    typeof source.hasSelection === "boolean" &&
+    isOptionalSelectionRange(source.selectionStartOffset, source.selectionEndOffset)
+  );
+}
+
+function isOptionalSelectionRange(start: unknown, end: unknown): boolean {
+  if ((start === undefined || start === null) && (end === undefined || end === null)) return true;
+  return (
+    Number.isInteger(start) &&
+    Number.isInteger(end) &&
+    (start as number) >= 0 &&
+    (end as number) > (start as number)
   );
 }
 
@@ -167,6 +184,8 @@ export function makeLearningOrigin(input: {
   cardTitle: string;
   cardMarkdown: string;
   selectedText?: string | null;
+  selectionStartOffset?: number | null;
+  selectionEndOffset?: number | null;
 }): KnowledgeSidechatSource {
   return {
     sourceSessionId: input.sourceSessionId,
@@ -175,5 +194,7 @@ export function makeLearningOrigin(input: {
     cardTitle: input.cardTitle,
     cardMarkdown: input.cardMarkdown,
     selectedText: input.selectedText ?? null,
+    selectionStartOffset: input.selectionStartOffset ?? null,
+    selectionEndOffset: input.selectionEndOffset ?? null,
   };
 }

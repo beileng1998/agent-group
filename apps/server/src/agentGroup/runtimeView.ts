@@ -64,6 +64,10 @@ export function toSessionState(session: StoredSessionState): AgentGroupSessionDo
     contextAwarenessEnabled: session.contextAwarenessEnabled,
     contextSeenCommit: session.contextSeenCommit,
     knowledgeAcknowledgements: session.knowledgeAcknowledgements,
+    knowledgeLinks: session.knowledgeLinks.map((link) => ({
+      ...link,
+      targetThreadId: ThreadId.makeUnsafe(link.targetThreadId),
+    })),
     learningOrigin: session.learningOrigin
       ? {
           ...session.learningOrigin,

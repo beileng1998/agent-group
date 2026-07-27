@@ -6,7 +6,7 @@ import type { StoredSessionState } from "./state";
 
 type LearningUpdate = Pick<
   AgentGroupUpdateSessionInput,
-  "knowledgeAcknowledgement" | "learningOrigin"
+  "knowledgeAcknowledgement" | "knowledgeLink" | "learningOrigin"
 >;
 
 export function applySessionLearningUpdate(
@@ -30,12 +30,30 @@ export function applySessionLearningUpdate(
     changed = true;
   }
 
+  const link = input.knowledgeLink;
+  if (
+    link &&
+    !session.knowledgeLinks.some(
+      (item) => item.targetThreadId === link.targetThreadId && item.cardKey === link.cardKey,
+    )
+  ) {
+    if (session.knowledgeLinks.length >= 128) {
+      throw new Error("Knowledge link history is full");
+    }
+    session.knowledgeLinks.push({ ...link });
+    changed = true;
+  }
+
   if (input.learningOrigin) {
     if (session.learningOrigin && !sameLearningOrigin(session.learningOrigin, input.learningOrigin)) {
       throw new Error("Learning origin cannot be changed");
     }
     if (!session.learningOrigin) {
-      session.learningOrigin = { ...input.learningOrigin };
+      session.learningOrigin = {
+        ...input.learningOrigin,
+        selectionStartOffset: input.learningOrigin.selectionStartOffset ?? null,
+        selectionEndOffset: input.learningOrigin.selectionEndOffset ?? null,
+      };
       changed = true;
     }
   }
@@ -52,6 +70,8 @@ function sameLearningOrigin(
     left.cardKey === right.cardKey &&
     left.cardTitle === right.cardTitle &&
     left.cardMarkdown === right.cardMarkdown &&
-    left.selectedText === right.selectedText
+    left.selectedText === right.selectedText &&
+    left.selectionStartOffset === (right.selectionStartOffset ?? null) &&
+    left.selectionEndOffset === (right.selectionEndOffset ?? null)
   );
 }

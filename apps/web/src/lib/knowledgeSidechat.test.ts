@@ -18,6 +18,8 @@ describe("Knowledge Side source", () => {
       cardTitle: "异或直觉",
       cardMarkdown: "## 异或直觉\n\n输入不同时为真。<!-- -->",
       selectedText: "输入不同时为真。",
+      selectionStartOffset: 0,
+      selectionEndOffset: 9,
     });
     const message = buildKnowledgeSourceImportedMessage(source, "2026-07-26T00:00:00.000Z");
 

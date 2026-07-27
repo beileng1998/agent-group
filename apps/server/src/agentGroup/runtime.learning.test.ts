@@ -43,6 +43,8 @@ describe("Agent Group learning sessions", () => {
       cardTitle: "XOR",
       cardMarkdown: "## XOR\n\nInputs differ.",
       selectedText: null,
+      selectionStartOffset: null,
+      selectionEndOffset: null,
     };
     const acknowledged = await updateAgentGroupSession({
       ...input,
@@ -51,6 +53,16 @@ describe("Agent Group learning sessions", () => {
         cardKey: origin.cardKey,
         cardMarkdown: origin.cardMarkdown,
         acknowledgedAt: "2026-07-26T00:00:00.000Z",
+      },
+      knowledgeLink: {
+        targetThreadId: ThreadId.makeUnsafe("learning-side"),
+        sourceContextRevision: origin.sourceContextRevision,
+        cardKey: origin.cardKey,
+        cardTitle: origin.cardTitle,
+        selectedText: null,
+        selectionStartOffset: null,
+        selectionEndOffset: null,
+        createdAt: "2026-07-26T00:00:00.000Z",
       },
       expectedRevision: created.config.revision,
     });
@@ -63,6 +75,7 @@ describe("Agent Group learning sessions", () => {
         acknowledgedAt: "2026-07-26T00:00:00.000Z",
       },
     ]);
+    expect(acknowledged.session.knowledgeLinks).toHaveLength(1);
 
     await expect(
       updateAgentGroupSession({
