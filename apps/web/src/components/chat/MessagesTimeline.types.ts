@@ -14,9 +14,11 @@ import type { MessageId, TurnId } from "@agent-group/contracts";
 
 export const MAX_VISIBLE_WORK_LOG_ENTRIES = 6;
 
-// Work item folded into a settled turn's single "Worked for Xs" disclosure.
-// Assistant narration always remains visible in the transcript.
-export type CollapsedTurnItem = { kind: "work"; id: string; entry: WorkLogEntry };
+// Process detail folded into a settled turn's single "Worked for Xs"
+// disclosure. The terminal assistant message remains visible below it.
+export type CollapsedTurnItem =
+  | { kind: "work"; id: string; entry: WorkLogEntry }
+  | { kind: "assistant-message"; id: string; message: ChatMessage };
 
 export interface TimelineDurationMessage {
   id: string;

@@ -232,11 +232,9 @@ function findTailTerminalAssistantMessageId(
   return null;
 }
 
-// Post-pass: collapse each *settled* turn's work into a single "Worked for Xs"
-// disclosure on the terminal assistant message. Assistant narration remains
-// visible: providers can emit the substantive answer before a trailing tool
-// call and finish with only a short confirmation. The live turn also stays
-// expanded/inline so streaming output is never hidden behind a toggle.
+// Post-pass: collapse each *settled* turn's process narration and work into a
+// single "Worked for Xs" disclosure on the terminal assistant message. The
+// live turn stays expanded so streaming output is never hidden behind a toggle.
 function collapseSettledTurns(
   rows: MessagesTimelineRow[],
   options: {
@@ -283,8 +281,7 @@ function collapseSettledTurns(
 
     // Scan back to the response boundary. Provider mini-turns can have distinct
     // turnIds inside one assistant answer, so the user message boundary is the
-    // stable UI grouping point. Assistant rows participate in timing and donate
-    // their attached work, but remain visible in the transcript.
+    // stable UI grouping point.
     const responseRowIndices: number[] = [];
     for (let scan = pass - 1; scan >= 0; scan -= 1) {
       const prev = rows[scan]!;
@@ -306,30 +303,35 @@ function collapseSettledTurns(
     responseRowIndices.reverse();
 
     const collapsedItems: CollapsedTurnItem[] = [];
-    const standaloneWorkIndices: number[] = [];
-    const precedingAssistantRows: Array<Extract<MessagesTimelineRow, { kind: "message" }>> = [];
+    const collapsedRowIndices: number[] = [];
     let mergedTurnDiffSummary = row.assistantTurnDiffSummary;
-    // "Worked for" covers the whole response even though its narration stays
-    // visible. The terminal row's own durationStart advances past intermediate
-    // completed assistant messages, which would otherwise report only the tail.
+    // The terminal row's own durationStart advances past intermediate completed
+    // assistant messages, so retain the earliest response timestamp.
     let collapsedStart = row.durationStart;
     for (const index of responseRowIndices) {
       const folded = rows[index]!;
       if (folded.kind === "work") {
         collapsedStart = earliestTimestamp(collapsedStart, folded.createdAt);
         collectWorkItems(folded.groupedEntries, collapsedItems);
-        standaloneWorkIndices.push(index);
+        collapsedRowIndices.push(index);
       } else if (folded.kind === "message" && folded.message.role === "assistant") {
         collapsedStart = earliestTimestamp(collapsedStart, folded.durationStart);
-        precedingAssistantRows.push(folded);
+        if (folded.leadingWorkEntries) collectWorkItems(folded.leadingWorkEntries, collapsedItems);
+        if (folded.message.text.trim().length > 0) {
+          collapsedItems.push({
+            kind: "assistant-message",
+            id: folded.message.id,
+            message: folded.message,
+          });
+        }
+        if (folded.inlineWorkEntries) collectWorkItems(folded.inlineWorkEntries, collapsedItems);
+        collapsedRowIndices.push(index);
         if (folded.assistantTurnDiffSummary) {
           mergedTurnDiffSummary = mergeTurnDiffSummaries(
             folded.assistantTurnDiffSummary,
             mergedTurnDiffSummary ?? folded.assistantTurnDiffSummary,
           );
         }
-        if (folded.leadingWorkEntries) collectWorkItems(folded.leadingWorkEntries, collapsedItems);
-        if (folded.inlineWorkEntries) collectWorkItems(folded.inlineWorkEntries, collapsedItems);
       }
     }
     // The terminal's own work rows are details around the final answer; fold
@@ -346,19 +348,13 @@ function collapseSettledTurns(
       delete row.leadingWorkGroupId;
       delete row.inlineWorkEntries;
       delete row.inlineWorkGroupId;
-
-      for (const precedingRow of precedingAssistantRows) {
-        delete precedingRow.leadingWorkEntries;
-        delete precedingRow.leadingWorkGroupId;
-        delete precedingRow.inlineWorkEntries;
-        delete precedingRow.inlineWorkGroupId;
-        delete precedingRow.assistantTurnDiffSummary;
-      }
-
-      for (const index of [...standaloneWorkIndices].sort((a, b) => b - a)) {
-        rows.splice(index, 1);
-      }
-      pass -= standaloneWorkIndices.length;
     }
+
+    // Intermediate assistant rows are represented inside the disclosure, so
+    // remove their standalone copies even when their text was empty.
+    for (const index of [...collapsedRowIndices].sort((a, b) => b - a)) {
+      rows.splice(index, 1);
+    }
+    pass -= collapsedRowIndices.length;
   }
 }

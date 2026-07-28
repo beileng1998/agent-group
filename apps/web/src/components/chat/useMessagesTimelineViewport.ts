@@ -61,6 +61,7 @@ export function useMessagesTimelineViewport(input: {
   initialScrollOffsetPx?: number | undefined;
   onIsAtEndChange?: ((isAtEnd: boolean) => void) | undefined;
   onMessagesScroll?: ComponentProps<typeof LegendList>["onScroll"];
+  onRevealCollapsedMessage?: ((ownerMessageId: MessageId) => void) | undefined;
   onTrailHighlightsChange?: ((snapshot: ActiveTrailSnapshot) => void) | undefined;
 }) {
   const fallbackListRef = useRef<LegendListRef | null>(null);
@@ -107,10 +108,20 @@ export function useMessagesTimelineViewport(input: {
     if (!input.controllerRef) return;
     const scrollToMessage = (messageId: MessageId) => {
       const index = rowsRef.current.findIndex(
-        (row) => row.kind === "message" && row.message.id === messageId,
+        (row) =>
+          row.kind === "message" &&
+          (row.message.id === messageId ||
+            row.collapsedTurnItems?.some(
+              (item) =>
+                item.kind === "assistant-message" && item.message.id === messageId,
+            )),
       );
       const list = resolvedListRef.current;
       if (index < 0 || !list) return false;
+      const owner = rowsRef.current[index];
+      if (owner?.kind === "message" && owner.message.id !== messageId) {
+        input.onRevealCollapsedMessage?.(owner.message.id);
+      }
       void list.scrollToIndex({ index, animated: true, viewPosition: 0.2 });
       return true;
     };
@@ -175,6 +186,7 @@ export function useMessagesTimelineViewport(input: {
     };
   }, [
     input.controllerRef,
+    input.onRevealCollapsedMessage,
     resolvedListRef,
     applyActiveMarkerDecoration,
     clearActiveMarkerDecoration,

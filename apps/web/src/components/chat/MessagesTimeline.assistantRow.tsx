@@ -207,8 +207,8 @@ export function renderAssistantMessageRow(
     .filter((value): value is string => Boolean(value))
     .join(" • ");
   const collapsedTurnItems = row.collapsedTurnItems;
-  const hasCollapsedWork = Boolean(collapsedTurnItems && collapsedTurnItems.length > 0);
-  const isCollapsedWorkExpanded = hasCollapsedWork
+  const hasCollapsedDetails = Boolean(collapsedTurnItems && collapsedTurnItems.length > 0);
+  const isCollapsedWorkExpanded = hasCollapsedDetails
     ? (expandedCollapsedWork[row.message.id] ?? false)
     : false;
   const settledCollapseTransition = isCollapsedWorkExpanded
@@ -220,7 +220,7 @@ export function renderAssistantMessageRow(
     placement: "leading" | "inline",
   ) => (
     <>
-      {!hasCollapsedWork && display.visibleRenderableToolEntries.length > 0 && (
+      {!hasCollapsedDetails && display.visibleRenderableToolEntries.length > 0 && (
         <div className={placement === "leading" ? "mb-1.5" : "mt-1.5"}>
           <div className="space-y-px">
             {display.visibleRenderableToolEntries.map((workEntry) => (
@@ -256,7 +256,7 @@ export function renderAssistantMessageRow(
           )}
         </div>
       )}
-      {!hasCollapsedWork && display.statusEntries.length > 0 && (
+      {!hasCollapsedDetails && display.statusEntries.length > 0 && (
         <div className={cn("space-y-0.5", placement === "leading" ? "mb-2" : "mt-2")}>
           {display.statusEntries.map((workEntry) => (
             <SimpleWorkEntryRow
@@ -277,21 +277,50 @@ export function renderAssistantMessageRow(
       )}
     </>
   );
-  const renderCollapsedTurnItem = (item: CollapsedTurnItem, keyPrefix: string) => (
-    <SimpleWorkEntryRow
-      key={`${keyPrefix}:work:${row.message.id}:${item.id}`}
-      workEntry={item.entry}
-      chatMetaFontSizePx={appTypographyScale.chatMetaPx}
-      textFontSizePx={normalizedChatFontSizePx}
-      density={prefersCompactWorkEntryRow(item.entry) ? "compact" : "default"}
-      markdownCwd={markdownCwd}
-      onImageExpand={onImageExpand}
-      onOpenToolDetails={openToolDetails}
-      {...(onOpenAgentActivity ? { onOpenAgentActivity } : {})}
-      {...(onOpenThread ? { onOpenThread } : {})}
-      {...(onOpenAutomation ? { onOpenAutomation } : {})}
-    />
-  );
+  const renderCollapsedTurnItem = (item: CollapsedTurnItem, keyPrefix: string) => {
+    if (item.kind === "assistant-message") {
+      const collapsedMessageText = resolveAssistantMessageDisplayText({
+        message: item.message,
+      });
+      if (collapsedMessageText === null) return null;
+      return (
+        <div
+          key={`${keyPrefix}:assistant:${row.message.id}:${item.id}`}
+          className="py-0.5"
+          data-assistant-message-id={item.message.id}
+        >
+          <ChatMarkdown
+            text={collapsedMessageText}
+            cwd={markdownCwd}
+            isStreaming={Boolean(item.message.streaming)}
+            style={chatTypographyStyle}
+            onImageExpand={onImageExpand}
+            markers={threadMarkersByMessageId.get(item.message.id) ?? EMPTY_MESSAGE_MARKERS}
+            visualizationThreadId={!item.message.streaming ? threadId : undefined}
+            visualizationMessageId={
+              threadId && !item.message.streaming ? item.message.id : undefined
+            }
+            onVisualizationFollowUp={onVisualizationFollowUp}
+          />
+        </div>
+      );
+    }
+    return (
+      <SimpleWorkEntryRow
+        key={`${keyPrefix}:work:${row.message.id}:${item.id}`}
+        workEntry={item.entry}
+        chatMetaFontSizePx={appTypographyScale.chatMetaPx}
+        textFontSizePx={normalizedChatFontSizePx}
+        density={prefersCompactWorkEntryRow(item.entry) ? "compact" : "default"}
+        markdownCwd={markdownCwd}
+        onImageExpand={onImageExpand}
+        onOpenToolDetails={openToolDetails}
+        {...(onOpenAgentActivity ? { onOpenAgentActivity } : {})}
+        {...(onOpenThread ? { onOpenThread } : {})}
+        {...(onOpenAutomation ? { onOpenAutomation } : {})}
+      />
+    );
+  };
   return (
     <>
       {settledCollapseTransition && (
@@ -313,7 +342,7 @@ export function renderAssistantMessageRow(
           </DisclosureRegion>
         </div>
       )}
-      {hasCollapsedWork && (
+      {hasCollapsedDetails && (
         <div className="mb-3">
           <Collapsible
             className="group/collapsed-work"

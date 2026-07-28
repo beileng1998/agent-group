@@ -247,6 +247,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
     handleToolDetailsOpenChange,
     latestEditableUserMessageId,
     openToolDetails,
+    revealCollapsedMessage,
     selectedToolDetailsEntry,
     setCollapsedWorkExpanded,
     setExpandedUserMessagesById,
@@ -279,6 +280,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
     initialScrollOffsetPx,
     onIsAtEndChange,
     onMessagesScroll,
+    onRevealCollapsedMessage: revealCollapsedMessage,
     onTrailHighlightsChange,
   });
   const timelineExtraData = useMemo(
