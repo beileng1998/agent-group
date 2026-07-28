@@ -22,6 +22,7 @@ export interface EditorWorkspaceViewProps {
   diffFilesLoading?: boolean;
   selectedDiffFilePath: string | null;
   diffOptionsControl?: ReactNode;
+  leadingControl?: ReactNode;
   diffPanel: ReactNode;
   chatPanel: ReactNode;
   onSelectFile: (path: string) => void;

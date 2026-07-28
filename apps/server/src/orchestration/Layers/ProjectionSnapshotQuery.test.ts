@@ -455,6 +455,290 @@ projectionSnapshotLayer("ProjectionSnapshotQuery", (it) => {
     }),
   );
 
+  it.effect("isolates child Turn projections from their parent thread", () =>
+    Effect.gen(function* () {
+      const snapshotQuery = yield* ProjectionSnapshotQuery;
+      const sql = yield* SqlClient.SqlClient;
+
+      yield* sql`DELETE FROM projection_thread_messages`;
+      yield* sql`DELETE FROM projection_thread_activities`;
+      yield* sql`DELETE FROM projection_thread_proposed_plans`;
+      yield* sql`DELETE FROM projection_thread_sessions`;
+      yield* sql`DELETE FROM projection_turns`;
+      yield* sql`DELETE FROM projection_threads`;
+      yield* sql`DELETE FROM projection_projects`;
+      yield* sql`DELETE FROM projection_state`;
+
+      yield* sql`
+        INSERT INTO projection_projects (
+          project_id,
+          title,
+          workspace_root,
+          default_model_selection_json,
+          scripts_json,
+          created_at,
+          updated_at,
+          deleted_at
+        )
+        VALUES (
+          'project-child-isolation',
+          'Child isolation',
+          '/tmp/child-isolation',
+          '{"provider":"codex","model":"gpt-5-codex"}',
+          '[]',
+          '2026-07-28T00:00:00.000Z',
+          '2026-07-28T00:00:00.000Z',
+          NULL
+        )
+      `;
+      yield* sql`
+        INSERT INTO projection_threads (
+          thread_id,
+          project_id,
+          title,
+          model_selection_json,
+          parent_thread_id,
+          created_at,
+          updated_at,
+          deleted_at
+        )
+        VALUES
+          (
+            'thread-parent',
+            'project-child-isolation',
+            'Parent',
+            '{"provider":"codex","model":"gpt-5-codex"}',
+            NULL,
+            '2026-07-28T00:00:01.000Z',
+            '2026-07-28T00:00:10.000Z',
+            NULL
+          ),
+          (
+            'thread-child',
+            'project-child-isolation',
+            'Child',
+            '{"provider":"codex","model":"gpt-5-codex"}',
+            'thread-parent',
+            '2026-07-28T00:00:02.000Z',
+            '2026-07-28T00:00:09.000Z',
+            NULL
+          )
+      `;
+      yield* sql`
+        INSERT INTO projection_thread_messages (
+          message_id,
+          thread_id,
+          turn_id,
+          role,
+          text,
+          is_streaming,
+          created_at,
+          updated_at
+        )
+        VALUES
+          (
+            'message-user',
+            'thread-parent',
+            'turn-main',
+            'user',
+            'Do the work',
+            0,
+            '2026-07-28T00:00:03.000Z',
+            '2026-07-28T00:00:03.000Z'
+          ),
+          (
+            'message-main-final',
+            'thread-parent',
+            'turn-main',
+            'assistant',
+            'Main final',
+            0,
+            '2026-07-28T00:00:04.000Z',
+            '2026-07-28T00:00:04.000Z'
+          ),
+          (
+            'message-child-leaked',
+            'thread-parent',
+            'turn-child',
+            'assistant',
+            'Child final leaked to parent',
+            0,
+            '2026-07-28T00:00:09.000Z',
+            '2026-07-28T00:00:09.000Z'
+          ),
+          (
+            'message-child',
+            'thread-child',
+            'turn-child',
+            'assistant',
+            'Child work',
+            0,
+            '2026-07-28T00:00:05.000Z',
+            '2026-07-28T00:00:05.000Z'
+          )
+      `;
+      yield* sql`
+        INSERT INTO projection_thread_activities (
+          activity_id,
+          thread_id,
+          turn_id,
+          tone,
+          kind,
+          summary,
+          payload_json,
+          created_at
+        )
+        VALUES
+          (
+            'activity-main',
+            'thread-parent',
+            'turn-main',
+            'info',
+            'task.progress',
+            'Main work',
+            '{}',
+            '2026-07-28T00:00:03.500Z'
+          ),
+          (
+            'activity-child-leaked',
+            'thread-parent',
+            'turn-child',
+            'info',
+            'task.progress',
+            'Child work leaked to parent',
+            '{}',
+            '2026-07-28T00:00:08.000Z'
+          ),
+          (
+            'activity-child',
+            'thread-child',
+            'turn-child',
+            'info',
+            'task.progress',
+            'Child work',
+            '{}',
+            '2026-07-28T00:00:05.000Z'
+          )
+      `;
+      yield* sql`
+        INSERT INTO projection_turns (
+          thread_id,
+          turn_id,
+          pending_message_id,
+          source_proposed_plan_thread_id,
+          source_proposed_plan_id,
+          assistant_message_id,
+          state,
+          requested_at,
+          started_at,
+          completed_at,
+          checkpoint_turn_count,
+          checkpoint_ref,
+          checkpoint_status,
+          checkpoint_files_json
+        )
+        VALUES
+          (
+            'thread-parent',
+            'turn-main',
+            NULL,
+            NULL,
+            NULL,
+            'message-main-final',
+            'completed',
+            '2026-07-28T00:00:03.000Z',
+            '2026-07-28T00:00:03.000Z',
+            '2026-07-28T00:00:04.000Z',
+            1,
+            'checkpoint-main',
+            'ready',
+            '[]'
+          ),
+          (
+            'thread-parent',
+            'turn-child',
+            NULL,
+            NULL,
+            NULL,
+            'message-child-leaked',
+            'completed',
+            '2026-07-28T00:00:08.000Z',
+            '2026-07-28T00:00:08.000Z',
+            '2026-07-28T00:00:09.000Z',
+            2,
+            'checkpoint-child-leaked',
+            'ready',
+            '[]'
+          ),
+          (
+            'thread-child',
+            'turn-child',
+            NULL,
+            NULL,
+            NULL,
+            'message-child',
+            'completed',
+            '2026-07-28T00:00:05.000Z',
+            '2026-07-28T00:00:05.000Z',
+            '2026-07-28T00:00:09.000Z',
+            NULL,
+            NULL,
+            NULL,
+            '[]'
+          )
+      `;
+
+      const snapshot = yield* snapshotQuery.getSnapshot();
+      const shellSnapshot = yield* snapshotQuery.getShellSnapshot();
+      const commandReadModel = yield* snapshotQuery.getCommandReadModel();
+      const detail = yield* snapshotQuery.getThreadDetailById(asThreadId("thread-parent"));
+      const shell = yield* snapshotQuery.getThreadShellById(asThreadId("thread-parent"));
+      const snapshotParent = snapshot.threads.find((thread) => thread.id === "thread-parent");
+      const shellSnapshotParent = shellSnapshot.threads.find(
+        (thread) => thread.id === "thread-parent",
+      );
+      const commandParent = commandReadModel.threads.find(
+        (thread) => thread.id === "thread-parent",
+      );
+
+      assert.deepEqual(
+        snapshotParent?.messages.map((message) => message.id),
+        [asMessageId("message-user"), asMessageId("message-main-final")],
+      );
+      assert.deepEqual(
+        snapshotParent?.activities.map((activity) => activity.id),
+        [asEventId("activity-main")],
+      );
+      assert.deepEqual(
+        snapshotParent?.checkpoints.map((checkpoint) => checkpoint.turnId),
+        [asTurnId("turn-main")],
+      );
+      assert.equal(snapshotParent?.latestTurn?.turnId, asTurnId("turn-main"));
+      assert.equal(shellSnapshotParent?.latestTurn?.turnId, asTurnId("turn-main"));
+      assert.equal(commandParent?.latestTurn?.turnId, asTurnId("turn-main"));
+      assert.isTrue(Option.isSome(detail));
+      assert.isTrue(Option.isSome(shell));
+      if (Option.isSome(detail)) {
+        assert.deepEqual(
+          detail.value.messages.map((message) => message.id),
+          [asMessageId("message-user"), asMessageId("message-main-final")],
+        );
+        assert.deepEqual(
+          detail.value.activities.map((activity) => activity.id),
+          [asEventId("activity-main")],
+        );
+        assert.deepEqual(
+          detail.value.checkpoints.map((checkpoint) => checkpoint.turnId),
+          [asTurnId("turn-main")],
+        );
+        assert.equal(detail.value.latestTurn?.turnId, asTurnId("turn-main"));
+      }
+      if (Option.isSome(shell)) {
+        assert.equal(shell.value.latestTurn?.turnId, asTurnId("turn-main"));
+      }
+    }),
+  );
+
   it.effect("limits hydrated thread activities to the latest activity window", () =>
     Effect.gen(function* () {
       const snapshotQuery = yield* ProjectionSnapshotQuery;

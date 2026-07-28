@@ -128,6 +128,9 @@ export const ProjectionLatestTurnDbRowSchema = Schema.Struct({
   sourceProposedPlanThreadId: Schema.NullOr(ThreadId),
   sourceProposedPlanId: Schema.NullOr(OrchestrationProposedPlanId),
 });
+export const ProjectionChildTurnIdDbRowSchema = Schema.Struct({
+  turnId: TurnId,
+});
 export const ProjectionStateDbRowSchema = ProjectionState;
 export const ProjectionCountsRowSchema = Schema.Struct({
   projectCount: Schema.Number,

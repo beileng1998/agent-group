@@ -1,4 +1,5 @@
 import type { ProjectId } from "@agent-group/contracts";
+import type { ReactNode } from "react";
 
 import {
   useDesktopTopBarTrafficLightGutterClassName,
@@ -21,6 +22,7 @@ export function EditorWorkspaceHeader(props: {
   currentProjectId: ProjectId | null;
   projectOptions: ReadonlyArray<ProjectMenuPickerOption>;
   chatPaneVisible: boolean;
+  leadingControl?: ReactNode;
   onSelectProject: ((projectId: ProjectId) => void) | undefined;
   onToggleChatPane: () => void;
   onExitEditorView: () => void;
@@ -39,6 +41,7 @@ export function EditorWorkspaceHeader(props: {
       )}
     >
       <div className={cn("flex min-w-0 flex-1 items-center gap-1.5", trafficLightGutterClassName)}>
+        {props.leadingControl}
         <div className="flex min-w-0 items-baseline gap-2">
           <span className="truncate text-[13px] font-medium text-foreground">
             {props.projectName ?? "Workspace"}

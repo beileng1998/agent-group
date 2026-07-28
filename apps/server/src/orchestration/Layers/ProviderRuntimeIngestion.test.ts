@@ -5175,6 +5175,35 @@ describe("ProviderRuntimeIngestion", () => {
     expect(
       parentThread.activities.some((activity) => activity.id === "evt-child-turn-started"),
     ).toBe(false);
+
+    harness.emit({
+      type: "turn.completed",
+      eventId: asEventId("evt-child-turn-completed"),
+      provider: "codex",
+      createdAt: new Date().toISOString(),
+      threadId: asThreadId("thread-1"),
+      turnId: asTurnId("turn-child"),
+      parentTurnId: asTurnId("turn-parent"),
+      providerRefs: {
+        providerThreadId: "child-provider-1",
+        providerParentThreadId: "parent-provider-1",
+        providerTurnId: "turn-child",
+        parentProviderTurnId: "turn-parent",
+      },
+      payload: { state: "completed" },
+    });
+
+    const completedChildThread = await waitForThread(
+      harness.engine,
+      (entry) =>
+        entry.latestTurn?.turnId === "turn-child" &&
+        entry.latestTurn.state === "completed" &&
+        entry.session?.status === "ready" &&
+        entry.session.activeTurnId === null,
+      2000,
+      asThreadId("subagent:thread-1:child-provider-1"),
+    );
+    expect(completedChildThread.latestTurn?.completedAt).not.toBeNull();
   });
 
   it("handles collab receiver and child provider refs on the same event without duplicate thread creation", async () => {

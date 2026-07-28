@@ -19,6 +19,10 @@ import {
   computeSnapshotSequence,
   maxOptionalIso,
 } from "./projectionSnapshotCollections.ts";
+import {
+  collectChildTurnIdsByParent,
+  omitParentCopiesOfChildTurns,
+} from "./childTurnIsolation.ts";
 import { decodeReadModel, decodeShellSnapshot } from "./projectionSnapshotDecoders.ts";
 import { toPersistenceSqlOrDecodeError } from "./projectionSnapshotErrors.ts";
 import {
@@ -153,11 +157,25 @@ export function makeSnapshotOperations(input: {
             ),
           ]);
 
-          const messages = collectProjectedMessages(messageRows);
-          const proposedPlans = collectProjectedProposedPlans(proposedPlanRows);
-          const activities = collectProjectedActivities(activityRows);
-          const checkpoints = collectProjectedCheckpoints(checkpointRows);
-          const latestTurns = collectProjectedLatestTurns(latestTurnRows);
+          const childTurnIdsByParent = collectChildTurnIdsByParent(
+            threadRows,
+            latestTurnRows,
+          );
+          const messages = collectProjectedMessages(
+            omitParentCopiesOfChildTurns(messageRows, childTurnIdsByParent),
+          );
+          const proposedPlans = collectProjectedProposedPlans(
+            omitParentCopiesOfChildTurns(proposedPlanRows, childTurnIdsByParent),
+          );
+          const activities = collectProjectedActivities(
+            omitParentCopiesOfChildTurns(activityRows, childTurnIdsByParent),
+          );
+          const checkpoints = collectProjectedCheckpoints(
+            omitParentCopiesOfChildTurns(checkpointRows, childTurnIdsByParent),
+          );
+          const latestTurns = collectProjectedLatestTurns(
+            omitParentCopiesOfChildTurns(latestTurnRows, childTurnIdsByParent),
+          );
           const sessions = collectProjectedSessions(sessionRows);
 
           let updatedAt = collectBaseUpdatedAt({ projectRows, threadRows, stateRows });
@@ -275,9 +293,17 @@ export function makeSnapshotOperations(input: {
             ),
           ]);
 
-          const proposedPlans = collectProjectedProposedPlans(proposedPlanRows);
+          const childTurnIdsByParent = collectChildTurnIdsByParent(
+            threadRows,
+            latestTurnRows,
+          );
+          const proposedPlans = collectProjectedProposedPlans(
+            omitParentCopiesOfChildTurns(proposedPlanRows, childTurnIdsByParent),
+          );
           const sessions = collectProjectedSessions(sessionRows);
-          const latestTurns = collectProjectedLatestTurns(latestTurnRows);
+          const latestTurns = collectProjectedLatestTurns(
+            omitParentCopiesOfChildTurns(latestTurnRows, childTurnIdsByParent),
+          );
           let updatedAt = collectBaseUpdatedAt({ projectRows, threadRows, stateRows });
           updatedAt = maxOptionalIso(updatedAt, proposedPlans.updatedAt);
           updatedAt = maxOptionalIso(updatedAt, sessions.updatedAt);
@@ -375,7 +401,13 @@ export function makeSnapshotOperations(input: {
                 ),
               ),
             ]);
-          const latestTurns = collectProjectedLatestTurns(latestTurnRows);
+          const childTurnIdsByParent = collectChildTurnIdsByParent(
+            threadRows,
+            latestTurnRows,
+          );
+          const latestTurns = collectProjectedLatestTurns(
+            omitParentCopiesOfChildTurns(latestTurnRows, childTurnIdsByParent),
+          );
           const sessions = collectProjectedSessions(sessionRows);
           let updatedAt = collectBaseUpdatedAt({ projectRows, threadRows, stateRows });
           updatedAt = maxOptionalIso(updatedAt, latestTurns.updatedAt);

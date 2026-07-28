@@ -7,6 +7,7 @@ import {
   MAX_THREAD_FILE_CHANGE_ACTIVITIES,
   MAX_TURN_GENERATED_IMAGE_ACTIVITY_RECORDS,
   ProjectionCheckpointDbRowSchema,
+  ProjectionChildTurnIdDbRowSchema,
   ProjectionFileChangeActivityPayloadDbRowSchema,
   ProjectionFullThreadDiffContextRowSchema,
   ProjectionGeneratedImageActivityDbRowSchema,
@@ -54,11 +55,33 @@ export function makeThreadContextQueries(sql: SqlClient.SqlClient) {
           assistant_message_id AS "assistantMessageId",
           source_proposed_plan_thread_id AS "sourceProposedPlanThreadId",
           source_proposed_plan_id AS "sourceProposedPlanId"
-        FROM projection_turns
-        WHERE thread_id = ${threadId}
-          AND turn_id IS NOT NULL
-        ORDER BY requested_at DESC, turn_id DESC
+        FROM projection_turns AS candidate
+        WHERE candidate.thread_id = ${threadId}
+          AND candidate.turn_id IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1
+            FROM projection_threads AS child_threads
+            INNER JOIN projection_turns AS child_turns
+              ON child_turns.thread_id = child_threads.thread_id
+            WHERE child_threads.parent_thread_id = candidate.thread_id
+              AND child_turns.turn_id = candidate.turn_id
+          )
+        ORDER BY candidate.requested_at DESC, candidate.turn_id DESC
         LIMIT 1
+      `,
+  });
+
+  const listChildTurnIdRowsByParent = SqlSchema.findAll({
+    Request: ThreadIdLookupInput,
+    Result: ProjectionChildTurnIdDbRowSchema,
+    execute: ({ threadId }) =>
+      sql`
+        SELECT DISTINCT child_turns.turn_id AS "turnId"
+        FROM projection_threads AS child_threads
+        INNER JOIN projection_turns AS child_turns
+          ON child_turns.thread_id = child_threads.thread_id
+        WHERE child_threads.parent_thread_id = ${threadId}
+          AND child_turns.turn_id IS NOT NULL
       `,
   });
 
@@ -202,6 +225,7 @@ export function makeThreadContextQueries(sql: SqlClient.SqlClient) {
   return {
     getThreadSessionRowByThread,
     getLatestTurnRowByThread,
+    listChildTurnIdRowsByParent,
     getThreadCheckpointContextThreadRow,
     listCheckpointRowsByThread,
     listFileChangeActivityPayloadsByThread,
