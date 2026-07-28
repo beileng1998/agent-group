@@ -63,14 +63,24 @@ export function makeProviderRuntimeEventProcessor(input: {
       }
 
       const { thread } = yield* input.routing.resolveTargetThread(event, parentThread);
-      const lifecycle = yield* input.lifecycle.applyLifecycle(event, thread);
-      const { toolOutputKey, reasoningSummaryKey } = yield* input.projection.projectEvent({
+      const lifecycle = input.lifecycle.resolveLifecycle(event, thread);
+      const projection = input.projection.projectEvent({
         event,
         thread,
         activeTurnId: lifecycle.activeTurnId,
         eventTurnId: lifecycle.eventTurnId,
         isTerminalTurnEvent: lifecycle.isTerminalTurnEvent,
       });
+      // Finalize every assistant item before publishing the terminal session
+      // state. Consumers must never observe "complete" with a stale narration
+      // item and receive the final answer afterward.
+      const { toolOutputKey, reasoningSummaryKey } = lifecycle.isTerminalTurnEvent
+        ? yield* projection.pipe(
+            Effect.tap(() => input.lifecycle.applyLifecycle(event, thread, lifecycle)),
+          )
+        : yield* input.lifecycle
+            .applyLifecycle(event, thread, lifecycle)
+            .pipe(Effect.flatMap(() => projection));
       yield* input.diff.processTurnDiff(event, thread);
 
       const activityEvent =

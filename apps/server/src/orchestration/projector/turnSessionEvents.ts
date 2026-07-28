@@ -167,6 +167,11 @@ export function projectTurnSessionEvent(
           payload.preserveLatestTurn === true ||
           (previousLatestCheckpointTurnCount !== undefined &&
             previousLatestCheckpointTurnCount > payload.checkpointTurnCount);
+        const sameLatestTurn =
+          thread.latestTurn?.turnId === payload.turnId ? thread.latestTurn : null;
+        const terminalLatestTurn = isTerminalLatestTurn(sameLatestTurn)
+          ? sameLatestTurn
+          : null;
         const latestTurn = preservesNewerLatestTurn
           ? thread.latestTurn
           : isProviderDiffPlaceholderRef(payload.checkpointRef) &&
@@ -175,7 +180,8 @@ export function projectTurnSessionEvent(
             ? thread.latestTurn
             : {
                 turnId: payload.turnId,
-                state: checkpointStatusToLatestTurnState(payload.status),
+                state:
+                  terminalLatestTurn?.state ?? checkpointStatusToLatestTurnState(payload.status),
                 requestedAt:
                   thread.latestTurn?.turnId === payload.turnId
                     ? thread.latestTurn.requestedAt
@@ -184,7 +190,7 @@ export function projectTurnSessionEvent(
                   thread.latestTurn?.turnId === payload.turnId
                     ? (thread.latestTurn.startedAt ?? payload.completedAt)
                     : payload.completedAt,
-                completedAt: payload.completedAt,
+                completedAt: terminalLatestTurn?.completedAt ?? payload.completedAt,
                 assistantMessageId: preservedAssistantMessageId,
               };
 

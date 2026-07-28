@@ -3230,6 +3230,26 @@ describe("ProviderRuntimeIngestion", () => {
         ),
     );
 
+    const terminalEvents = await Effect.runPromise(
+      Stream.runCollect(harness.engine.readEvents(0)).pipe(
+        Effect.map((chunk) => Array.from(chunk)),
+      ),
+    );
+    const assistantCompletion = terminalEvents.find(
+      (event) =>
+        event.type === "thread.message-sent" &&
+        event.payload.messageId === "assistant:item-late-completion" &&
+        event.payload.streaming === false,
+    );
+    const sessionCompletion = terminalEvents.find(
+      (event) =>
+        event.type === "thread.session-set" &&
+        String(event.commandId).includes(
+          "provider:evt-turn-completed-late-completion:thread-session-set:",
+        ),
+    );
+    expect(assistantCompletion?.sequence).toBeLessThan(sessionCompletion?.sequence ?? -1);
+
     harness.emit({
       type: "item.completed",
       eventId: asEventId("evt-item-completed-late-without-turn"),

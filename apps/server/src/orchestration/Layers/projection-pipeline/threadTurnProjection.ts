@@ -211,7 +211,13 @@ export const makeThreadTurnProjection = Effect.gen(function* () {
           const isProviderDiffPlaceholder =
             event.payload.status === "missing" &&
             event.payload.checkpointRef.startsWith("provider-diff:");
-          const nextState = isProviderDiffPlaceholder
+          const hasCanonicalCompletion =
+            Option.isSome(existingTurn) &&
+            existingTurn.value.completedAt !== null &&
+            (existingTurn.value.state === "completed" || existingTurn.value.state === "error");
+          const preservesExistingLifecycle =
+            isProviderDiffPlaceholder || hasCanonicalCompletion;
+          const nextState = preservesExistingLifecycle
             ? Option.match(existingTurn, {
                 onNone: () => "running" as const,
                 onSome: (turn) => turn.state,
@@ -236,7 +242,7 @@ export const makeThreadTurnProjection = Effect.gen(function* () {
               checkpointFiles: event.payload.files,
               startedAt: existingTurn.value.startedAt ?? event.payload.completedAt,
               requestedAt: existingTurn.value.requestedAt ?? event.payload.completedAt,
-              completedAt: isProviderDiffPlaceholder
+              completedAt: preservesExistingLifecycle
                 ? existingTurn.value.completedAt
                 : event.payload.completedAt,
             });

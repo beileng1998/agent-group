@@ -737,7 +737,7 @@ describe("orchestration projector", () => {
     });
   });
 
-  it("does not let a late provider-diff placeholder unsettle a session-settled turn", async () => {
+  it("keeps a session-settled completion stable while late diff data arrives", async () => {
     const createdAt = "2026-02-23T08:00:00.000Z";
     const startedAt = "2026-02-23T08:00:05.000Z";
     const settledAt = "2026-02-23T08:00:10.000Z";
@@ -821,7 +821,7 @@ describe("orchestration projector", () => {
     expect(afterRealCheckpoint.threads[0]?.latestTurn).toMatchObject({
       turnId: "turn-1",
       state: "completed",
-      completedAt: checkpointAt,
+      completedAt: settledAt,
     });
   });
 

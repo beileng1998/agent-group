@@ -2785,6 +2785,7 @@ it.layer(
       const startedAt = "2026-02-27T09:00:00.000Z";
       const assistantCompletedAt = "2026-02-27T09:00:02.000Z";
       const turnFinishedAt = "2026-02-27T09:00:05.000Z";
+      const checkpointFinishedAt = "2026-02-27T09:00:08.000Z";
 
       yield* eventStore.append({
         type: "thread.turn-start-requested",
@@ -2911,6 +2912,48 @@ it.layer(
           AND turn_id = ${turnId}
       `;
       assert.deepEqual(rowsAfterSessionReady, [
+        {
+          state: "completed",
+          completedAt: turnFinishedAt,
+        },
+      ]);
+
+      yield* eventStore.append({
+        type: "thread.turn-diff-completed",
+        eventId: EventId.makeUnsafe("evt-turn-finish-5"),
+        aggregateKind: "thread",
+        aggregateId: threadId,
+        occurredAt: checkpointFinishedAt,
+        commandId: CommandId.makeUnsafe("cmd-turn-finish-5"),
+        causationEventId: null,
+        correlationId: CorrelationId.makeUnsafe("cmd-turn-finish-5"),
+        metadata: {},
+        payload: {
+          threadId,
+          turnId,
+          checkpointTurnCount: 1,
+          checkpointRef: CheckpointRef.makeUnsafe("checkpoint-turn-finish"),
+          status: "ready",
+          files: [],
+          assistantMessageId: MessageId.makeUnsafe("assistant-turn-finish"),
+          completedAt: checkpointFinishedAt,
+        },
+      });
+
+      yield* projectionPipeline.bootstrap;
+
+      const rowsAfterLateCheckpoint = yield* sql<{
+        readonly state: string;
+        readonly completedAt: string | null;
+      }>`
+        SELECT
+          state,
+          completed_at AS "completedAt"
+        FROM projection_turns
+        WHERE thread_id = ${threadId}
+          AND turn_id = ${turnId}
+      `;
+      assert.deepEqual(rowsAfterLateCheckpoint, [
         {
           state: "completed",
           completedAt: turnFinishedAt,

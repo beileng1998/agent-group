@@ -307,6 +307,12 @@ export function applyTurnDiffSummaryToThread(
     isProviderDiffPlaceholderRef(nextSummary.checkpointRef) &&
     nextSummary.status === "missing" &&
     thread.latestTurn?.turnId === nextSummary.turnId;
+  const sameLatestTurn =
+    thread.latestTurn?.turnId === nextSummary.turnId ? thread.latestTurn : null;
+  const hasCanonicalCompletion =
+    sameLatestTurn !== null &&
+    sameLatestTurn.completedAt !== null &&
+    (sameLatestTurn.state === "completed" || sameLatestTurn.state === "error");
   const latestTurn =
     thread.latestTurn === null || thread.latestTurn.turnId === nextSummary.turnId
       ? isSameTurnPlaceholder
@@ -314,10 +320,17 @@ export function applyTurnDiffSummaryToThread(
         : buildLatestTurn({
             previous: thread.latestTurn,
             turnId: nextSummary.turnId,
-            state: checkpointStatusToLatestTurnState(nextSummary.status),
+            // Checkpoint capture can finish after the provider Turn. Once the
+            // lifecycle has settled, diff data must not create a newer
+            // completion or change the terminal outcome.
+            state: hasCanonicalCompletion
+              ? sameLatestTurn.state
+              : checkpointStatusToLatestTurnState(nextSummary.status),
             requestedAt: thread.latestTurn?.requestedAt ?? nextSummary.completedAt,
             startedAt: thread.latestTurn?.startedAt ?? nextSummary.completedAt,
-            completedAt: nextSummary.completedAt,
+            completedAt: hasCanonicalCompletion
+              ? sameLatestTurn.completedAt
+              : nextSummary.completedAt,
             // Prefer the incoming assistantMessageId when present; otherwise keep
             // the previous one from the same turn. Turn-diff events may arrive
             // before the message has been finalized and carry a null id — they

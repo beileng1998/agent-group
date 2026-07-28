@@ -139,16 +139,13 @@ export function applyThreadMessageSentEvent(thread: Thread, event: ThreadMessage
     latestTurn = buildLatestTurn({
       previous: previousTurn,
       turnId: payload.turnId,
-      state: payload.streaming
-        ? "running"
-        : previousTurn?.state === "interrupted"
-          ? "interrupted"
-          : previousTurn?.state === "error"
-            ? "error"
-            : "completed",
+      // An assistant item finishing is not the same as the provider Turn
+      // finishing. Providers may emit multiple narration/final-answer items.
+      // Session lifecycle events are the authority for settling the Turn.
+      state: previousTurn?.state ?? "running",
       requestedAt: previousTurn?.requestedAt ?? payload.createdAt,
       startedAt: previousTurn?.startedAt ?? payload.createdAt,
-      completedAt: payload.streaming ? (previousTurn?.completedAt ?? null) : payload.updatedAt,
+      completedAt: previousTurn?.completedAt ?? null,
       assistantMessageId: payload.messageId,
       sourceProposedPlan: thread.pendingSourceProposedPlan,
     });

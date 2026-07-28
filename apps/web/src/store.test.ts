@@ -1654,7 +1654,7 @@ describe("store pure functions", () => {
     });
   });
 
-  it("keeps a settled turn intact when a late provider diff placeholder arrives", () => {
+  it("keeps a settled turn completion stable while late diff data arrives", () => {
     const initialState = makeState(
       makeThread({
         latestTurn: {
@@ -1679,12 +1679,27 @@ describe("store pure functions", () => {
         assistantMessageId: null,
         checkpointTurnCount: 1,
       }),
+      makeDomainEvent("thread.turn-diff-completed", {
+        threadId: ThreadId.makeUnsafe("thread-1"),
+        turnId: TurnId.makeUnsafe("turn-1"),
+        completedAt: "2026-02-27T00:01:35.000Z",
+        status: "ready",
+        files: [{ path: "src/app.ts", kind: "modified", additions: 1, deletions: 0 }],
+        checkpointRef: CheckpointRef.makeUnsafe("checkpoint-late"),
+        assistantMessageId: MessageId.makeUnsafe("assistant-final"),
+        checkpointTurnCount: 1,
+      }),
     ]);
 
+    expect(next.threads[0]?.turnDiffSummaries[0]).toMatchObject({
+      status: "ready",
+      assistantMessageId: MessageId.makeUnsafe("assistant-final"),
+    });
     expect(next.threads[0]?.latestTurn).toMatchObject({
       turnId: TurnId.makeUnsafe("turn-1"),
       state: "completed",
       completedAt: "2026-02-27T00:01:30.000Z",
+      assistantMessageId: MessageId.makeUnsafe("assistant-final"),
     });
   });
 
@@ -2852,6 +2867,45 @@ describe("store read model sync", () => {
       id: MessageId.makeUnsafe("assistant-streaming"),
       text: "streaming delta",
       streaming: true,
+    });
+  });
+
+  it("does not settle a turn when an assistant process message finishes", () => {
+    const turnId = TurnId.makeUnsafe("turn-process-message");
+    const assistantMessageId = MessageId.makeUnsafe("assistant-process-message");
+    const initialState = makeState(
+      makeThread({
+        latestTurn: {
+          turnId,
+          state: "running",
+          requestedAt: "2026-02-27T00:00:00.000Z",
+          startedAt: "2026-02-27T00:00:01.000Z",
+          completedAt: null,
+          assistantMessageId: null,
+        },
+      }),
+    );
+
+    const next = applyOrchestrationEvents(initialState, [
+      makeDomainEvent("thread.message-sent", {
+        threadId: ThreadId.makeUnsafe("thread-1"),
+        messageId: assistantMessageId,
+        role: "assistant",
+        text: "I found the relevant files.",
+        turnId,
+        streaming: false,
+        createdAt: "2026-02-27T00:00:02.000Z",
+        updatedAt: "2026-02-27T00:00:03.000Z",
+        attachments: [],
+        source: "native",
+      }),
+    ]);
+
+    expect(next.threads[0]?.latestTurn).toMatchObject({
+      turnId,
+      state: "running",
+      completedAt: null,
+      assistantMessageId,
     });
   });
 
