@@ -121,7 +121,7 @@ describe("deriveAgentActivityTimelineState", () => {
     });
   });
 
-  it("recognizes reasoning and Pi thinking labels as reasoning activity", () => {
+  it("recognizes reasoning trace and summary labels as reasoning activity", () => {
     const trace = workEntry({
       id: "reasoning-trace-1",
       label: "Reasoning trace",
@@ -132,17 +132,9 @@ describe("deriveAgentActivityTimelineState", () => {
       label: "Reasoning summary",
       detail: "Reasoning summary Update the adapter",
     });
-    const thinking = workEntry({
-      id: "pi-thinking-1",
-      label: "Thinking",
-      toolTitle: "Thinking",
-      toolCallId: "pi-reasoning-1",
-      detail: "Inspecting the Pi event stream\nand preserving its latest readable paragraph.",
-    });
 
     expect(isReasoningUpdateWorkEntry(trace)).toBe(true);
     expect(isReasoningUpdateWorkEntry(summary)).toBe(true);
-    expect(isReasoningUpdateWorkEntry(thinking)).toBe(true);
     expect(
       isCodexActivityStatusWorkEntry(
         workEntry({
@@ -155,9 +147,6 @@ describe("deriveAgentActivityTimelineState", () => {
     ).toBe(true);
     expect(formatAgentActivityEntryPreview(trace)).toBe("Inspect the protocol");
     expect(formatAgentActivityEntryPreview(summary)).toBe("Update the adapter");
-    expect(formatAgentActivityEntryPreview(thinking)).toBe(
-      "Inspecting the Pi event stream and preserving its latest readable paragraph.",
-    );
   });
 
   it("keeps generic agent task rows openable without compacting them away", () => {

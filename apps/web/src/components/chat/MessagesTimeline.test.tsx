@@ -1261,7 +1261,7 @@ describe("MessagesTimeline", () => {
         ]}
         turnDiffSummaryByAssistantMessageId={new Map()}
         nowIso="2026-05-09T16:31:25.000Z"
-        expandedWorkGroups={{ "entry-cursor-search": true }}
+        expandedWorkGroups={{}}
         onToggleWorkGroup={() => {}}
         onOpenTurnDiff={() => {}}
         revertTurnCountByUserMessageId={new Map()}
@@ -1313,7 +1313,7 @@ describe("MessagesTimeline", () => {
         ]}
         turnDiffSummaryByAssistantMessageId={new Map()}
         nowIso="2026-05-09T16:31:25.000Z"
-        expandedWorkGroups={{ "entry-claude-agent-task": true }}
+        expandedWorkGroups={{}}
         onToggleWorkGroup={() => {}}
         onOpenTurnDiff={() => {}}
         revertTurnCountByUserMessageId={new Map()}
@@ -1332,7 +1332,7 @@ describe("MessagesTimeline", () => {
     expect(markup).not.toContain("```tsx");
   });
 
-  it("keeps live tool calls collapsed behind one Process disclosure", async () => {
+  it("keeps the latest inline tool calls visible while the turn is still active", async () => {
     const { MessagesTimeline } = await import("./MessagesTimeline");
     const markup = renderToStaticMarkup(
       <MessagesTimeline
@@ -1437,14 +1437,14 @@ describe("MessagesTimeline", () => {
       />,
     );
 
-    expect(markup).toContain("Process");
-    expect(markup).toContain("6 tools");
     expect(markup).not.toContain("Tool 1");
-    expect(markup).not.toContain("Tool 6");
-    expect(markup).not.toContain("more tool calls");
+    expect(markup).not.toContain("Tool 2");
+    expect(markup).toContain("Tool 3");
+    expect(markup).toContain("Tool 6");
+    expect(markup).toContain("+2 more tool calls");
   });
 
-  it("shows live reasoning while tools and duplicate Thinking status stay collapsed", async () => {
+  it("renders reasoning activity as iconless tool text while Thinking remains live", async () => {
     const { MessagesTimeline } = await import("./MessagesTimeline");
     const activeTurnId = TurnId.makeUnsafe("turn-reasoning-live");
     const markup = renderToStaticMarkup(
@@ -1529,15 +1529,10 @@ describe("MessagesTimeline", () => {
       />,
     );
 
-    expect(markup.match(/data-codex-status-row="true"/g) ?? []).toHaveLength(2);
-    expect(markup.match(/data-work-entry-icon="true"/g) ?? []).toHaveLength(0);
-    expect(markup).toContain("Working for");
-    expect(markup).toContain("Process");
-    expect(markup).toContain("2 tools");
-    expect(markup).not.toContain(">Thinking<");
+    expect(markup.match(/data-codex-status-row="true"/g) ?? []).toHaveLength(3);
+    expect(markup.match(/data-work-entry-icon="true"/g) ?? []).toHaveLength(1);
+    expect(markup).toContain(">Thinking<");
     expect(markup).toContain("Inspecting apps/web/src/store.ts");
-    expect(markup).toContain("Updating the adapter");
-    expect(markup).not.toContain("Running the focused tests");
     expect(markup).not.toContain("Reasoning trace Inspecting");
   });
 
@@ -1787,8 +1782,7 @@ describe("MessagesTimeline", () => {
     );
 
     expect(markup).toContain("Tool 5");
-    expect(markup).toContain("Process");
-    expect(markup).toContain("5 tools");
+    expect(markup).toContain("Show less");
   });
 
   it("renders inline file-change tool calls as edited rows with diff stats", async () => {

@@ -35,12 +35,9 @@ import {
 } from "./MessagesTimeline.workEntryModel";
 import { SimpleWorkEntryRow } from "./MessagesTimeline.workEntryRow";
 import { EditedFileRowContent } from "./MessagesTimeline.workEntrySurfaces";
-import {
-  partitionLiveWorkEntries,
-  ToolEntriesDisclosure,
-} from "./MessagesTimeline.toolDisclosure";
 import type { ExpandedImagePreview } from "./ExpandedImagePreview";
 
+const MAX_VISIBLE_INLINE_TOOL_ENTRIES = 4;
 const EMPTY_MESSAGE_MARKERS: readonly ThreadMarker[] = [];
 
 type AssistantMessageRow = Extract<MessagesTimelineRow, { kind: "message" }>;
@@ -86,6 +83,7 @@ export function renderAssistantMessageRow(
 ): ReactNode {
   const {
     threadId,
+    activeTurnInProgress,
     appTypographyScale,
     canPinMessage,
     chatMessageFooterStyle,
@@ -119,21 +117,23 @@ export function renderAssistantMessageRow(
   } = context;
   const messageText = resolveAssistantMessageDisplayText(row);
   const messageMarkers = threadMarkersByMessageId.get(row.message.id) ?? EMPTY_MESSAGE_MARKERS;
-  const buildWorkDisplay = (
-    workEntries: WorkLogEntry[],
-    workGroupId: string | null,
-    fallbackGroupId: string,
-  ) => {
-    const { reasoningEntries, statusEntries, toolEntries } =
-      partitionLiveWorkEntries(workEntries);
-    const toolGroupId = toolEntries.length > 0 ? (workGroupId ?? fallbackGroupId) : null;
+  const buildWorkDisplay = (workEntries: WorkLogEntry[], workGroupId: string | null) => {
+    const toolEntries = workEntries.filter((entry) => entry.tone === "tool");
+    const statusEntries = workEntries.filter((entry) => entry.tone !== "tool");
+    const toolGroupId = toolEntries.length > 0 ? workGroupId : null;
     const toolExpanded =
       toolGroupId !== null ? (expandedWorkGroupsState[toolGroupId] ?? false) : false;
+    const visibleToolEntries =
+      toolExpanded || toolEntries.length <= MAX_VISIBLE_INLINE_TOOL_ENTRIES
+        ? toolEntries
+        : activeTurnInProgress
+          ? toolEntries.slice(-MAX_VISIBLE_INLINE_TOOL_ENTRIES)
+          : toolEntries.slice(0, MAX_VISIBLE_INLINE_TOOL_ENTRIES);
     const hasGenericFileChangeEntry = toolEntries.some(
       (workEntry) =>
         isFileChangeWorkEntry(workEntry) && (workEntry.changedFiles?.length ?? 0) === 0,
     );
-    const renderableToolEntries = toolEntries.filter(
+    const visibleRenderableToolEntries = visibleToolEntries.filter(
       (workEntry) =>
         !(
           hasGenericFileChangeEntry &&
@@ -142,24 +142,22 @@ export function renderAssistantMessageRow(
         ),
     );
     return {
-      reasoningEntries,
       toolEntries,
       statusEntries,
       toolGroupId,
       toolExpanded,
-      renderableToolEntries,
+      visibleRenderableToolEntries,
+      hiddenToolCount: toolEntries.length - visibleToolEntries.length,
       hasGenericFileChangeEntry,
     };
   };
   const leadingWorkDisplay = buildWorkDisplay(
     row.leadingWorkEntries ?? [],
     row.leadingWorkGroupId ?? null,
-    `${row.message.id}:leading-tools`,
   );
   const inlineWorkDisplay = buildWorkDisplay(
     row.inlineWorkEntries ?? [],
     row.inlineWorkGroupId ?? null,
-    `${row.message.id}:inline-tools`,
   );
   const inlineWorkSummary =
     leadingWorkDisplay.toolEntries.length + inlineWorkDisplay.toolEntries.length > 0
@@ -222,56 +220,42 @@ export function renderAssistantMessageRow(
     placement: "leading" | "inline",
   ) => (
     <>
-      {!hasCollapsedDetails && display.reasoningEntries.length > 0 && (
-        <div className={cn("space-y-0.5", placement === "leading" ? "mb-1" : "mt-1")}>
-          {display.reasoningEntries.map((workEntry) => (
-            <SimpleWorkEntryRow
-              key={`${placement}-reasoning-row:${row.message.id}:${workEntry.id}`}
-              workEntry={workEntry}
-              chatMetaFontSizePx={appTypographyScale.chatMetaPx}
-              textFontSizePx={normalizedChatFontSizePx}
-              density="compact"
-              markdownCwd={markdownCwd}
-              onImageExpand={onImageExpand}
-              onOpenToolDetails={openToolDetails}
-              {...(onOpenAgentActivity ? { onOpenAgentActivity } : {})}
-            />
-          ))}
+      {!hasCollapsedDetails && display.visibleRenderableToolEntries.length > 0 && (
+        <div className={placement === "leading" ? "mb-1.5" : "mt-1.5"}>
+          <div className="space-y-px">
+            {display.visibleRenderableToolEntries.map((workEntry) => (
+              <SimpleWorkEntryRow
+                key={`${placement}-tool-row:${row.message.id}:${workEntry.id}`}
+                workEntry={workEntry}
+                chatMetaFontSizePx={appTypographyScale.chatMetaPx}
+                textFontSizePx={normalizedChatFontSizePx}
+                density="compact"
+                fileDiffStatByPath={fileDiffStatByPath}
+                markdownCwd={markdownCwd}
+                onImageExpand={onImageExpand}
+                onOpenTurnDiff={onOpenTurnDiff}
+                onOpenToolDetails={openToolDetails}
+                {...(onOpenAgentActivity ? { onOpenAgentActivity } : {})}
+                {...(onOpenThread ? { onOpenThread } : {})}
+                {...(onOpenAutomation ? { onOpenAutomation } : {})}
+                {...(turnSummary?.turnId ? { turnId: turnSummary.turnId } : {})}
+              />
+            ))}
+          </div>
+          {display.toolGroupId && display.toolEntries.length > MAX_VISIBLE_INLINE_TOOL_ENTRIES && (
+            <div className="py-0.5">
+              <button
+                type="button"
+                className="text-muted-foreground/50 transition-colors duration-150 hover:text-foreground/72"
+                style={{ fontSize: `${normalizedChatFontSizePx}px` }}
+                onClick={() => handleToggleWorkGroup(display.toolGroupId!)}
+              >
+                {display.toolExpanded ? "Show less" : `+${display.hiddenToolCount} more tool calls`}
+              </button>
+            </div>
+          )}
         </div>
       )}
-      {!hasCollapsedDetails &&
-        display.toolGroupId &&
-        display.renderableToolEntries.length > 0 && (
-          <div className={placement === "leading" ? "mb-1" : "mt-1"}>
-            <ToolEntriesDisclosure
-              count={display.renderableToolEntries.length}
-              fontSizePx={normalizedChatFontSizePx}
-              open={display.toolExpanded}
-              onOpenChange={(open) => {
-                if (open !== display.toolExpanded) handleToggleWorkGroup(display.toolGroupId!);
-              }}
-            >
-              {display.renderableToolEntries.map((workEntry) => (
-                <SimpleWorkEntryRow
-                  key={`${placement}-tool-row:${row.message.id}:${workEntry.id}`}
-                  workEntry={workEntry}
-                  chatMetaFontSizePx={appTypographyScale.chatMetaPx}
-                  textFontSizePx={normalizedChatFontSizePx}
-                  density="compact"
-                  fileDiffStatByPath={fileDiffStatByPath}
-                  markdownCwd={markdownCwd}
-                  onImageExpand={onImageExpand}
-                  onOpenTurnDiff={onOpenTurnDiff}
-                  onOpenToolDetails={openToolDetails}
-                  {...(onOpenAgentActivity ? { onOpenAgentActivity } : {})}
-                  {...(onOpenThread ? { onOpenThread } : {})}
-                  {...(onOpenAutomation ? { onOpenAutomation } : {})}
-                  {...(turnSummary?.turnId ? { turnId: turnSummary.turnId } : {})}
-                />
-              ))}
-            </ToolEntriesDisclosure>
-          </div>
-        )}
       {!hasCollapsedDetails && display.statusEntries.length > 0 && (
         <div className={cn("space-y-0.5", placement === "leading" ? "mb-2" : "mt-2")}>
           {display.statusEntries.map((workEntry) => (

@@ -58,18 +58,6 @@ function SettledTimeline() {
             },
           },
           {
-            id: "entry-thinking",
-            kind: "work",
-            createdAt: "2026-07-28T10:00:03.500Z",
-            entry: {
-              id: "thinking-1",
-              createdAt: "2026-07-28T10:00:03.500Z",
-              label: "Thinking",
-              detail: "The implementation now follows the Pi lifecycle.",
-              tone: "tool",
-            },
-          },
-          {
             id: "entry-final",
             kind: "message",
             createdAt: "2026-07-28T10:00:04.000Z",
@@ -102,73 +90,6 @@ function SettledTimeline() {
   );
 }
 
-function LiveTimeline() {
-  const turnId = TurnId.makeUnsafe("turn-live");
-  return (
-    <div style={{ height: 420 }}>
-      <MessagesTimeline
-        hasMessages
-        isWorking
-        activeTurnInProgress
-        activeTurnId={turnId}
-        activeTurnStartedAt="2026-07-29T10:00:00.000Z"
-        timelineEntries={[
-          {
-            id: "entry-live-thinking",
-            kind: "work",
-            createdAt: "2026-07-29T10:00:01.000Z",
-            entry: {
-              id: "live-thinking",
-              createdAt: "2026-07-29T10:00:01.000Z",
-              turnId,
-              label: "Thinking",
-              toolTitle: "Thinking",
-              toolCallId: "pi-reasoning-live",
-              detail: "Inspecting the Pi event lifecycle.",
-              tone: "tool",
-            },
-          },
-          {
-            id: "entry-live-read",
-            kind: "work",
-            createdAt: "2026-07-29T10:00:02.000Z",
-            entry: {
-              id: "live-read",
-              createdAt: "2026-07-29T10:00:02.000Z",
-              turnId,
-              label: "Read adapter source",
-              tone: "tool",
-            },
-          },
-          {
-            id: "entry-live-test",
-            kind: "work",
-            createdAt: "2026-07-29T10:00:03.000Z",
-            entry: {
-              id: "live-test",
-              createdAt: "2026-07-29T10:00:03.000Z",
-              turnId,
-              label: "Run focused checks",
-              tone: "tool",
-            },
-          },
-        ]}
-        turnDiffSummaryByAssistantMessageId={new Map()}
-        nowIso="2026-07-29T10:00:04.000Z"
-        onOpenTurnDiff={() => {}}
-        revertTurnCountByUserMessageId={new Map()}
-        onRevertUserMessage={() => {}}
-        isRevertingCheckpoint={false}
-        onImageExpand={() => {}}
-        markdownCwd={undefined}
-        resolvedTheme="light"
-        timestampFormat="locale"
-        workspaceRoot={undefined}
-      />
-    </div>
-  );
-}
-
 describe("MessagesTimeline settled process messages", () => {
   afterEach(() => {
     document.body.innerHTML = "";
@@ -181,9 +102,6 @@ describe("MessagesTimeline settled process messages", () => {
       await expect.poll(() => document.body.textContent?.includes("Fixed.")).toBe(true);
       expect(document.body.textContent ?? "").toContain("Worked for");
       expect(document.body.textContent ?? "").not.toContain("Checking the implementation now.");
-      expect(document.body.textContent ?? "").not.toContain(
-        "The implementation now follows the Pi lifecycle.",
-      );
 
       const trigger = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(
         (button) => button.textContent?.includes("Worked for"),
@@ -194,36 +112,9 @@ describe("MessagesTimeline settled process messages", () => {
       await expect
         .poll(() => document.body.textContent?.includes("Checking the implementation now."))
         .toBe(true);
-      expect(document.body.textContent ?? "").toContain(
-        "The implementation now follows the Pi lifecycle.",
-      );
       expect(
         document.querySelector('[data-assistant-message-id="message-process"]'),
       ).not.toBeNull();
-    } finally {
-      await screen.unmount();
-    }
-  });
-
-  it("shows Pi thinking live while keeping tool details closed", async () => {
-    const screen = await render(<LiveTimeline />);
-
-    try {
-      await expect.poll(() => document.body.textContent?.includes("Working for")).toBe(true);
-      expect(document.body.textContent ?? "").toContain("Inspecting the Pi event lifecycle.");
-      expect(document.body.textContent ?? "").toContain("Process 2 tools");
-      expect(document.body.textContent ?? "").not.toContain("Read adapter source");
-      expect(document.querySelectorAll('[data-timeline-row-kind="working-header"]')).toHaveLength(1);
-      expect(document.querySelectorAll('[data-timeline-row-kind="working"]')).toHaveLength(0);
-
-      const trigger = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(
-        (button) => button.textContent?.includes("Process"),
-      );
-      expect(trigger).toBeDefined();
-      trigger?.click();
-
-      await expect.poll(() => document.body.textContent?.includes("Read adapter source")).toBe(true);
-      expect(document.body.textContent ?? "").toContain("Run focused checks");
     } finally {
       await screen.unmount();
     }

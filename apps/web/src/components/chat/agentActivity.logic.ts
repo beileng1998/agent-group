@@ -29,10 +29,7 @@ export function isReasoningUpdateWorkEntry(
     heading === "reasoning" ||
     heading === "reasoning update" ||
     heading === "reasoning trace" ||
-    heading === "reasoning summary" ||
-    heading === "thinking" ||
-    heading === "thinking update" ||
-    heading === "thinking trace"
+    heading === "reasoning summary"
   );
 }
 
@@ -210,19 +207,19 @@ function cleanReasoningProgressText(value: string | undefined): string | null {
     return null;
   }
 
-  // Codex summaries are Markdown blocks while Pi streams plain thinking
-  // paragraphs. Keep the latest readable paragraph so Pi can show meaningful
-  // live context without turning the transcript row into a full trace.
-  const readableBlocks = value
+  // Codex summaries are Markdown blocks such as
+  // `**Planning the implementation**\n\n<!-- -->`. Its compact UI label is the
+  // last readable line, with comments and lightweight Markdown removed.
+  const readableLines = value
     .replace(/<!--[\s\S]*?-->/gu, "")
-    .split(/(?:\r?\n){2,}/u)
-    .map((block) => block.replace(/\s+/gu, " ").trim())
-    .filter((block) => block.length > 0);
-  const latestBlock = readableBlocks.at(-1);
-  if (!latestBlock) {
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith("<!--"));
+  const latestLine = readableLines.at(-1);
+  if (!latestLine) {
     return null;
   }
-  const trimmed = latestBlock
+  const trimmed = latestLine
     .replace(/^#{1,6}\s+/u, "")
     .replace(/^\*\*(.+)\*\*$/u, "$1")
     .replace(/^__(.+)__$/u, "$1")
@@ -230,12 +227,10 @@ function cleanReasoningProgressText(value: string | undefined): string | null {
     .trim();
 
   const withoutReasoningPrefix = trimmed
-    .replace(/^(?:reasoning|thinking)(?:\s+(?:update|trace|summary))?\b[\s:.-]*/i, "")
+    .replace(/^reasoning(?:\s+(?:update|trace|summary))?\b[\s:.-]*/i, "")
     .trim();
   const withoutRunningPrefix = withoutReasoningPrefix.replace(/^running\b[\s:.-]*/i, "").trim();
-  const preview = withoutRunningPrefix || withoutReasoningPrefix;
-  if (!preview) return null;
-  return preview.length > 320 ? `…${preview.slice(-319)}` : preview;
+  return withoutRunningPrefix || withoutReasoningPrefix || null;
 }
 
 function normalizeOptionalText(value: string | undefined): string | null {
