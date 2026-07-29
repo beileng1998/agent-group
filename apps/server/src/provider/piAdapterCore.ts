@@ -53,6 +53,8 @@ export interface PiSessionContext {
   activeTurnId: TurnId | undefined;
   activeAssistantItemId: RuntimeItemId | undefined;
   activeReasoningItemId: RuntimeItemId | undefined;
+  activeReasoningText: string;
+  activeReasoningLastPublishedAt: number | undefined;
   activeToolItems: Map<string, PiTrackedToolCall>;
   pendingUserInputs: Map<ApprovalRequestId, PiPendingUserInput>;
   stopped: boolean;

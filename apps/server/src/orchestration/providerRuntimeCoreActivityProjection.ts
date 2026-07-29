@@ -29,29 +29,37 @@ export function projectRuntimeCoreActivities(
   event: ProviderRuntimeEvent,
 ): ReadonlyArray<OrchestrationThreadActivity> | undefined {
   const maybeSequence = runtimeActivitySequence(event);
-  // Codex and Antigravity only render completed reasoning items with a readable summary.
-  // Empty starts/completions are private/encrypted reasoning boundaries, not
-  // transcript rows. Waiting for the authoritative completion also avoids
-  // per-token activity writes and transcript height churn.
   if (
-    (event.provider === "codex" || event.provider === "antigravity") &&
-    event.type === "item.completed" &&
+    (event.type === "item.updated" || event.type === "item.completed") &&
     event.payload.itemType === "reasoning" &&
-    event.itemId !== undefined &&
-    readableReasoningDetail(event.payload.detail) !== undefined
+    event.itemId !== undefined
   ) {
+    // Pi exposes readable thinking throughout the SDK lifecycle, so its stable
+    // item is updated while the turn runs. Codex and Antigravity keep waiting
+    // for their authoritative completion because intermediate payloads may be
+    // private/encrypted boundaries rather than user-readable summaries.
+    const shouldProject =
+      event.provider === "pi" ||
+      (event.type === "item.completed" &&
+        (event.provider === "codex" || event.provider === "antigravity"));
+    const reasoningDetail = readableReasoningDetail(event.payload.detail);
+    if (!shouldProject || reasoningDetail === undefined) return [];
     const reasoningItemId = String(event.itemId);
-    const reasoningDetail = readableReasoningDetail(event.payload.detail)!;
+    const displayDetail =
+      event.provider === "pi" && reasoningDetail.length > MAX_ACTIVITY_DATA_STRING_CHARS
+        ? `…${reasoningDetail.slice(-(MAX_ACTIVITY_DATA_STRING_CHARS - 1))}`
+        : truncateDetail(reasoningDetail, MAX_ACTIVITY_DATA_STRING_CHARS);
     return [
       {
         id: EventId.makeUnsafe(`provider-reasoning:${event.threadId}:${reasoningItemId}`),
         createdAt: event.createdAt,
         tone: "tool",
         kind: "task.progress",
-        summary: "Reasoning trace",
+        summary: event.provider === "pi" ? "Thinking" : "Reasoning trace",
         payload: toActivityPayload({
+          taskId: reasoningItemId,
           ...(event.payload.status ? { status: event.payload.status } : {}),
-          detail: truncateDetail(reasoningDetail, MAX_ACTIVITY_DATA_STRING_CHARS),
+          detail: displayDetail,
           data: { toolCallId: reasoningItemId },
         }),
         turnId: toTurnId(event.turnId) ?? null,

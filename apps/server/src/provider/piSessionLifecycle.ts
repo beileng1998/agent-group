@@ -184,6 +184,8 @@ export function makePiSessionLifecycle(dependencies: PiSessionLifecycleDependenc
         activeTurnId: undefined,
         activeAssistantItemId: undefined,
         activeReasoningItemId: undefined,
+        activeReasoningText: "",
+        activeReasoningLastPublishedAt: undefined,
         activeToolItems: new Map(),
         pendingUserInputs: new Map(),
         stopped: false,

@@ -1407,6 +1407,97 @@ describe("ProviderRuntimeIngestion", () => {
     });
   });
 
+  it("updates one stable Pi thinking activity while reasoning is live", async () => {
+    const harness = await createHarness();
+    const now = new Date().toISOString();
+    const baseEvent = {
+      provider: "pi" as const,
+      createdAt: now,
+      threadId: asThreadId("thread-1"),
+      turnId: asTurnId("turn-pi-reasoning"),
+      itemId: asItemId("pi-reasoning-1"),
+    };
+    const stableActivityId = "provider-reasoning:thread-1:pi-reasoning-1";
+
+    harness.emit({
+      ...baseEvent,
+      type: "item.started",
+      eventId: asEventId("evt-pi-reasoning-started"),
+      payload: {
+        itemType: "reasoning",
+        status: "inProgress",
+        title: "Thinking",
+      },
+    });
+    harness.emit({
+      ...baseEvent,
+      type: "item.updated",
+      eventId: asEventId("evt-pi-reasoning-updated"),
+      payload: {
+        itemType: "reasoning",
+        status: "inProgress",
+        title: "Thinking",
+        detail: "Inspecting the Pi event flow.",
+      },
+    });
+
+    const liveThread = await waitForThread(harness.engine, (entry) =>
+      entry.activities.some(
+        (activity: ProviderRuntimeTestActivity) =>
+          activity.id === stableActivityId &&
+          (activity.payload as { status?: unknown }).status === "inProgress",
+      ),
+    );
+    expect(
+      liveThread.activities.filter(
+        (activity: ProviderRuntimeTestActivity) => activity.id === stableActivityId,
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        kind: "task.progress",
+        summary: "Thinking",
+        payload: expect.objectContaining({
+          taskId: "pi-reasoning-1",
+          status: "inProgress",
+          detail: "Inspecting the Pi event flow.",
+        }),
+      }),
+    ]);
+
+    harness.emit({
+      ...baseEvent,
+      type: "item.completed",
+      eventId: asEventId("evt-pi-reasoning-completed"),
+      payload: {
+        itemType: "reasoning",
+        status: "completed",
+        title: "Thinking",
+        detail: "Inspecting the Pi event flow. The mapping is correct.",
+      },
+    });
+
+    const settledThread = await waitForThread(harness.engine, (entry) =>
+      entry.activities.some(
+        (activity: ProviderRuntimeTestActivity) =>
+          activity.id === stableActivityId &&
+          (activity.payload as { status?: unknown }).status === "completed",
+      ),
+    );
+    expect(
+      settledThread.activities.filter(
+        (activity: ProviderRuntimeTestActivity) => activity.id === stableActivityId,
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        summary: "Thinking",
+        payload: expect.objectContaining({
+          status: "completed",
+          detail: "Inspecting the Pi event flow. The mapping is correct.",
+        }),
+      }),
+    ]);
+  });
+
   it("projects narrated Antigravity planner steps as completed reasoning", async () => {
     const harness = await createHarness();
     const now = new Date().toISOString();

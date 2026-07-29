@@ -19,6 +19,7 @@ import {
   type PiTrackedToolCall,
   toMessage,
 } from "./piAdapterCore.ts";
+import { makePiReasoningProjection } from "./piReasoningProjection.ts";
 import {
   textFromToolResult,
   toolItemType,
@@ -51,6 +52,7 @@ export interface PiSessionEventConsumerDependencies {
 
 export function makePiSessionEventConsumer(dependencies: PiSessionEventConsumerDependencies) {
   const { makeEventBase, offerRuntimeError, offerRuntimeEvent } = dependencies;
+  const reasoning = makePiReasoningProjection({ makeEventBase, offerRuntimeEvent });
   const completePromptRejection = (context: PiSessionContext, turnId: TurnId, cause: unknown) => {
     if (context.activeTurnId !== turnId) {
       return;
@@ -64,7 +66,7 @@ export function makePiSessionEventConsumer(dependencies: PiSessionEventConsumerD
     }
     context.activeTurnId = undefined;
     context.activeAssistantItemId = undefined;
-    context.activeReasoningItemId = undefined;
+    reasoning.clear(context);
     context.activeToolItems.clear();
     context.session = makeSessionSnapshot(context);
     offerRuntimeEvent({
@@ -92,6 +94,13 @@ export function makePiSessionEventConsumer(dependencies: PiSessionEventConsumerD
   ) => {
     if (event.message.role !== "assistant") return;
     const update = event.assistantMessageEvent;
+    if (update.type === "thinking_start") {
+      if (context.activeReasoningItemId) {
+        reasoning.complete(context, event, "completed");
+      }
+      reasoning.start(context, event);
+      return;
+    }
     if (update.type === "text_delta") {
       if (!context.activeAssistantItemId) {
         context.activeAssistantItemId = RuntimeItemId.makeUnsafe(
@@ -120,18 +129,7 @@ export function makePiSessionEventConsumer(dependencies: PiSessionEventConsumerD
       return;
     }
     if (update.type === "thinking_delta") {
-      if (!context.activeReasoningItemId) {
-        context.activeReasoningItemId = RuntimeItemId.makeUnsafe(
-          `pi-reasoning-${crypto.randomUUID()}`,
-        );
-        offerRuntimeEvent({
-          ...makeEventBase(context),
-          itemId: context.activeReasoningItemId,
-          type: "item.started",
-          payload: { itemType: "reasoning", status: "inProgress", title: "Reasoning" },
-          raw: { source: "pi.sdk.event", messageType: event.type, payload: event },
-        } satisfies ProviderRuntimeEvent);
-      }
+      reasoning.appendDelta(context, event, update.delta);
       recordItem(context, { type: "reasoning", delta: update.delta });
       offerRuntimeEvent({
         ...makeEventBase(context),
@@ -144,6 +142,11 @@ export function makePiSessionEventConsumer(dependencies: PiSessionEventConsumerD
         },
         raw: { source: "pi.sdk.event", messageType: event.type, payload: event },
       } satisfies ProviderRuntimeEvent);
+      return;
+    }
+    if (update.type === "thinking_end") {
+      reasoning.start(context, event);
+      reasoning.complete(context, event, "completed", update.content);
     }
   };
 
@@ -174,6 +177,19 @@ export function makePiSessionEventConsumer(dependencies: PiSessionEventConsumerD
         return;
       case "message_update":
         handleMessageUpdate(context, event);
+        return;
+      case "message_end":
+        if (event.message.role === "assistant" && context.activeReasoningItemId) {
+          const finalThinking = event.message.content
+            .flatMap((content) => (content.type === "thinking" ? [content.thinking] : []))
+            .join("\n\n");
+          reasoning.complete(
+            context,
+            event,
+            event.message.errorMessage ? "failed" : "completed",
+            finalThinking || undefined,
+          );
+        }
         return;
       case "tool_execution_start": {
         const itemId = RuntimeItemId.makeUnsafe(`pi-tool-${event.toolCallId}`);
@@ -337,19 +353,7 @@ export function makePiSessionEventConsumer(dependencies: PiSessionEventConsumerD
             raw: { source: "pi.sdk.event", messageType: event.type, payload: event },
           } satisfies ProviderRuntimeEvent);
         }
-        if (context.activeReasoningItemId) {
-          offerRuntimeEvent({
-            ...makeEventBase(context),
-            itemId: context.activeReasoningItemId,
-            type: "item.completed",
-            payload: {
-              itemType: "reasoning",
-              status: errorMessage ? "failed" : "completed",
-              title: "Reasoning",
-            },
-            raw: { source: "pi.sdk.event", messageType: event.type, payload: event },
-          } satisfies ProviderRuntimeEvent);
-        }
+        reasoning.complete(context, event, errorMessage ? "failed" : "completed");
         if (usage) {
           offerRuntimeEvent({
             ...makeEventBase(context),
@@ -369,7 +373,7 @@ export function makePiSessionEventConsumer(dependencies: PiSessionEventConsumerD
         const completionBase = makeEventBase(context);
         context.activeTurnId = undefined;
         context.activeAssistantItemId = undefined;
-        context.activeReasoningItemId = undefined;
+        reasoning.clear(context);
         context.activeToolItems.clear();
         context.session = makeSessionSnapshot(context);
         offerRuntimeEvent({

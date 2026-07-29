@@ -9,9 +9,13 @@ import { CHAT_COLUMN_FRAME_CLASS_NAME } from "./composerPickerStyles";
 import { DisclosureRegion } from "../ui/DisclosureRegion";
 import { ProposedPlanCard } from "./ProposedPlanCard";
 import { formatWorkingTimer, WorkingTimer } from "./MessagesTimeline.controllers";
-import { MAX_VISIBLE_WORK_LOG_ENTRIES, type MessagesTimelineRow } from "./MessagesTimeline.logic";
+import type { MessagesTimelineRow } from "./MessagesTimeline.logic";
 import { prefersCompactWorkEntryRow } from "./MessagesTimeline.workEntryModel";
 import { SimpleWorkEntryRow } from "./MessagesTimeline.workEntryRow";
+import {
+  partitionLiveWorkEntries,
+  ToolEntriesDisclosure,
+} from "./MessagesTimeline.toolDisclosure";
 import {
   renderAssistantMessageRow,
   type AssistantMessageRowContext,
@@ -98,6 +102,34 @@ export function renderMessagesTimelineRow(
   row: MessagesTimelineRow,
   context: MessagesTimelineRowContext,
 ): ReactNode {
+  const standaloneWork =
+    row.kind === "work" ? partitionLiveWorkEntries(row.groupedEntries) : null;
+  const collapseStandaloneTools = context.assistant.activeTurnInProgress;
+  const standaloneToolsOpen =
+    row.kind === "work" ? (context.expandedWorkGroupsState[row.id] ?? false) : false;
+  const renderStandaloneWorkEntry = (
+    workEntry: Extract<MessagesTimelineRow, { kind: "work" }>["groupedEntries"][number],
+  ) => (
+    <SimpleWorkEntryRow
+      key={`work-row:${workEntry.id}`}
+      workEntry={workEntry}
+      chatMetaFontSizePx={context.appTypographyScale.chatMetaPx}
+      textFontSizePx={context.assistant.normalizedChatFontSizePx}
+      density={prefersCompactWorkEntryRow(workEntry) ? "compact" : "default"}
+      markdownCwd={context.assistant.markdownCwd}
+      onImageExpand={context.assistant.onImageExpand}
+      onOpenToolDetails={context.assistant.onOpenToolDetails}
+      {...(context.assistant.onOpenAgentActivity
+        ? { onOpenAgentActivity: context.assistant.onOpenAgentActivity }
+        : {})}
+      {...(context.assistant.onOpenThread
+        ? { onOpenThread: context.assistant.onOpenThread }
+        : {})}
+      {...(context.assistant.onOpenAutomation
+        ? { onOpenAutomation: context.assistant.onOpenAutomation }
+        : {})}
+    />
+  );
   return (
     <div
       className={cn(
@@ -121,45 +153,25 @@ export function renderMessagesTimelineRow(
       {row.kind === "work" && (
         <div>
           <div className="space-y-0.5">
-            {((context.expandedWorkGroupsState[row.id] ?? false)
-              ? row.groupedEntries
-              : row.groupedEntries.slice(-MAX_VISIBLE_WORK_LOG_ENTRIES)
-            ).map((workEntry) => (
-              <SimpleWorkEntryRow
-                key={`work-row:${workEntry.id}`}
-                workEntry={workEntry}
-                chatMetaFontSizePx={context.appTypographyScale.chatMetaPx}
-                textFontSizePx={context.assistant.normalizedChatFontSizePx}
-                density={prefersCompactWorkEntryRow(workEntry) ? "compact" : "default"}
-                markdownCwd={context.assistant.markdownCwd}
-                onImageExpand={context.assistant.onImageExpand}
-                onOpenToolDetails={context.assistant.onOpenToolDetails}
-                {...(context.assistant.onOpenAgentActivity
-                  ? { onOpenAgentActivity: context.assistant.onOpenAgentActivity }
-                  : {})}
-                {...(context.assistant.onOpenThread
-                  ? { onOpenThread: context.assistant.onOpenThread }
-                  : {})}
-                {...(context.assistant.onOpenAutomation
-                  ? { onOpenAutomation: context.assistant.onOpenAutomation }
-                  : {})}
-              />
-            ))}
+            {(collapseStandaloneTools
+              ? standaloneWork?.visibleEntries
+              : row.groupedEntries
+            )?.map(renderStandaloneWorkEntry)}
           </div>
-          {row.groupedEntries.length > MAX_VISIBLE_WORK_LOG_ENTRIES && (
-            <div className="mt-1.5 flex items-center justify-start gap-2 px-0.5">
-              <button
-                type="button"
-                className="font-system-ui text-muted-foreground/55 transition-colors duration-150 hover:text-foreground/75"
-                style={{ fontSize: `${context.appTypographyScale.uiSmPx}px` }}
-                onClick={() => context.handleToggleWorkGroup(row.id)}
+          {collapseStandaloneTools && standaloneWork && standaloneWork.toolEntries.length > 0 ? (
+            <div className={standaloneWork.visibleEntries.length > 0 ? "mt-1" : undefined}>
+              <ToolEntriesDisclosure
+                count={standaloneWork.toolEntries.length}
+                fontSizePx={context.assistant.normalizedChatFontSizePx}
+                open={standaloneToolsOpen}
+                onOpenChange={(open) => {
+                  if (open !== standaloneToolsOpen) context.handleToggleWorkGroup(row.id);
+                }}
               >
-                {(context.expandedWorkGroupsState[row.id] ?? false)
-                  ? "Show less"
-                  : `Show ${row.groupedEntries.length - MAX_VISIBLE_WORK_LOG_ENTRIES} more`}
-              </button>
+                {standaloneWork.toolEntries.map(renderStandaloneWorkEntry)}
+              </ToolEntriesDisclosure>
             </div>
-          )}
+          ) : null}
         </div>
       )}
       {row.kind === "message" && row.message.role === "user"
