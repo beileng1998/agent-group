@@ -241,6 +241,7 @@ export function useChatViewInteractionGraphOwner(input: ChatViewInteractionGraph
       timelineEntries,
       workLogEntries: runtimeActivity.activity.rawWorkLogEntries,
       latestTurnId: sessionWorkspace.runtime.latestTurn?.turnId ?? null,
+      activeTurnInProgress: runtimeActivity.presentation.activeTurnInProgress,
       composerStackedChromeHeight: runtimeActivity.presentation.composerStackedChromeHeight,
       inactiveSplitPane: app.shell.isInactiveSplitPane,
       pendingUserInputCount: runtimeActivity.pending.pendingUserInputs.length,
