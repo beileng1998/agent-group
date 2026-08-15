@@ -22,9 +22,11 @@ import {
   buildInputNeededCopy,
   buildTaskCompletionCopy,
   collectCompletedThreadCandidates,
+  completedThreadNotificationKey,
   collectCompletedTerminalCandidates,
   collectInputNeededThreadCandidates,
   collectTerminalAttentionCandidates,
+  excludeRuntimeSubagentCompletionCandidates,
   excludeTemporarySidechatNotificationCandidates,
   isNotificationRuntimeFreshTimestamp,
   shouldShowThreadNotificationToast,
@@ -159,6 +161,7 @@ export function TaskCompletionNotifications() {
   const previousTerminalStateRef = useRef(terminalStateByThreadId);
   const runtimeStartedAtMsRef = useRef(Date.now());
   const readyRef = useRef(false);
+  const notifiedCompletionKeysRef = useRef(new Set<string>());
 
   useEffect(() => {
     const onMenuAction = window.desktopBridge?.onMenuAction;
@@ -198,14 +201,28 @@ export function TaskCompletionNotifications() {
     // Keep the previous snapshot as fallback for late terminal events from a sidechat
     // that was just discarded. Current thread metadata wins when a sidechat was promoted.
     const notificationPolicyThreads = [...previousThreadsRef.current, ...threads];
-    const completions = excludeTemporarySidechatNotificationCandidates(
-      collectCompletedThreadCandidates(previousThreadsRef.current, threads).filter((candidate) =>
-        isNotificationRuntimeFreshTimestamp(candidate.completedAt, runtimeStartedAtMsRef.current),
+    const completions = excludeRuntimeSubagentCompletionCandidates(
+      excludeTemporarySidechatNotificationCandidates(
+        collectCompletedThreadCandidates(previousThreadsRef.current, threads).filter(
+          (candidate) =>
+            isNotificationRuntimeFreshTimestamp(
+              candidate.completedAt,
+              runtimeStartedAtMsRef.current,
+            ) &&
+            !notifiedCompletionKeysRef.current.has(completedThreadNotificationKey(candidate)),
+        ),
+        notificationPolicyThreads,
       ),
       notificationPolicyThreads,
     );
-    const terminalCompletions = excludeTemporarySidechatNotificationCandidates(
-      collectCompletedTerminalCandidates(previousTerminalStateRef.current, terminalStateByThreadId),
+    const terminalCompletions = excludeRuntimeSubagentCompletionCandidates(
+      excludeTemporarySidechatNotificationCandidates(
+        collectCompletedTerminalCandidates(
+          previousTerminalStateRef.current,
+          terminalStateByThreadId,
+        ),
+        notificationPolicyThreads,
+      ),
       notificationPolicyThreads,
     );
     const inputNeededCandidates = excludeTemporarySidechatNotificationCandidates(
@@ -235,6 +252,7 @@ export function TaskCompletionNotifications() {
       (window.desktopBridge ? true : !isWindowForeground());
 
     for (const completion of completions) {
+      notifiedCompletionKeysRef.current.add(completedThreadNotificationKey(completion));
       const copy = buildTaskCompletionCopy(completion);
       if (
         settings.enableTaskCompletionToasts &&
