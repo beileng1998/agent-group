@@ -208,7 +208,7 @@ export function makeProviderTurnDispatcher<ResolveError, ClearError, EnsureError
               prepared.priorTranscriptBootstrapAvailableChars > 0
                 ? buildPriorTranscriptBootstrapText(
                     prepared.thread,
-                    request.messageId,
+                    request.turnKind === "goal-continuation" ? undefined : request.messageId,
                     prepared.priorTranscriptBootstrapAvailableChars,
                   )
                 : null;

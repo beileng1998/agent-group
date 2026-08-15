@@ -17,6 +17,7 @@ import {
   STRICT_PROVIDER_LIFECYCLE_GUARD,
 } from "./providerRuntimeIngestionValues.ts";
 import { terminalRuntimeCommandFence } from "./providerRuntimeTerminalFence.ts";
+import { settleThreadGoalAfterTerminal } from "./providerGoalSettlement.ts";
 
 type Plans = ReturnType<typeof makeProviderRuntimePlans>;
 
@@ -164,6 +165,14 @@ export function makeProviderRuntimeLifecycle(input: {
             createdAt: event.createdAt,
             ...terminalRuntimeCommandFence(event),
           });
+          if (isTerminalTurnEvent) {
+            yield* settleThreadGoalAfterTerminal({
+              orchestrationEngine: input.orchestrationEngine,
+              event,
+              threadId: thread.id,
+              ...(eventTurnId !== undefined ? { turnId: eventTurnId } : {}),
+            });
+          }
         }
       }
       return resolution;

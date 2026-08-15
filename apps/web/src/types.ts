@@ -28,6 +28,7 @@ import type {
   ProjectKind,
   RuntimeMode,
   ThreadEnvironmentMode,
+  ThreadGoalAchievement,
 } from "@agent-group/contracts";
 
 export type SessionPhase = "disconnected" | "connecting" | "ready" | "running";
@@ -217,6 +218,10 @@ export interface Thread extends ThreadWorkspaceState {
   pinnedMessages?: PinnedMessage[];
   threadMarkers?: ThreadMarker[];
   notes?: string;
+  goal?: string;
+  goalStartedAt?: string | null;
+  goalPausedAt?: string | null;
+  goalAchievements?: readonly ThreadGoalAchievement[];
   latestTurn: OrchestrationLatestTurn | null;
   pendingSourceProposedPlan?: OrchestrationLatestTurn["sourceProposedPlan"];
   lastVisitedAt?: string | undefined;
@@ -256,6 +261,10 @@ export interface ThreadShell extends ThreadWorkspaceState {
   pinnedMessages?: PinnedMessage[];
   threadMarkers?: ThreadMarker[];
   notes?: string;
+  goal?: string;
+  goalStartedAt?: string | null;
+  goalPausedAt?: string | null;
+  goalAchievements?: readonly ThreadGoalAchievement[];
   parentThreadId?: ThreadId | null;
   subagentAgentId?: string | null;
   subagentNickname?: string | null;

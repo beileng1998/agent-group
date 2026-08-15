@@ -60,6 +60,7 @@ import {
   IconPalette,
   IconPaperclip,
   IconPlayerPlay,
+  IconPlayerPause,
   IconPlayerStop,
   IconPlayerStopFilled,
   IconPlus,
@@ -250,6 +251,7 @@ export const PinIcon: LucideIcon = centralIconWrapper("pin");
 // (project + thread rows and their hover cards) rather than a neutral action.
 export const PinFilledIcon: LucideIcon = centralIconWrapper("pin", "fill");
 export const PlayIcon = adaptIcon(IconPlayerPlay);
+export const PauseIcon = adaptIcon(IconPlayerPause);
 export const Plus = adaptIcon(IconPlus);
 export const PlusIcon = adaptIcon(IconPlus);
 export const RefreshCwIcon = adaptIcon(IconRefresh);

@@ -56,6 +56,7 @@ import {
   ThreadUserInputRespondCommand,
 } from "./turnCommandSchemas";
 import { TerminalAgentRuntimeFence } from "../terminalAgent";
+import { ThreadGoalContinuationTrigger } from "./goalSchemas";
 
 const DispatchableClientOrchestrationCommand = Schema.Union([
   ProjectCreateCommand,
@@ -233,8 +234,19 @@ const ThreadConversationRollbackCompleteCommand = Schema.Struct({
   createdAt: IsoDateTime,
 });
 
+const ThreadGoalContinueCommand = Schema.Struct({
+  type: Schema.Literal("thread.goal.continue"),
+  commandId: CommandId,
+  threadId: ThreadId,
+  goalStartedAt: Schema.NullOr(IsoDateTime),
+  trigger: ThreadGoalContinuationTrigger,
+  sourceTurnId: Schema.optional(TurnId),
+  createdAt: IsoDateTime,
+});
+
 const InternalOrchestrationCommand = Schema.Union([
   ThreadSessionSetCommand,
+  ThreadGoalContinueCommand,
   ThreadMessagesImportCommand,
   ThreadMessageAssistantDeltaCommand,
   ThreadMessageAssistantCompleteCommand,

@@ -2,7 +2,7 @@
 // Purpose: Render one assistant message with inline work, collapse, footer, and changes.
 // Layer: Web chat timeline presentation
 
-import type { MessageId, ThreadId, ThreadMarker, TurnId } from "@agent-group/contracts";
+import type { MessageId, ThreadGoalAchievement, ThreadId, ThreadMarker, TurnId } from "@agent-group/contracts";
 import type { CSSProperties, ReactNode } from "react";
 import { PinIcon } from "~/lib/icons";
 import { cn } from "~/lib/utils";
@@ -36,6 +36,7 @@ import {
 import { SimpleWorkEntryRow } from "./MessagesTimeline.workEntryRow";
 import { EditedFileRowContent } from "./MessagesTimeline.workEntrySurfaces";
 import type { ExpandedImagePreview } from "./ExpandedImagePreview";
+import { GoalAchievementBadge } from "./GoalAchievementBadge";
 
 const MAX_VISIBLE_INLINE_TOOL_ENTRIES = 4;
 const EMPTY_MESSAGE_MARKERS: readonly ThreadMarker[] = [];
@@ -53,6 +54,7 @@ export interface AssistantMessageRowContext {
   expandedFileChangesByTurnId: Record<string, boolean>;
   expandedFileListByTurnId: Record<string, boolean>;
   expandedWorkGroupsState: Record<string, boolean>;
+  goalAchievementsByTurnId: ReadonlyMap<TurnId, ThreadGoalAchievement>;
   handleToggleWorkGroup: (groupId: string) => void;
   markdownCwd: string | undefined;
   normalizedChatFontSizePx: number;
@@ -92,6 +94,7 @@ export function renderAssistantMessageRow(
     expandedFileChangesByTurnId,
     expandedFileListByTurnId,
     expandedWorkGroupsState,
+    goalAchievementsByTurnId,
     handleToggleWorkGroup,
     markdownCwd,
     normalizedChatFontSizePx,
@@ -198,6 +201,10 @@ export function renderAssistantMessageRow(
   // fragments. `showAssistantCopyButton` is exactly the terminal-message
   // signal (see deriveTerminalAssistantMessageIds).
   const isTerminalAssistantMessage = row.showAssistantCopyButton;
+  const goalAchievement =
+    isTerminalAssistantMessage && row.message.turnId
+      ? (goalAchievementsByTurnId.get(row.message.turnId) ?? null)
+      : null;
   const assistantMeta = [
     isTerminalAssistantMessage
       ? formatShortTimestamp(row.message.createdAt, timestampFormat)
@@ -425,7 +432,10 @@ export function renderAssistantMessageRow(
             ))}
           </div>
         )}
-        {(showPinToggle || assistantCopyState.visible || assistantMeta.length > 0) && (
+        {(showPinToggle ||
+          assistantCopyState.visible ||
+          assistantMeta.length > 0 ||
+          goalAchievement !== null) && (
           <div
             className="mt-0.5 flex items-center gap-2 font-system-ui font-normal text-muted-foreground/45"
             style={chatMessageFooterStyle}
@@ -458,6 +468,7 @@ export function renderAssistantMessageRow(
             {assistantMeta.length > 0 ? (
               <p className={cn("tabular-nums", MESSAGE_HOVER_REVEAL_CLASS_NAME)}>{assistantMeta}</p>
             ) : null}
+            {goalAchievement ? <GoalAchievementBadge achievement={goalAchievement} /> : null}
           </div>
         )}
         <SettledTurnChangedFiles

@@ -114,6 +114,14 @@ export function normalizeThreadFromReadModel(
       ? previous.threadMarkers
       : (incoming.threadMarkers as Thread["threadMarkers"]);
   const notes = incoming.notes;
+  const goal = incoming.goal ?? "";
+  const goalStartedAt = incoming.goalStartedAt ?? null;
+  const goalPausedAt = incoming.goalPausedAt ?? null;
+  const goalAchievements =
+    previous?.goalAchievements &&
+    deepEqualJson(previous.goalAchievements, incoming.goalAchievements ?? [])
+      ? previous.goalAchievements
+      : (incoming.goalAchievements ?? []);
   const turnDiffSummaries = normalizeTurnDiffSummaries(
     incoming.checkpoints,
     previous?.turnDiffSummaries,
@@ -199,6 +207,10 @@ export function normalizeThreadFromReadModel(
     previous.pinnedMessages === pinnedMessages &&
     previous.threadMarkers === threadMarkers &&
     previous.notes === notes &&
+    (previous.goal ?? "") === goal &&
+    (previous.goalStartedAt ?? null) === goalStartedAt &&
+    (previous.goalPausedAt ?? null) === goalPausedAt &&
+    previous.goalAchievements === goalAchievements &&
     previous.turnDiffSummaries === turnDiffSummaries &&
     previous.activities === activities
   ) {
@@ -241,6 +253,10 @@ export function normalizeThreadFromReadModel(
     ...(pinnedMessages !== undefined ? { pinnedMessages } : {}),
     ...(threadMarkers !== undefined ? { threadMarkers } : {}),
     ...(notes !== undefined ? { notes } : {}),
+    goal,
+    goalStartedAt,
+    goalPausedAt,
+    goalAchievements,
     ...(resolvedLatestUserMessageAt !== undefined
       ? { latestUserMessageAt: resolvedLatestUserMessageAt }
       : {}),
@@ -277,6 +293,11 @@ export function normalizeThreadShellSnapshot(
       : (incoming.lastKnownPr ?? null);
   const error = normalizeThreadErrorMessage(incoming.session?.lastError);
   const lastVisitedAt = previous?.lastVisitedAt ?? incoming.updatedAt;
+  const goal = incoming.goal !== undefined ? incoming.goal : previous?.goal;
+  const goalStartedAt =
+    incoming.goalStartedAt !== undefined ? incoming.goalStartedAt : previous?.goalStartedAt;
+  const goalPausedAt =
+    incoming.goalPausedAt !== undefined ? incoming.goalPausedAt : previous?.goalPausedAt;
   const nextWorktreePath = incoming.worktreePath;
   const nextAssociatedWorktreePath = incoming.associatedWorktreePath ?? null;
   const nextAssociatedWorktreeBranch = incoming.associatedWorktreeBranch ?? null;
@@ -330,6 +351,12 @@ export function normalizeThreadShellSnapshot(
     ...(previous?.pinnedMessages !== undefined ? { pinnedMessages: previous.pinnedMessages } : {}),
     ...(previous?.threadMarkers !== undefined ? { threadMarkers: previous.threadMarkers } : {}),
     ...(previous?.notes !== undefined ? { notes: previous.notes } : {}),
+    ...(goal !== undefined ? { goal } : {}),
+    ...(goalStartedAt !== undefined ? { goalStartedAt } : {}),
+    ...(goalPausedAt !== undefined ? { goalPausedAt } : {}),
+    ...(previous?.goalAchievements !== undefined
+      ? { goalAchievements: previous.goalAchievements }
+      : {}),
     ...(incoming.latestUserMessageAt !== undefined
       ? { latestUserMessageAt: incoming.latestUserMessageAt ?? null }
       : {}),

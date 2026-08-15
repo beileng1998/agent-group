@@ -104,6 +104,10 @@ export function projectThreadLifecycleEvent(
             archivedAt: null,
             deletedAt: null,
             handoff: payload.handoff,
+            goal: "",
+            goalStartedAt: null,
+            goalPausedAt: null,
+            goalAchievements: [],
             messages: [],
             activities: [],
             checkpoints: [],
@@ -218,6 +222,16 @@ export function projectThreadLifecycleEvent(
                 ? { threadMarkers: payload.threadMarkers }
                 : {}),
               ...(payload.notes !== undefined ? { notes: payload.notes } : {}),
+              ...(payload.goal !== undefined ? { goal: payload.goal } : {}),
+              ...(payload.goalStartedAt !== undefined
+                ? { goalStartedAt: payload.goalStartedAt }
+                : {}),
+              ...(payload.goalPausedAt !== undefined
+                ? { goalPausedAt: payload.goalPausedAt }
+                : {}),
+              ...(payload.goalAchievements !== undefined
+                ? { goalAchievements: payload.goalAchievements }
+                : {}),
               updatedAt: payload.updatedAt,
             }),
           };

@@ -14,6 +14,7 @@ import {
   SidechatSourceThreadId,
   ThreadEnvironmentMode,
 } from "./protocol";
+import { ThreadGoal, ThreadGoalAchievements, ThreadGoalTimingFields } from "./goalSchemas";
 import {
   OrchestrationCheckpointSummary,
   OrchestrationLatestTurn,
@@ -89,6 +90,9 @@ export const OrchestrationThread = Schema.Struct({
   pinnedMessages: Schema.optional(ThreadPinnedMessages),
   threadMarkers: Schema.optional(ThreadMarkers),
   notes: Schema.optional(ThreadNotes),
+  goal: Schema.optional(ThreadGoal),
+  ...ThreadGoalTimingFields,
+  goalAchievements: Schema.optional(ThreadGoalAchievements),
   messages: Schema.Array(OrchestrationMessage),
   proposedPlans: Schema.Array(OrchestrationProposedPlan).pipe(Schema.withDecodingDefault(() => [])),
   activities: Schema.Array(OrchestrationThreadActivity),
@@ -152,6 +156,8 @@ export const OrchestrationThreadShell = Schema.Struct({
     Schema.withDecodingDefault(() => null),
   ),
   handoff: Schema.NullOr(ThreadHandoff).pipe(Schema.withDecodingDefault(() => null)),
+  goal: Schema.optional(ThreadGoal),
+  ...ThreadGoalTimingFields,
   session: Schema.NullOr(OrchestrationSession),
 });
 export type OrchestrationThreadShell = typeof OrchestrationThreadShell.Type;

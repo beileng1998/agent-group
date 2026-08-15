@@ -3,7 +3,13 @@
 // Layer: Web chat presentation component
 // Exports: MessagesTimeline
 
-import { type MessageId, ThreadId, type ThreadMarker, type TurnId } from "@agent-group/contracts";
+import {
+  type MessageId,
+  ThreadId,
+  type ThreadGoalAchievement,
+  type ThreadMarker,
+  type TurnId,
+} from "@agent-group/contracts";
 import { LegendList, type LegendListRef } from "@legendapp/list/react";
 import { memo, useMemo, type ComponentProps, type ReactNode, type RefObject } from "react";
 import { deriveTimelineEntries } from "../../session-logic";
@@ -41,6 +47,10 @@ import {
 } from "./useMessagesTimelineViewport";
 import { useMessagesTimelineUiState } from "./useMessagesTimelineUiState";
 import { getChatMessageFooterTextStyle, getChatTranscriptTextStyle } from "./chatTypography";
+import {
+  EMPTY_GOAL_ACHIEVEMENTS,
+  indexGoalAchievements,
+} from "./GoalAchievementBadge";
 
 // The composer overlaps the transcript by design, so the list needs extra tail
 // space beyond the overlap to keep final cards from sitting flush against it.
@@ -78,6 +88,8 @@ interface MessagesTimelineProps {
   onTogglePinMessage?: (messageId: MessageId) => void;
   /** Text markers for assistant messages in the active thread. */
   threadMarkers?: readonly ThreadMarker[];
+  /** Goal completions anchored to their terminal assistant turn. */
+  goalAchievements?: readonly ThreadGoalAchievement[];
   /** User messages inserted locally by send actions, eligible for the subtle enter affordance. */
   enteringUserMessageIds?: ReadonlySet<MessageId>;
   timelineEntries: ReturnType<typeof deriveTimelineEntries>;
@@ -141,6 +153,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
   canPinMessage,
   onTogglePinMessage,
   threadMarkers = [],
+  goalAchievements = EMPTY_GOAL_ACHIEVEMENTS,
   enteringUserMessageIds = EMPTY_MESSAGE_ID_SET,
   timelineEntries,
   turnDiffSummaryByAssistantMessageId,
@@ -192,6 +205,10 @@ export const MessagesTimeline = memo(function MessagesTimeline({
   const appTypographyScale = useMemo(
     () => getAppTypographyScale(normalizedChatFontSizePx),
     [normalizedChatFontSizePx],
+  );
+  const goalAchievementsByTurnId = useMemo(
+    () => indexGoalAchievements(goalAchievements),
+    [goalAchievements],
   );
   const chatTypographyStyle = useMemo(
     () => getChatTranscriptTextStyle(normalizedChatFontSizePx),
@@ -302,6 +319,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
       expandedFileListByTurnId,
       expandedUserMessagesById,
       expandedWorkGroupsState,
+      goalAchievementsByTurnId,
       highlightedMessageId,
       pinnedMessageIds,
       settledTurnCollapseTransitions,
@@ -316,6 +334,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
       expandedFileListByTurnId,
       expandedUserMessagesById,
       expandedWorkGroupsState,
+      goalAchievementsByTurnId,
       highlightedMessageId,
       pinnedMessageIds,
       settledTurnCollapseTransitions,
@@ -336,6 +355,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
       expandedFileChangesByTurnId,
       expandedFileListByTurnId,
       expandedWorkGroupsState,
+      goalAchievementsByTurnId,
       handleToggleWorkGroup,
       markdownCwd,
       normalizedChatFontSizePx,

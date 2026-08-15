@@ -3,6 +3,7 @@ import {
   type OrchestrationMessage,
   type OrchestrationThread,
 } from "@agent-group/contracts";
+import { stripGoalSettlementMarker } from "@agent-group/shared/goalSettlement";
 
 const RECENT_MESSAGE_COUNT = 6;
 const EARLIER_MESSAGE_CHAR_LIMIT = 320;
@@ -10,7 +11,7 @@ const RECENT_MESSAGE_CHAR_LIMIT = 2_400;
 const HANDOFF_BOOTSTRAP_CHAR_BUDGET = Math.floor(PROVIDER_SEND_TURN_MAX_INPUT_CHARS * 0.75);
 
 function normalizeMessageText(value: string): string {
-  return value
+  return stripGoalSettlementMarker(value)
     .replace(/\s+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
@@ -60,9 +61,12 @@ export function hasNativeHandoffMessages(thread: Pick<OrchestrationThread, "mess
 
 export function hasNativeAssistantMessagesBefore(
   thread: Pick<OrchestrationThread, "messages">,
-  currentMessageId: string,
+  currentMessageId?: string,
 ): boolean {
-  const currentIndex = thread.messages.findIndex((message) => message.id === currentMessageId);
+  const currentIndex =
+    currentMessageId === undefined
+      ? thread.messages.length
+      : thread.messages.findIndex((message) => message.id === currentMessageId);
   if (currentIndex <= 0) {
     return false;
   }
@@ -75,9 +79,12 @@ export function hasNativeAssistantMessagesBefore(
 
 export function listPriorTranscriptMessages(
   thread: Pick<OrchestrationThread, "messages">,
-  currentMessageId: string,
+  currentMessageId?: string,
 ): ReadonlyArray<OrchestrationMessage> {
-  const currentIndex = thread.messages.findIndex((message) => message.id === currentMessageId);
+  const currentIndex =
+    currentMessageId === undefined
+      ? thread.messages.length
+      : thread.messages.findIndex((message) => message.id === currentMessageId);
   if (currentIndex <= 0) {
     return [];
   }
@@ -163,7 +170,7 @@ export function buildHandoffBootstrapText(
 
 export function buildPriorTranscriptBootstrapText(
   thread: Pick<OrchestrationThread, "title" | "branch" | "worktreePath" | "messages">,
-  currentMessageId: string,
+  currentMessageId: string | undefined,
   maxChars = HANDOFF_BOOTSTRAP_CHAR_BUDGET,
 ): string | null {
   const priorMessages = listPriorTranscriptMessages(thread, currentMessageId);

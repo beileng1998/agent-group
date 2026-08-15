@@ -6,6 +6,7 @@
 import zlib from "node:zlib";
 
 import type { OrchestrationThread } from "@agent-group/contracts";
+import { GOAL_ACHIEVED_MARKER } from "@agent-group/shared/goalSettlement";
 import { describe, expect, it } from "@effect/vitest";
 
 import {
@@ -141,6 +142,23 @@ describe("exportThreadArchive", () => {
     expect(transcript).toContain("Inline `code` stays intact.");
     expect(transcript).toContain("```ts\nconst value = `template`;\n```");
     expect(transcript).not.toContain("\\`");
+  });
+
+  it("omits internal goal settlement markers", async () => {
+    const base = sampleThread();
+    const thread = {
+      ...base,
+      messages: base.messages.map((message) =>
+        message.role === "assistant"
+          ? { ...message, text: `Hi there\n${GOAL_ACHIEVED_MARKER}` }
+          : message,
+      ),
+    } as OrchestrationThread;
+    const entries = readZip(await buildThreadArchiveBytes(thread));
+
+    for (const entry of entries) {
+      expect(entry.data.toString("utf8")).not.toContain(GOAL_ACHIEVED_MARKER);
+    }
   });
 
   it("preserves attachment, skill, and mention references in thread.json", async () => {

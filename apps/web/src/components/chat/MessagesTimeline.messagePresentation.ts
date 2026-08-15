@@ -3,6 +3,7 @@
 // Layer: Web chat presentation helpers
 
 import type { WorkLogEntry } from "../../session-logic";
+import { stripGoalSettlementMarker } from "@agent-group/shared/goalSettlement";
 import { normalizeCompactToolLabel as normalizeCompactToolLabelValue } from "../../lib/toolCallLabel";
 import type { ChatMessage } from "../../types";
 import type { CollapsedTurnItem, TimelineDurationMessage } from "./MessagesTimeline.types";
@@ -39,7 +40,8 @@ export function resolveAssistantMessageCopyState({
   showCopyButton: boolean;
   streaming: boolean;
 }) {
-  const normalizedText = text?.trim() ? text : null;
+  const visibleText = text === null ? null : stripGoalSettlementMarker(text);
+  const normalizedText = visibleText?.trim() ? visibleText : null;
   return {
     text: normalizedText,
     visible: showCopyButton && normalizedText !== null && !streaming,
@@ -70,8 +72,11 @@ function isVisibleGeneratedImageEntry(entry: WorkLogEntry): boolean {
 export function resolveAssistantMessageDisplayText(
   input: AssistantMessageDisplayInput,
 ): string | null {
-  if (input.message.text) {
-    return input.message.text;
+  const visibleText = input.message.streaming
+    ? input.message.text
+    : stripGoalSettlementMarker(input.message.text ?? "");
+  if (visibleText) {
+    return visibleText;
   }
   if (input.message.streaming) {
     return "";

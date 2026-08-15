@@ -13,6 +13,7 @@ import {
   nowIso,
   withEventBase,
 } from "./common.ts";
+import { resolveThreadGoalPatch } from "../threadGoalPolicy.ts";
 
 type ThreadLifecycleCommand = Extract<
   OrchestrationCommand,
@@ -104,7 +105,7 @@ export const decideThreadLifecycleCommand = Effect.fn("decideThreadLifecycleComm
     }
 
     case "thread.meta.update": {
-      yield* requireThread({
+      const thread = yield* requireThread({
         readModel,
         command,
         threadId: command.threadId,
@@ -160,6 +161,10 @@ export const decideThreadLifecycleCommand = Effect.fn("decideThreadLifecycleComm
             ? { pinnedMessages: command.pinnedMessages }
             : {}),
           ...(command.notes !== undefined ? { notes: command.notes } : {}),
+          ...(command.goalStartBehavior !== undefined
+            ? { goalStartBehavior: command.goalStartBehavior }
+            : {}),
+          ...resolveThreadGoalPatch(command, thread, occurredAt),
           updatedAt: occurredAt,
         },
       };
@@ -212,7 +217,7 @@ export const decideThreadLifecycleCommand = Effect.fn("decideThreadLifecycleComm
     }
 
     case "thread.interaction-mode.set": {
-      yield* requireThread({
+      const thread = yield* requireThread({
         readModel,
         command,
         threadId: command.threadId,
@@ -228,6 +233,7 @@ export const decideThreadLifecycleCommand = Effect.fn("decideThreadLifecycleComm
         type: "thread.interaction-mode-set",
         payload: {
           threadId: command.threadId,
+          previousInteractionMode: thread.interactionMode,
           interactionMode: command.interactionMode,
           updatedAt: occurredAt,
         },

@@ -3,6 +3,12 @@
 // Layer: Web chat presentation composition
 
 import { AGENT_GROUP_CAPABILITIES } from "../../agentGroupCapabilities";
+import { toastManager } from "../ui/toast";
+import {
+  dispatchThreadGoal,
+  dispatchThreadGoalAchieved,
+  dispatchThreadGoalPaused,
+} from "../../threadGoal";
 import type { ChatRuntimeGraphOwner } from "../../hooks/useChatRuntimeGraphOwner";
 import { buildChatComposerPresentation } from "../../hooks/useChatComposerPresentationOwner";
 import { buildChatComposerSection } from "../../hooks/useChatComposerSectionOwner";
@@ -32,6 +38,14 @@ export function buildChatComposerSurfaceGraph(input: ChatComposerSurfaceGraphInp
   if (!activeThread) {
     throw new Error("Chat composer surface requires an active thread.");
   }
+  const runGoalAction = (action: () => Promise<void>) =>
+    action().catch((error) => {
+      toastManager.add({
+        type: "error",
+        title: "Could not update goal",
+        description: error instanceof Error ? error.message : "The goal update failed.",
+      });
+    });
 
   const presentation = buildChatComposerPresentation({
     thread: {
@@ -115,6 +129,23 @@ export function buildChatComposerSurfaceGraph(input: ChatComposerSurfaceGraphInp
           onEdit: turn.queue.edit,
           cwd: sessionWorkspace.workspace.git.cwd ?? undefined,
         },
+        goal:
+          activeThread.parentThreadId == null && activeThread.goal?.trim()
+            ? {
+                goal: activeThread.goal,
+                goalStartedAt: activeThread.goalStartedAt ?? null,
+                goalPausedAt: activeThread.goalPausedAt ?? null,
+                onEdit: () => {
+                  composer.setPrompt(`/goal ${activeThread.goal}`);
+                  composerInteraction.focus.schedule();
+                },
+                onSetPaused: (paused) =>
+                  runGoalAction(() => dispatchThreadGoalPaused(activeThread.id, paused)),
+                onAchieve: () =>
+                  runGoalAction(() => dispatchThreadGoalAchieved(activeThread.id)),
+                onClear: () => runGoalAction(() => dispatchThreadGoal(activeThread.id, "")),
+              }
+            : null,
         approval: runtimeActivity.pending.activeApproval
           ? {
               approval: runtimeActivity.pending.activeApproval,

@@ -14,6 +14,7 @@ import {
   type TerminalVisualState,
 } from "@agent-group/shared/terminalThreads";
 import type { Thread, ThreadSession } from "../types";
+import { hasActivePersistentGoal } from "./goalCompletion";
 import {
   derivePendingApprovals,
   derivePendingUserInputs,
@@ -184,6 +185,7 @@ export function collectCompletedThreadCandidates(
     if (!previousThread) {
       continue;
     }
+    if (hasActivePersistentGoal(previousThread) || hasActivePersistentGoal(thread)) continue;
 
     const latestTurn = thread.latestTurn;
     const completedAt = latestTurn?.completedAt;

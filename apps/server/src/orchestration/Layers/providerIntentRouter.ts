@@ -19,8 +19,10 @@ export type ProviderIntentEvent = Extract<
       | "thread.meta-updated"
       | "thread.session-set"
       | "thread.runtime-mode-set"
+      | "thread.interaction-mode-set"
       | "thread.turn-queued"
       | "thread.turn-start-requested"
+      | "thread.goal-continuation-requested"
       | "thread.turn-interrupt-requested"
       | "thread.approval-response-requested"
       | "thread.user-input-response-requested"
@@ -35,8 +37,10 @@ const PROVIDER_INTENT_TYPES = new Set<ProviderIntentEvent["type"]>([
   "thread.meta-updated",
   "thread.session-set",
   "thread.runtime-mode-set",
+  "thread.interaction-mode-set",
   "thread.turn-queued",
   "thread.turn-start-requested",
+  "thread.goal-continuation-requested",
   "thread.turn-interrupt-requested",
   "thread.approval-response-requested",
   "thread.user-input-response-requested",
@@ -79,6 +83,12 @@ export function makeProviderIntentRouter<Environment>(dependencies: {
   }) => Effect.Effect<unknown, unknown, Environment>;
   readonly processTurnQueued: Handler<"thread.turn-queued", Environment>;
   readonly processTurnStartRequested: Handler<"thread.turn-start-requested", Environment>;
+  readonly processGoalMetaUpdated: Handler<"thread.meta-updated", Environment>;
+  readonly processInteractionModeUpdated: Handler<"thread.interaction-mode-set", Environment>;
+  readonly processGoalContinuationRequested: Handler<
+    "thread.goal-continuation-requested",
+    Environment
+  >;
   readonly processTurnInterruptRequested: Handler<"thread.turn-interrupt-requested", Environment>;
   readonly processApprovalResponseRequested: Handler<
     "thread.approval-response-requested",
@@ -133,6 +143,7 @@ export function makeProviderIntentRouter<Environment>(dependencies: {
           );
           return;
         case "thread.meta-updated": {
+          yield* dependencies.processGoalMetaUpdated(event);
           const modelSelection = event.payload.modelSelection;
           if (modelSelection === undefined) return;
           if (event.metadata.adapterKey === "terminal") {
@@ -173,6 +184,9 @@ export function makeProviderIntentRouter<Environment>(dependencies: {
           );
           return;
         }
+        case "thread.interaction-mode-set":
+          yield* dependencies.processInteractionModeUpdated(event);
+          return;
         case "thread.runtime-mode-set": {
           yield* withStructuredLease(
             event.payload.threadId,
@@ -202,6 +216,13 @@ export function makeProviderIntentRouter<Environment>(dependencies: {
           return;
         case "thread.turn-start-requested":
           yield* dependencies.processTurnStartRequested(event);
+          return;
+        case "thread.goal-continuation-requested":
+          yield* withStructuredLease(
+            event.payload.threadId,
+            `event:${event.eventId}`,
+            dependencies.processGoalContinuationRequested(event),
+          );
           return;
         case "thread.turn-interrupt-requested":
           yield* withStructuredLease(

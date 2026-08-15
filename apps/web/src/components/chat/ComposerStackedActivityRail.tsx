@@ -6,6 +6,7 @@ import type { ComponentProps, Ref } from "react";
 
 import { ComposerActiveTaskListCard } from "./ComposerActiveTaskListCard";
 import { ComposerLiveChangesHeader } from "./ComposerLiveChangesHeader";
+import { ComposerGoalHeader } from "./ComposerGoalHeader";
 import { ComposerPendingApprovalPanel } from "./ComposerPendingApprovalPanel";
 import { ComposerPendingUserInputPanel } from "./ComposerPendingUserInputPanel";
 import { ComposerQueuedHeader } from "./ComposerQueuedHeader";
@@ -26,6 +27,7 @@ export function ComposerStackedActivityRail(props: {
   liveChanges: ComponentProps<typeof ComposerLiveChangesHeader> | null;
   taskList: ComponentProps<typeof ComposerActiveTaskListCard> | null;
   queue: ComponentProps<typeof ComposerQueuedHeader>;
+  goal: ComponentProps<typeof ComposerGoalHeader> | null;
   pending: ComposerPendingActivityModel;
 }) {
   return (
@@ -33,6 +35,7 @@ export function ComposerStackedActivityRail(props: {
       {props.liveChanges ? <ComposerLiveChangesHeader {...props.liveChanges} /> : null}
       {props.taskList ? <ComposerActiveTaskListCard {...props.taskList} /> : null}
       <ComposerQueuedHeader {...props.queue} />
+      {props.goal ? <ComposerGoalHeader {...props.goal} /> : null}
       {props.pending ? (
         <div className="pb-2">
           {props.pending.kind === "approval" ? (

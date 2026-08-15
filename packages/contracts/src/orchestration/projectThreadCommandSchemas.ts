@@ -11,6 +11,7 @@ import {
 } from "../baseSchemas";
 import { ProjectKind } from "../project";
 import { ChatAttachment } from "./attachments";
+import { ThreadGoal, ThreadGoalStartBehavior } from "./goalSchemas";
 import {
   DEFAULT_PROVIDER_INTERACTION_MODE,
   ModelSelection,
@@ -247,6 +248,10 @@ export const ThreadMetaUpdateCommand = Schema.Struct({
   pinnedMessages: Schema.optional(ThreadPinnedMessages),
   threadMarkers: Schema.optional(ThreadMarkers),
   notes: Schema.optional(ThreadNotes),
+  goal: Schema.optional(ThreadGoal),
+  goalStartBehavior: Schema.optional(ThreadGoalStartBehavior),
+  goalPaused: Schema.optional(Schema.Boolean),
+  goalAchieved: Schema.optional(Schema.Boolean),
 });
 
 export const ThreadPinnedMessageAddCommand = Schema.Struct({

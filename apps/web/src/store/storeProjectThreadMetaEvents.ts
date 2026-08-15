@@ -153,6 +153,13 @@ export function reduceProjectThreadMetaEvent(
             (event.payload.threadMarkers === undefined ||
               deepEqualJson(event.payload.threadMarkers, thread.threadMarkers ?? null)) &&
             (event.payload.notes === undefined || event.payload.notes === (thread.notes ?? "")) &&
+            (event.payload.goal === undefined || event.payload.goal === (thread.goal ?? "")) &&
+            (event.payload.goalStartedAt === undefined ||
+              event.payload.goalStartedAt === (thread.goalStartedAt ?? null)) &&
+            (event.payload.goalPausedAt === undefined ||
+              event.payload.goalPausedAt === (thread.goalPausedAt ?? null)) &&
+            (event.payload.goalAchievements === undefined ||
+              deepEqualJson(event.payload.goalAchievements, thread.goalAchievements ?? [])) &&
             nextUpdatedAt === thread.updatedAt
           ) {
             return thread;
@@ -204,6 +211,16 @@ export function reduceProjectThreadMetaEvent(
                 }
               : {}),
             ...(event.payload.notes !== undefined ? { notes: event.payload.notes } : {}),
+            ...(event.payload.goal !== undefined ? { goal: event.payload.goal } : {}),
+            ...(event.payload.goalStartedAt !== undefined
+              ? { goalStartedAt: event.payload.goalStartedAt }
+              : {}),
+            ...(event.payload.goalPausedAt !== undefined
+              ? { goalPausedAt: event.payload.goalPausedAt }
+              : {}),
+            ...(event.payload.goalAchievements !== undefined
+              ? { goalAchievements: event.payload.goalAchievements }
+              : {}),
             updatedAt: nextUpdatedAt,
             ...(cwdChanged ? { session: null } : {}),
           };

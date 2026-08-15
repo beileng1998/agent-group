@@ -33,6 +33,7 @@ type Input = {
   runCodexReviewStart: (target: "changes" | "base-branch") => Promise<boolean>;
   runExportSlashCommand: () => void;
   runFastSlashCommand: (text: string) => boolean;
+  runGoalSlashCommand: (args: string) => Promise<void>;
   selectedProvider: ProviderKind;
   setIsSlashStatusDialogOpen: Dispatch<SetStateAction<boolean>>;
   supportsTextNativeReviewCommand: boolean;
@@ -70,6 +71,10 @@ export function useComposerSlashExecution(input: Input) {
       if (invocation.command === "status") {
         input.editorActions.clearComposerSlashDraft();
         input.setIsSlashStatusDialogOpen(true);
+        return true;
+      }
+      if (invocation.command === "goal") {
+        await input.runGoalSlashCommand(invocation.args);
         return true;
       }
       if (invocation.command === "subagents") {
@@ -177,6 +182,7 @@ export function useComposerSlashExecution(input: Input) {
       input.runCodexReviewStart,
       input.runExportSlashCommand,
       input.runFastSlashCommand,
+      input.runGoalSlashCommand,
       input.selectedProvider,
       input.setIsSlashStatusDialogOpen,
       input.supportsTextNativeReviewCommand,

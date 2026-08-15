@@ -26,6 +26,7 @@ type TranscriptTimelineInput = Pick<
   TranscriptModel,
   | "chatFontSizePx"
   | "enteringUserMessageIds"
+  | "goalAchievements"
   | "listRef"
   | "pinnedMessageIds"
   | "resolvedTheme"
@@ -183,6 +184,9 @@ export function buildChatTranscriptSurface(
         : {}),
       ...(input.timeline.threadMarkers !== undefined
         ? { threadMarkers: input.timeline.threadMarkers }
+        : {}),
+      ...(input.timeline.goalAchievements !== undefined
+        ? { goalAchievements: input.timeline.goalAchievements }
         : {}),
       ...(input.timeline.enteringUserMessageIds !== undefined
         ? { enteringUserMessageIds: input.timeline.enteringUserMessageIds }

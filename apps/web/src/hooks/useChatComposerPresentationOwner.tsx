@@ -21,6 +21,7 @@ type ActivityModel = ChatComposerSectionModel["activity"];
 type LiveChangesModel = NonNullable<ActivityModel["liveChanges"]>;
 type TaskListModel = NonNullable<ActivityModel["taskList"]>;
 type QueueModel = ActivityModel["queue"];
+type GoalModel = NonNullable<ActivityModel["goal"]>;
 type ApprovalModel = Extract<
   NonNullable<ComposerPendingActivityModel>,
   { kind: "approval" }
@@ -87,6 +88,7 @@ export interface ChatComposerPresentationOwnerInput {
       taskList: Omit<TaskListModel, "attachedToPrevious"> | null;
       planSidebarOpen: boolean;
       queue: Omit<QueueModel, "attachedToPrevious">;
+      goal: Omit<GoalModel, "attachedToPrevious"> | null;
       approval: ApprovalModel | null;
       userInput: UserInputModel | null;
     };
@@ -240,6 +242,13 @@ export function buildChatComposerPresentation(input: ChatComposerPresentationOwn
     ...input.composer.activity.queue,
     attachedToPrevious: showLiveChanges || showTaskList,
   };
+  const goal: ActivityModel["goal"] = input.composer.activity.goal
+    ? {
+        ...input.composer.activity.goal,
+        attachedToPrevious:
+          showLiveChanges || showTaskList || input.composer.activity.queue.queuedTurns.length > 0,
+      }
+    : null;
   const pending: ComposerPendingActivityModel = input.composer.activity.approval
     ? { kind: "approval", props: input.composer.activity.approval }
     : input.composer.activity.userInput
@@ -278,7 +287,7 @@ export function buildChatComposerPresentation(input: ChatComposerPresentationOwn
     temporary,
     emptyLandingControlsModel,
     emptyLandingControls: <EmptyLandingComposerControls model={emptyLandingControlsModel} />,
-    activity: { liveChanges, taskList, queue, pending },
+    activity: { liveChanges, taskList, queue, goal, pending },
     primary,
     menuVisible,
     menu,
