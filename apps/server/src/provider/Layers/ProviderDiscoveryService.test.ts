@@ -12,6 +12,7 @@ import * as path from "node:path";
 import type {
   ProviderComposerCapabilities,
   ProviderKind,
+  ProviderListModelsResult,
   ProviderListSkillsResult,
 } from "@agent-group/contracts";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -96,6 +97,22 @@ const runListSkills = (input: {
   }).pipe(Effect.provide(testLayer));
   return Effect.runPromise(
     program as unknown as Effect.Effect<ProviderListSkillsResult, never, never>,
+  );
+};
+
+const runListModels = (adapter: Partial<ProviderAdapterShape<ProviderAdapterError>>) => {
+  const baseLayer = Layer.mergeAll(
+    makeConfigLayer(),
+    ServerSettingsService.layerTest(),
+    makeRegistryLayer(adapter),
+  ).pipe(Layer.provideMerge(NodeServices.layer));
+  const testLayer = ProviderDiscoveryServiceLive.pipe(Layer.provideMerge(baseLayer));
+  const program = Effect.gen(function* () {
+    const discovery = yield* ProviderDiscoveryService;
+    return yield* discovery.listModels({ provider: "pi" });
+  }).pipe(Effect.provide(testLayer));
+  return Effect.runPromise(
+    program as unknown as Effect.Effect<ProviderListModelsResult, never, never>,
   );
 };
 
@@ -197,5 +214,27 @@ describe("ProviderDiscoveryService.getComposerCapabilities", () => {
 
     expect(capabilities.supportsSkillDiscovery).toBe(true);
     expect(capabilities.supportsSkillMentions).toBe(true);
+  });
+});
+
+describe("ProviderDiscoveryService.listModels", () => {
+  it("omits malformed descriptors while preserving valid entries", async () => {
+    const result = await runListModels({
+      listModels: () =>
+        Effect.succeed({
+          models: [
+            { slug: "valid-model", name: "Valid Model" },
+            { slug: "invalid-model", name: " " },
+          ],
+          source: "pi.sdk",
+          cached: false,
+        } as ProviderListModelsResult),
+    });
+
+    expect(result).toEqual({
+      models: [{ slug: "valid-model", name: "Valid Model" }],
+      source: "pi.sdk",
+      cached: false,
+    });
   });
 });
