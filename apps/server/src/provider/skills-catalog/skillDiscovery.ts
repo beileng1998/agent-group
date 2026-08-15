@@ -32,11 +32,12 @@ async function readdirOrEmpty(path: string): Promise<import("node:fs").Dirent[]>
 async function isWalkableSkillDirectory(
   parentPath: string,
   dirent: import("node:fs").Dirent,
+  followSymlinks: boolean,
 ): Promise<boolean> {
   if (dirent.isDirectory()) {
     return true;
   }
-  if (!dirent.isSymbolicLink()) {
+  if (!followSymlinks || !dirent.isSymbolicLink()) {
     return false;
   }
   try {
@@ -70,12 +71,13 @@ async function isReadableMarkdownFile(
 // concurrently but flattened in sorted name order to keep dedupe deterministic.
 export async function collectSkillMarkdownPaths(
   rootPath: string,
-  options?: { readonly includeMarkdownFiles?: boolean },
+  options?: { readonly includeMarkdownFiles?: boolean; readonly followSymlinks?: boolean },
 ): Promise<string[]> {
   async function visit(dir: string, depth: number): Promise<string[]> {
     const skillPath = nodePath.join(dir, "SKILL.md");
     try {
-      const stat = await fs.stat(skillPath);
+      const stat =
+        options?.followSymlinks === false ? await fs.lstat(skillPath) : await fs.stat(skillPath);
       if (stat.isFile()) {
         return [skillPath];
       }
@@ -106,7 +108,11 @@ export async function collectSkillMarkdownPaths(
       await Promise.all(
         dirents.map(async (dirent) => ({
           name: dirent.name,
-          isDirectory: await isWalkableSkillDirectory(dir, dirent),
+          isDirectory: await isWalkableSkillDirectory(
+            dir,
+            dirent,
+            options?.followSymlinks !== false,
+          ),
         })),
       )
     )
@@ -129,10 +135,21 @@ export async function collectSkillDescriptorsFromRoots(
     roots.map(async (root) => {
       const skillPaths = await collectSkillMarkdownPaths(
         root.path,
-        root.includeMarkdownFiles ? { includeMarkdownFiles: true } : undefined,
+        root.includeMarkdownFiles || root.followSymlinks === false
+          ? {
+              ...(root.includeMarkdownFiles ? { includeMarkdownFiles: true } : {}),
+              ...(root.followSymlinks === false ? { followSymlinks: false } : {}),
+            }
+          : undefined,
       );
       const descriptors = await Promise.all(
-        skillPaths.map((skillPath) => readSkillDescriptor({ skillPath, scope: root.scope })),
+        skillPaths.map((skillPath) =>
+          readSkillDescriptor({
+            skillPath,
+            scope: root.scope,
+            ...(root.namespace ? { namespace: root.namespace } : {}),
+          }),
+        ),
       );
       return descriptors.filter((skill) => skill !== null);
     }),

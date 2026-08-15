@@ -1,6 +1,7 @@
 import type { ProviderSkillDescriptor } from "@agent-group/contracts";
 
 import type { SkillsCatalogDiscoveryInput } from "./catalogTypes.ts";
+import { discoverClaudePluginSkillRoots } from "../claudePluginSkills.ts";
 import {
   clearEnsuredAgentGroupSkillsDirsForTests,
   ensureAgentGroupSkillsDir,
@@ -50,9 +51,16 @@ export async function discoverSkillsCatalog(
 
   const scan = (async () => {
     await ensureAgentGroupSkillsDir(input.agentGroupBaseDir);
+    const roots = [
+      ...skillsCatalogRoots(input),
+      ...(await discoverClaudePluginSkillRoots({
+        homeDir: input.homeDir,
+        ...(input.cwd ? { cwd: input.cwd } : {}),
+      })),
+    ];
     const skills = input.includeDuplicateOrigins
-      ? await collectSkillDescriptorsFromRoots(skillsCatalogRoots(input))
-      : await collectSkillsFromRoots(skillsCatalogRoots(input));
+      ? await collectSkillDescriptorsFromRoots(roots)
+      : await collectSkillsFromRoots(roots);
 
     skillsCatalogCache.delete(cacheKey);
     skillsCatalogCache.set(cacheKey, { at: Date.now(), skills });

@@ -4,6 +4,8 @@ export interface SkillRoot {
   readonly path: string;
   readonly scope: string;
   readonly includeMarkdownFiles?: boolean;
+  readonly namespace?: string;
+  readonly followSymlinks?: boolean;
 }
 
 export interface SkillsCatalogDiscoveryInput {
