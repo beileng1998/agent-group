@@ -146,7 +146,8 @@ function toDerivedWorkLogEntry(activity: OrchestrationThreadActivity): DerivedWo
     const detail = stripTrailingExitCode(payload.detail).output;
     if (detail) entry.detail = detail;
   }
-  const outputDetail = summarizeToolPayloadOutput(payload);
+  const outputDetail =
+    activity.kind === "provider.event.unmapped" ? null : summarizeToolPayloadOutput(payload);
   if (!entry.detail && outputDetail) entry.detail = outputDetail;
   const collabTaskOutputDetail = extractCollabTaskOutputDetail(payload);
   if (collabTaskOutputDetail) entry.detail = collabTaskOutputDetail;
@@ -160,6 +161,8 @@ function toDerivedWorkLogEntry(activity: OrchestrationThreadActivity): DerivedWo
     entry.detail = runtimeWarningMessage;
     entry.runtimeWarningMessage = runtimeWarningMessage;
   }
+  const nativeEventType = asTrimmedString(payload?.nativeEventType);
+  if (nativeEventType) entry.nativeEventType = nativeEventType;
   if (commandPreview.command) entry.command = commandPreview.command;
   if (commandPreview.rawCommand) entry.rawCommand = commandPreview.rawCommand;
   const commandActionDisplay = deriveCommandActionDisplay(commandAction, activity.kind);

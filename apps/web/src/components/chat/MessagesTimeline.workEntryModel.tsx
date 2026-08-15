@@ -12,9 +12,11 @@ import {
   resolveSubagentPresentation,
 } from "../../lib/subagentPresentation";
 import {
+  formatAgentActivityEntryTitle,
   formatAgentActivityEntryPreview,
   isCodexActivityStatusWorkEntry,
   isReasoningUpdateWorkEntry,
+  isUnmappedProviderEventWorkEntry,
 } from "./agentActivity.logic";
 import {
   ArrowUpCircleIcon,
@@ -171,6 +173,9 @@ function capitalizePhrase(value: string): string {
 }
 
 export function toolWorkEntryHeading(workEntry: TimelineWorkEntry): string {
+  if (isUnmappedProviderEventWorkEntry(workEntry)) {
+    return formatAgentActivityEntryTitle(workEntry);
+  }
   return capitalizePhrase(normalizeCompactToolLabel(workEntry.toolTitle ?? workEntry.label));
 }
 

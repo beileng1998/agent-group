@@ -19,7 +19,7 @@ import {
   toCodexRequestError as toRequestError,
 } from "../codexAdapterSupport.ts";
 import { makeCodexCapabilityBridge } from "../codexCapabilityBridge.ts";
-import { mapCodexRuntimeEvents as mapToRuntimeEvents } from "../codexRuntimeEventProjection.ts";
+import { makeCodexRuntimeEventProjector } from "../codexRuntimeEventProjection.ts";
 import {
   ProviderAdapterProcessError,
   ProviderAdapterRequestError,
@@ -410,6 +410,7 @@ const makeCodexAdapter = (options?: CodexAdapterLiveOptions) =>
       });
 
     const runtimeEventQueue = yield* Queue.unbounded<ProviderRuntimeEvent>();
+    const projectRuntimeEvent = makeCodexRuntimeEventProjector();
 
     yield* Effect.acquireRelease(
       Effect.gen(function* () {
@@ -424,15 +425,9 @@ const makeCodexAdapter = (options?: CodexAdapterLiveOptions) =>
         const services = yield* Effect.services<never>();
         const listener = (event: ProviderEvent) =>
           Effect.gen(function* () {
-            yield* writeNativeEvent(event);
-            const runtimeEvents = mapToRuntimeEvents(event, event.threadId);
+            const { nativeEvent, runtimeEvents } = projectRuntimeEvent(event, event.threadId);
+            yield* writeNativeEvent(nativeEvent);
             if (runtimeEvents.length === 0) {
-              yield* Effect.logDebug("ignoring unhandled Codex provider event", {
-                method: event.method,
-                threadId: event.threadId,
-                turnId: event.turnId,
-                itemId: event.itemId,
-              });
               return;
             }
             yield* Queue.offerAll(runtimeEventQueue, runtimeEvents);

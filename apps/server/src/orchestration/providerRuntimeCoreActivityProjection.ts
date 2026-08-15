@@ -24,6 +24,11 @@ import {
   truncateDetail,
   asString,
 } from "./providerRuntimeActivityValues.ts";
+import {
+  sanitizeUnmappedProviderData,
+  sanitizeUnmappedProviderDetail,
+  sanitizeUnmappedProviderNativeType,
+} from "../provider/unmappedProviderEvents.ts";
 
 export function projectRuntimeCoreActivities(
   event: ProviderRuntimeEvent,
@@ -171,6 +176,29 @@ export function projectRuntimeCoreActivities(
           ...maybeSequence,
         },
       ];
+
+    case "event.unmapped": {
+      const nativeType = sanitizeUnmappedProviderNativeType(event.payload.nativeType);
+      const detail = sanitizeUnmappedProviderDetail(event.payload.detail);
+      return [
+        {
+          id: event.eventId,
+          createdAt: event.createdAt,
+          tone: "info",
+          kind: "provider.event.unmapped",
+          summary: nativeType,
+          payload: toActivityPayload({
+            nativeEventType: nativeType,
+            ...(detail ? { detail } : {}),
+            ...(event.payload.data !== undefined
+              ? { data: sanitizeUnmappedProviderData(event.payload.data) }
+              : {}),
+          }),
+          turnId: toTurnId(event.turnId) ?? null,
+          ...maybeSequence,
+        },
+      ];
+    }
 
     case "model.rerouted":
       return [
