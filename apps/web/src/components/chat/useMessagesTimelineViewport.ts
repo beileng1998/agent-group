@@ -60,7 +60,12 @@ export function useMessagesTimelineViewport(input: {
   controllerRef?: RefObject<MessagesTimelineController | null> | undefined;
   initialScrollOffsetPx?: number | undefined;
   onIsAtEndChange?: ((isAtEnd: boolean) => void) | undefined;
+  onMessagesPointerCancel?: ComponentProps<typeof LegendList>["onPointerCancel"];
+  onMessagesPointerDown?: ComponentProps<typeof LegendList>["onPointerDown"];
   onMessagesScroll?: ComponentProps<typeof LegendList>["onScroll"];
+  onMessagesTouchMove?: ComponentProps<typeof LegendList>["onTouchMove"];
+  onMessagesTouchStart?: ComponentProps<typeof LegendList>["onTouchStart"];
+  onMessagesWheel?: ComponentProps<typeof LegendList>["onWheel"];
   onRevealCollapsedMessage?: ((ownerMessageId: MessageId) => void) | undefined;
   onTrailHighlightsChange?: ((snapshot: ActiveTrailSnapshot) => void) | undefined;
 }) {
@@ -201,6 +206,7 @@ export function useMessagesTimelineViewport(input: {
   }, [input.rows]);
   const tailScrollFrameRef = useRef<number | null>(null);
   const tailScrollTimeoutsRef = useRef<number[]>([]);
+  const tailExpansionScrollSuppressedRef = useRef(false);
   const clearTailExpansionScrollTimers = useCallback(() => {
     if (tailScrollFrameRef.current !== null) {
       window.cancelAnimationFrame(tailScrollFrameRef.current);
@@ -211,6 +217,7 @@ export function useMessagesTimelineViewport(input: {
   }, []);
   const scrollTailExpansionToEnd = useCallback(() => {
     clearTailExpansionScrollTimers();
+    if (tailExpansionScrollSuppressedRef.current) return;
     const scrollToEnd = () => void resolvedListRef.current?.scrollToEnd?.({ animated: false });
     tailScrollFrameRef.current = window.requestAnimationFrame(() => {
       tailScrollFrameRef.current = null;
@@ -266,16 +273,68 @@ export function useMessagesTimelineViewport(input: {
       input.onMessagesScroll?.(event);
       const state = resolvedListRef.current?.getState?.();
       if (state) {
+        tailExpansionScrollSuppressedRef.current = !state.isAtEnd;
+        if (!state.isAtEnd) clearTailExpansionScrollTimers();
         input.onIsAtEndChange?.(state.isAtEnd);
         emitTrailHighlightsForViewport(state.start, state.end);
       }
     },
     [
       emitTrailHighlightsForViewport,
+      clearTailExpansionScrollTimers,
       input.onIsAtEndChange,
       input.onMessagesScroll,
       resolvedListRef,
     ],
+  );
+  const suppressTailExpansionScroll = useCallback(() => {
+    tailExpansionScrollSuppressedRef.current = true;
+    clearTailExpansionScrollTimers();
+  }, [clearTailExpansionScrollTimers]);
+  const handleMessagesPointerCancel = useCallback<
+    NonNullable<ComponentProps<typeof LegendList>["onPointerCancel"]>
+  >(
+    (event) => {
+      clearTailExpansionScrollTimers();
+      input.onMessagesPointerCancel?.(event);
+    },
+    [clearTailExpansionScrollTimers, input.onMessagesPointerCancel],
+  );
+  const handleMessagesPointerDown = useCallback<
+    NonNullable<ComponentProps<typeof LegendList>["onPointerDown"]>
+  >(
+    (event) => {
+      clearTailExpansionScrollTimers();
+      input.onMessagesPointerDown?.(event);
+    },
+    [clearTailExpansionScrollTimers, input.onMessagesPointerDown],
+  );
+  const handleMessagesTouchMove = useCallback<
+    NonNullable<ComponentProps<typeof LegendList>["onTouchMove"]>
+  >(
+    (event) => {
+      suppressTailExpansionScroll();
+      input.onMessagesTouchMove?.(event);
+    },
+    [input.onMessagesTouchMove, suppressTailExpansionScroll],
+  );
+  const handleMessagesTouchStart = useCallback<
+    NonNullable<ComponentProps<typeof LegendList>["onTouchStart"]>
+  >(
+    (event) => {
+      clearTailExpansionScrollTimers();
+      input.onMessagesTouchStart?.(event);
+    },
+    [clearTailExpansionScrollTimers, input.onMessagesTouchStart],
+  );
+  const handleMessagesWheel = useCallback<
+    NonNullable<ComponentProps<typeof LegendList>["onWheel"]>
+  >(
+    (event) => {
+      suppressTailExpansionScroll();
+      input.onMessagesWheel?.(event);
+    },
+    [input.onMessagesWheel, suppressTailExpansionScroll],
   );
   const handleViewableItemsChanged = useCallback<
     NonNullable<ComponentProps<typeof LegendList>["onViewableItemsChanged"]>
@@ -309,6 +368,11 @@ export function useMessagesTimelineViewport(input: {
 
   return {
     handleListScroll,
+    handleMessagesPointerCancel,
+    handleMessagesPointerDown,
+    handleMessagesTouchMove,
+    handleMessagesTouchStart,
+    handleMessagesWheel,
     handleViewableItemsChanged,
     highlightedMessageId,
     resolvedListRef,

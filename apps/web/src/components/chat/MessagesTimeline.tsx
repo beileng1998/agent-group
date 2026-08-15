@@ -267,6 +267,11 @@ export const MessagesTimeline = memo(function MessagesTimeline({
   });
   const {
     handleListScroll,
+    handleMessagesPointerCancel,
+    handleMessagesPointerDown,
+    handleMessagesTouchMove,
+    handleMessagesTouchStart,
+    handleMessagesWheel,
     handleViewableItemsChanged,
     highlightedMessageId,
     resolvedListRef,
@@ -279,7 +284,12 @@ export const MessagesTimeline = memo(function MessagesTimeline({
     controllerRef,
     initialScrollOffsetPx,
     onIsAtEndChange,
+    onMessagesPointerCancel,
+    onMessagesPointerDown,
     onMessagesScroll,
+    onMessagesTouchMove,
+    onMessagesTouchStart,
+    onMessagesWheel,
     onRevealCollapsedMessage: revealCollapsedMessage,
     onTrailHighlightsChange,
   });
@@ -416,8 +426,8 @@ export const MessagesTimeline = memo(function MessagesTimeline({
         {...(!followLiveOutput ? { maintainVisibleContentPosition: true } : {})}
         onClickCapture={onMessagesClickCapture}
         onMouseUp={onMessagesMouseUp}
-        onPointerCancel={onMessagesPointerCancel}
-        onPointerDown={onMessagesPointerDown}
+        onPointerCancel={handleMessagesPointerCancel}
+        onPointerDown={handleMessagesPointerDown}
         onPointerUp={onMessagesPointerUp}
         onScroll={handleListScroll}
         {...(onTrailHighlightsChange
@@ -427,9 +437,9 @@ export const MessagesTimeline = memo(function MessagesTimeline({
             }
           : {})}
         onTouchEnd={onMessagesTouchEnd}
-        onTouchMove={onMessagesTouchMove}
-        onTouchStart={onMessagesTouchStart}
-        onWheel={onMessagesWheel}
+        onTouchMove={handleMessagesTouchMove}
+        onTouchStart={handleMessagesTouchStart}
+        onWheel={handleMessagesWheel}
         data-chat-scroll-container="true"
         ListFooterComponent={listFooter}
         // `scroll-fade-b` (vendored shadcn 4.12.0 util in index.css) masks the bottom
