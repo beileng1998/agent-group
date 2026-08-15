@@ -1,4 +1,10 @@
-import { CommandId, EventId, ThreadId, type OrchestrationThread } from "@agent-group/contracts";
+import {
+  CommandId,
+  EventId,
+  ThreadId,
+  TurnId,
+  type OrchestrationThread,
+} from "@agent-group/contracts";
 import { Effect, Exit } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -126,5 +132,71 @@ describe("provider intent terminal model observation", () => {
 
     expect(exits.every(Exit.isFailure)).toBe(true);
     expect(executed).toEqual([]);
+  });
+});
+
+describe("provider intent runtime mode routing", () => {
+  it("defers the provider restart while a turn is active", async () => {
+    const selectionState = new ProviderSessionSelectionState();
+    let activeTurnId: TurnId | null = TurnId.makeUnsafe("turn-runtime-mode-active");
+    const ensuredRuntimeModes: string[] = [];
+    const unused = () => Effect.void;
+    const router = makeProviderIntentRouter({
+      selectionState,
+      resolveThread: () =>
+        Effect.succeed({
+          id: threadId,
+          modelSelection: { provider: "codex", model: "gpt-5-codex" },
+          session: {
+            threadId,
+            status: "running",
+            providerName: "codex",
+            runtimeMode: "full-access",
+            activeTurnId,
+            lastError: null,
+            updatedAt: now,
+          },
+        } as unknown as OrchestrationThread),
+      ensureSessionForThread: (_threadId, _createdAt, options) =>
+        Effect.sync(() => {
+          if (options?.runtimeMode) ensuredRuntimeModes.push(options.runtimeMode);
+        }),
+      acquireStructured: (_threadId, claimId) =>
+        Effect.succeed({ threadId, claimId, release: Effect.void }),
+      hasLiveProviderTurn: () => Effect.succeed(false),
+      setThreadSessionError: unused,
+      processTurnQueued: unused,
+      processTurnStartRequested: unused,
+      processTurnInterruptRequested: unused,
+      processApprovalResponseRequested: unused,
+      processUserInputResponseRequested: unused,
+      processConversationRollbackRequested: unused,
+      processMessageEditResendRequested: unused,
+      processSessionStopRequested: unused,
+    });
+    const event = (suffix: string): ProviderIntentEvent => ({
+      sequence: 3,
+      eventId: EventId.makeUnsafe(`event-runtime-mode-${suffix}`),
+      aggregateKind: "thread",
+      aggregateId: threadId,
+      occurredAt: now,
+      commandId: CommandId.makeUnsafe(`command-runtime-mode-${suffix}`),
+      causationEventId: null,
+      correlationId: CommandId.makeUnsafe(`command-runtime-mode-${suffix}`),
+      metadata: {},
+      type: "thread.runtime-mode-set",
+      payload: {
+        threadId,
+        runtimeMode: "approval-required",
+        updatedAt: now,
+      },
+    });
+
+    await Effect.runPromise(router(event("active")));
+    expect(ensuredRuntimeModes).toEqual([]);
+
+    activeTurnId = null;
+    await Effect.runPromise(router(event("settled")));
+    expect(ensuredRuntimeModes).toEqual(["approval-required"]);
   });
 });

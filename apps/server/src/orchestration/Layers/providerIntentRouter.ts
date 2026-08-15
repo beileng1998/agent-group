@@ -180,6 +180,11 @@ export function makeProviderIntentRouter<Environment>(dependencies: {
             Effect.gen(function* () {
               const thread = yield* dependencies.resolveThread(event.payload.threadId);
               if (!thread?.session || thread.session.status === "stopped") return;
+              if (thread.session.activeTurnId !== null) {
+                // The projected thread already has the desired mode. Defer the
+                // provider restart until the next turn so this turn can finish.
+                return;
+              }
               const cachedProviderOptions = dependencies.selectionState.getProviderOptions(
                 event.payload.threadId,
               );
