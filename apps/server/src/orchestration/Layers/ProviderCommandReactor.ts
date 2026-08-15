@@ -427,6 +427,7 @@ const make = Effect.gen(function* () {
   const processDomainEventSafely = (event: ProviderIntentEvent) =>
     withCanceledProviderTurnClaimCleanup(
       processDomainEvent(event).pipe(
+        Effect.timeout("120 seconds"),
         Effect.catchCause((cause) => {
           if (Cause.hasInterruptsOnly(cause)) {
             return Effect.failCause(cause);

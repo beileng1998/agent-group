@@ -9,6 +9,7 @@ import { buildStalePendingRequestFailureDetail } from "@agent-group/shared/threa
 import { Cause, Effect, Schema } from "effect";
 
 import { ProviderAdapterRequestError, type ProviderServiceError } from "../../provider/Errors.ts";
+import { runBoundedProviderControl } from "../../provider/boundedProviderControl.ts";
 import type { ProviderServiceShape } from "../../provider/Services/ProviderService.ts";
 import type { ProviderTurnBootstrapState } from "./providerTurnBootstrapState.ts";
 import type { ProviderTurnQueue } from "./providerTurnQueue.ts";
@@ -29,7 +30,8 @@ type FailureActivityInput = {
   readonly kind:
     | "provider.turn.interrupt.failed"
     | "provider.approval.respond.failed"
-    | "provider.user-input.respond.failed";
+    | "provider.user-input.respond.failed"
+    | "provider.session.stop.failed";
   readonly summary: string;
   readonly detail: string;
   readonly turnId: TurnId | null;
@@ -38,6 +40,8 @@ type FailureActivityInput = {
 };
 
 const DEFAULT_RUNTIME_MODE = "full-access" as const;
+const PROVIDER_INTERRUPT_TIMEOUT_MS = 10_000;
+const PROVIDER_STOP_TIMEOUT_MS = 15_000;
 
 function isUnknownPendingApprovalRequestError(cause: Cause.Cause<ProviderServiceError>): boolean {
   const error = Cause.squash(cause);
@@ -98,7 +102,55 @@ export function makeProviderInteractionHandlers<
     stopStructured: () => Effect.Effect<void, unknown>,
   ) => Effect.Effect<"structured" | "terminal", TerminalStopError>;
   readonly releaseCanceledClaims: () => Effect.Effect<unknown, ReleaseError>;
+  readonly providerInterruptTimeoutMs?: number;
+  readonly providerStopTimeoutMs?: number;
 }) {
+  const providerInterruptTimeoutMs =
+    dependencies.providerInterruptTimeoutMs ?? PROVIDER_INTERRUPT_TIMEOUT_MS;
+  const providerStopTimeoutMs = dependencies.providerStopTimeoutMs ?? PROVIDER_STOP_TIMEOUT_MS;
+  const recordFailure = (input: FailureActivityInput) =>
+    dependencies.appendProviderFailureActivity(input).pipe(
+      Effect.catchCause((cause) =>
+        Effect.logWarning("failed to project provider control failure", {
+          threadId: input.threadId,
+          kind: input.kind,
+          cause: Cause.pretty(cause),
+        }),
+      ),
+    );
+  const settleThreadLocally = (
+    thread: OrchestrationThread,
+    createdAt: string,
+    detail: string,
+    status: "interrupted" | "stopped" = "interrupted",
+  ) => {
+    const hasActiveTurn =
+      thread.session?.status === "starting" ||
+      thread.session?.status === "running" ||
+      thread.session?.activeTurnId != null ||
+      thread.latestTurn?.state === "running";
+    if (!hasActiveTurn) return Effect.void;
+    return dependencies.setThreadSession({
+      threadId: thread.id,
+      session: {
+        threadId: thread.id,
+        status,
+        providerName: thread.session?.providerName ?? thread.modelSelection.provider,
+        runtimeMode: thread.session?.runtimeMode ?? DEFAULT_RUNTIME_MODE,
+        activeTurnId: null,
+        lastError: detail.slice(0, 2_000),
+        updatedAt: createdAt,
+      },
+      createdAt,
+    });
+  };
+  const stopProviderSession = (threadId: ThreadId) =>
+    runBoundedProviderControl({
+      label: "The provider session stop",
+      timeoutMs: providerStopTimeoutMs,
+      effect: dependencies.providerService.stopSession({ threadId }),
+    });
+
   const interruptProviderTurn = Effect.fnUntraced(function* (input: {
     readonly threadId: ThreadId;
     readonly turnId?: TurnId;
@@ -106,27 +158,57 @@ export function makeProviderInteractionHandlers<
   }) {
     const thread = yield* dependencies.resolveThread(input.threadId);
     const providerThread = yield* dependencies.resolveProviderSessionThread(input.threadId);
-    if (!thread || !providerThread) return;
-    if (!providerThread.session || providerThread.session.status === "stopped") {
-      return yield* dependencies.appendProviderFailureActivity({
+    if (!thread) return;
+    if (!providerThread?.session || providerThread.session.status === "stopped") {
+      const detail = "No active provider session is bound to this thread.";
+      yield* recordFailure({
         threadId: input.threadId,
         kind: "provider.turn.interrupt.failed",
         summary: "Provider turn interrupt failed",
-        detail: "No active provider session is bound to this thread.",
+        detail,
         turnId: input.turnId ?? null,
         createdAt: input.createdAt,
       });
+      return yield* settleThreadLocally(thread, input.createdAt, detail);
     }
     const providerThreadId = dependencies.resolveSubagentProviderThreadId(
       thread.id,
       providerThread.id,
     );
     const turnId = input.turnId ?? thread.session?.activeTurnId ?? undefined;
-    yield* dependencies.providerService.interruptTurn({
-      threadId: providerThread.id,
-      ...(turnId ? { turnId } : {}),
-      ...(providerThreadId ? { providerThreadId } : {}),
+    const interrupted = yield* runBoundedProviderControl({
+      label: "The provider interrupt",
+      timeoutMs: providerInterruptTimeoutMs,
+      effect: dependencies.providerService.interruptTurn({
+        threadId: providerThread.id,
+        ...(turnId ? { turnId } : {}),
+        ...(providerThreadId ? { providerThreadId } : {}),
+      }),
     });
+    if (interrupted._tag === "completed") return;
+
+    yield* recordFailure({
+      threadId: input.threadId,
+      kind: "provider.turn.interrupt.failed",
+      summary: "Provider turn interrupt failed",
+      detail: interrupted.detail,
+      turnId: input.turnId ?? null,
+      createdAt: input.createdAt,
+    });
+    if (providerThread.id === thread.id) {
+      const stopped = yield* stopProviderSession(providerThread.id);
+      if (stopped._tag !== "completed") {
+        yield* recordFailure({
+          threadId: input.threadId,
+          kind: "provider.session.stop.failed",
+          summary: "Provider session stop failed",
+          detail: stopped.detail,
+          turnId: null,
+          createdAt: input.createdAt,
+        });
+      }
+    }
+    yield* settleThreadLocally(thread, input.createdAt, interrupted.detail);
   });
 
   const processTurnInterruptRequested = (
@@ -263,11 +345,32 @@ export function makeProviderInteractionHandlers<
           thread.session.activeTurnId !== null &&
           providerThread.session?.status !== "stopped"
         ) {
-          yield* dependencies.providerService.interruptTurn({
-            threadId: providerThread.id,
-            turnId: thread.session.activeTurnId,
-            providerThreadId,
+          const interrupted = yield* runBoundedProviderControl({
+            label: "The provider interrupt",
+            timeoutMs: providerInterruptTimeoutMs,
+            effect: dependencies.providerService.interruptTurn({
+              threadId: providerThread.id,
+              turnId: thread.session.activeTurnId,
+              providerThreadId,
+            }),
           });
+          if (interrupted._tag !== "completed") {
+            yield* recordFailure({
+              threadId: thread.id,
+              kind: "provider.turn.interrupt.failed",
+              summary: "Provider turn interrupt failed",
+              detail: interrupted.detail,
+              turnId: thread.session.activeTurnId,
+              createdAt: now,
+            });
+            structuredProjection = settleThreadLocally(
+              thread,
+              now,
+              interrupted.detail,
+              "stopped",
+            );
+            return;
+          }
           structuredProjection = dependencies.setThreadSession({
             threadId: thread.id,
             session: {
@@ -285,9 +388,17 @@ export function makeProviderInteractionHandlers<
         }
         const ownsProviderSession = providerThread !== null && providerThread.id === thread.id;
         if (thread.session && thread.session.status !== "stopped" && ownsProviderSession) {
-          yield* dependencies.providerService.stopSession({
-            threadId: providerThread.id,
-          });
+          const stopped = yield* stopProviderSession(providerThread.id);
+          if (stopped._tag !== "completed") {
+            yield* recordFailure({
+              threadId: thread.id,
+              kind: "provider.session.stop.failed",
+              summary: "Provider session stop failed",
+              detail: stopped.detail,
+              turnId: null,
+              createdAt: now,
+            });
+          }
         }
       }),
     );
