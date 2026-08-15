@@ -72,11 +72,26 @@ export interface ClaudePendingApproval {
   readonly detail?: string;
   readonly suggestions?: ReadonlyArray<PermissionUpdate>;
   readonly decision: Deferred.Deferred<ProviderApprovalDecision>;
+  readonly settled: Deferred.Deferred<ProviderApprovalDecision>;
+  readonly turnId?: TurnId;
+  readonly providerItemId?: string;
+  readonly agentId?: string;
+  settlementStarted: boolean;
+}
+
+export interface ClaudePendingUserInputResult {
+  readonly answers: ProviderUserInputAnswers;
+  readonly cancelled: boolean;
 }
 
 export interface ClaudePendingUserInput {
   readonly questions: ReadonlyArray<UserInputQuestion>;
-  readonly answers: Deferred.Deferred<ProviderUserInputAnswers>;
+  readonly result: Deferred.Deferred<ClaudePendingUserInputResult>;
+  readonly settled: Deferred.Deferred<ClaudePendingUserInputResult>;
+  readonly turnId?: TurnId;
+  readonly providerItemId?: string;
+  readonly agentId?: string;
+  settlementStarted: boolean;
 }
 
 export interface ClaudeToolInFlight {
@@ -131,6 +146,7 @@ export interface ClaudeSessionContext {
   readonly warnedUnhandledSdkKinds: Set<string>;
   readonly subagentRoutes: ClaudeSubagentRouteRegistry;
   readonly subagentRuns: Map<string, ClaudeSubagentRun>;
+  readonly terminalTaskIds: Set<string>;
   readonly subagentRefs?: {
     readonly providerThreadId: string;
     readonly providerParentThreadId: string;

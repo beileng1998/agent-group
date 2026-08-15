@@ -64,6 +64,7 @@ export function makeClaudeSubagentRuntime(input: {
         warnedUnhandledSdkKinds: context.warnedUnhandledSdkKinds,
         subagentRoutes: new ClaudeSubagentRouteRegistry(),
         subagentRuns: new Map(),
+        terminalTaskIds: new Set(),
         subagentRefs: {
           providerThreadId: toolUseId,
           providerParentThreadId: String(context.session.threadId),

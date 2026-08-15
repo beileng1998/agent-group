@@ -25,6 +25,7 @@ import type {
 import { toMessage } from "./claudeAdapterErrors.ts";
 import { claudeModelDiscoveryKey, type ClaudeQueryFactory } from "./claudeCapabilityDiscovery.ts";
 import { makeClaudePermissionBridge } from "./claudePermissionBridge.ts";
+import type { ClaudePendingInteractions } from "./claudePendingInteractions.ts";
 import { buildClaudeSdkSubagents } from "./claudePromptInput.ts";
 import { readClaudeResumeState, toPermissionMode } from "./claudeAdapterProtocol.ts";
 import { ClaudeSubagentRouteRegistry } from "./claudeSubagentRouting.ts";
@@ -65,6 +66,10 @@ export function makeClaudeSessionFactory(input: {
   readonly makeEventStamp: () => Effect.Effect<Pick<ProviderRuntimeEvent, "eventId" | "createdAt">>;
   readonly nowIso: Effect.Effect<string>;
   readonly offerRuntimeEvent: (event: ProviderRuntimeEvent) => Effect.Effect<void>;
+  readonly pendingInteractions: Pick<
+    ClaudePendingInteractions,
+    "settleApproval" | "settleUserInput"
+  >;
   readonly prefetchCapabilities: (modelDiscoveryKey: string, query: ClaudeQueryRuntime) => void;
   readonly resolveModelCapabilities: (
     modelDiscoveryKey: string,
@@ -120,6 +125,7 @@ export function makeClaudeSessionFactory(input: {
         makeEventStamp: input.makeEventStamp,
         offerRuntimeEvent: input.offerRuntimeEvent,
         emitProposedPlanCompleted: input.emitProposedPlanCompleted,
+        pendingInteractions: input.pendingInteractions,
       });
 
       const providerOptions = sessionInput.providerOptions?.claudeAgent;
@@ -290,6 +296,7 @@ export function makeClaudeSessionFactory(input: {
           warnedUnhandledSdkKinds: new Set(),
           subagentRoutes: new ClaudeSubagentRouteRegistry(),
           subagentRuns: new Map(),
+          terminalTaskIds: new Set(),
         };
         installationContext = context;
         yield* input.withLifecycleLock(

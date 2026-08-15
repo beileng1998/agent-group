@@ -7,6 +7,7 @@ import {
 import { Effect } from "effect";
 
 import type { ClaudeSessionContext, ClaudeSubagentRun } from "./claudeAdapterRuntime.ts";
+import type { ClaudePendingInteractions } from "./claudePendingInteractions.ts";
 import { toError } from "./claudeAdapterErrors.ts";
 import { asCanonicalTurnId } from "./claudeAdapterProtocol.ts";
 import { nativeProviderRefs, sdkNativeMethod } from "./claudeSdkMessage.ts";
@@ -50,6 +51,7 @@ export function makeClaudeSystemMessageProjection(input: {
     errorMessage?: string,
     options?: { readonly retainRun?: boolean },
   ) => Effect.Effect<void>;
+  readonly settlePendingForAgent: ClaudePendingInteractions["settleForAgent"];
   readonly updateResumeCursor: (context: ClaudeSessionContext) => Effect.Effect<void>;
   readonly warnUnhandledSdkKind: (
     context: ClaudeSessionContext,
@@ -70,6 +72,8 @@ export function makeClaudeSystemMessageProjection(input: {
       if (message.subtype === "task_updated") {
         const status = normalizeClaudeSubagentTerminalStatus(message.patch?.status);
         if (status) {
+          context.terminalTaskIds.add(message.task_id);
+          yield* input.settlePendingForAgent(context, message.task_id);
           yield* input.settleSubagentRun(
             context,
             { taskId: message.task_id },
@@ -239,6 +243,8 @@ export function makeClaudeSystemMessageProjection(input: {
           });
           return;
         case "task_notification": {
+          context.terminalTaskIds.add(message.task_id);
+          yield* input.settlePendingForAgent(context, message.task_id);
           const activeRoute =
             (message.tool_use_id
               ? context.subagentRoutes.resolveActive({ toolUseId: message.tool_use_id })

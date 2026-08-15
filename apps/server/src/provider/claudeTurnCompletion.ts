@@ -10,6 +10,7 @@ import type {
   ClaudeAssistantTextBlockState,
   ClaudeSessionContext,
 } from "./claudeAdapterRuntime.ts";
+import type { ClaudePendingInteractions } from "./claudePendingInteractions.ts";
 import { asRuntimeItemId } from "./claudeAdapterProtocol.ts";
 import { nativeProviderRefs } from "./claudeSdkMessage.ts";
 import {
@@ -46,6 +47,7 @@ export function makeClaudeTurnCompletion(input: {
   readonly makeEventStamp: () => Effect.Effect<Pick<ProviderRuntimeEvent, "eventId" | "createdAt">>;
   readonly nowIso: Effect.Effect<string>;
   readonly offerRuntimeEvent: (event: ProviderRuntimeEvent) => Effect.Effect<void>;
+  readonly settlePendingForTurn: ClaudePendingInteractions["settleForTurn"];
   readonly updateResumeCursor: (context: ClaudeSessionContext) => Effect.Effect<void>;
 }) {
   return (
@@ -59,6 +61,9 @@ export function makeClaudeTurnCompletion(input: {
       context.turnWatchdogFiber = undefined;
       if (watchdogFiber && watchdogFiber.pollUnsafe() === undefined) {
         yield* Fiber.interrupt(watchdogFiber);
+      }
+      if (context.turnState) {
+        yield* input.settlePendingForTurn(context, context.turnState.turnId);
       }
       const liveContextUsage = yield* input.readContextUsage(context);
       const resultContextWindow = maxClaudeContextWindowFromModelUsage(result?.modelUsage);
