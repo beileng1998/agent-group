@@ -110,6 +110,13 @@ export function makeClaudeTurnCompletion(input: {
           });
         }
 
+        const settledTurnId = context.lastTurnId;
+        if (settledTurnId === undefined) {
+          yield* Effect.logWarning("claude turn result arrived with no attributable turn", {
+            threadId: context.session.threadId,
+            status,
+          });
+        }
         const stamp = yield* input.makeEventStamp();
         yield* input.offerRuntimeEvent({
           type: "turn.completed",
@@ -117,6 +124,7 @@ export function makeClaudeTurnCompletion(input: {
           provider: PROVIDER,
           createdAt: stamp.createdAt,
           threadId: context.session.threadId,
+          ...(settledTurnId !== undefined ? { turnId: settledTurnId } : {}),
           payload: {
             state: status,
             ...(result?.stop_reason !== undefined ? { stopReason: result.stop_reason } : {}),

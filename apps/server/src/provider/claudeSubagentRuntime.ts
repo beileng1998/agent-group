@@ -50,6 +50,7 @@ export function makeClaudeSubagentRuntime(input: {
         inFlightTools: new Map(),
         trackedTasks: new Map(),
         turnState: undefined,
+        lastTurnId: undefined,
         interruptRequestedTurnId: undefined,
         lastKnownContextWindow: context.lastKnownContextWindow,
         currentAutoCompactWindow: context.currentAutoCompactWindow,

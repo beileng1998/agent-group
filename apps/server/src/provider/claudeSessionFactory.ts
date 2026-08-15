@@ -279,6 +279,7 @@ export function makeClaudeSessionFactory(input: {
           inFlightTools,
           trackedTasks,
           turnState: undefined,
+          lastTurnId: undefined,
           interruptRequestedTurnId: undefined,
           lastKnownContextWindow: resolveClaudeApiModelIdContextWindowMaxTokens(
             apiModelId ?? effectiveClaudeModel,

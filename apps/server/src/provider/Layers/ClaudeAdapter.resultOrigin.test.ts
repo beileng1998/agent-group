@@ -121,4 +121,51 @@ describe("ClaudeAdapterLive result origin", () => {
       Effect.provide(harness.layer),
     );
   });
+
+  it.effect("attributes a late duplicate result to the last owned Turn", () => {
+    const harness = makeClaudeAdapterTestHarness();
+    return Effect.gen(function* () {
+      const adapter = yield* ClaudeAdapter;
+      const completedFiber = yield* adapter.streamEvents.pipe(
+        Stream.filter((event) => event.type === "turn.completed"),
+        Stream.take(2),
+        Stream.runCollect,
+        Effect.forkChild,
+      );
+
+      const session = yield* adapter.startSession({
+        threadId: THREAD_ID,
+        provider: "claudeAgent",
+        runtimeMode: "full-access",
+      });
+      const turn = yield* adapter.sendTurn({
+        threadId: session.threadId,
+        input: "Finish once",
+        attachments: [],
+      });
+
+      for (const uuid of ["result-primary", "result-late"]) {
+        harness.query.emit({
+          type: "result",
+          subtype: "success",
+          is_error: false,
+          errors: [],
+          origin: { kind: "human" },
+          total_cost_usd: 1,
+          session_id: "sdk-resume-session",
+          uuid,
+        } as unknown as SDKMessage);
+      }
+
+      const completed = Array.from(yield* Fiber.join(completedFiber));
+      assert.equal(completed.length, 2);
+      assert.deepEqual(
+        completed.map((event) => String(event.turnId)),
+        [String(turn.turnId), String(turn.turnId)],
+      );
+    }).pipe(
+      Effect.provideService(Random.Random, makeDeterministicRandomService()),
+      Effect.provide(harness.layer),
+    );
+  });
 });

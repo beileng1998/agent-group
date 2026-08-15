@@ -198,6 +198,7 @@ export function makeClaudeTurnController(input: {
       };
       const updatedAt = yield* input.nowIso;
       context.turnState = turnState;
+      context.lastTurnId = turnId;
       context.session = {
         ...context.session,
         status: "running",
