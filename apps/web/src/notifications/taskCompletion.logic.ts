@@ -4,6 +4,7 @@
 // Exports: lifecycle detection helpers and notification copy helpers
 
 import {
+  isRuntimeSubagentThread,
   isTemporarySidechatThread,
   type AgentGroupThreadCandidate,
 } from "@agent-group/shared/agentGroupSessions";
@@ -13,6 +14,7 @@ import {
   type TerminalVisualState,
 } from "@agent-group/shared/terminalThreads";
 import type { Thread, ThreadSession } from "../types";
+import { hasActivePersistentGoal } from "./goalCompletion";
 import {
   derivePendingApprovals,
   derivePendingUserInputs,
@@ -23,6 +25,7 @@ export interface CompletedThreadCandidate {
   threadId: Thread["id"];
   projectId: Thread["projectId"];
   title: string;
+  turnId: NonNullable<Thread["latestTurn"]>["turnId"];
   completedAt: string;
   assistantSummary: string | null;
 }
@@ -72,6 +75,18 @@ export function excludeTemporarySidechatNotificationCandidates<
   return candidates.filter((candidate) => {
     const thread = latestThreadById.get(candidate.threadId);
     return !thread || !isTemporarySidechatThread(thread);
+  });
+}
+
+// Runtime subagents are activity inside their parent Turn. Their settled state
+// remains visible in the parent UI and must not fan out into one alert per agent.
+export function excludeRuntimeSubagentCompletionCandidates<
+  Candidate extends { readonly threadId: string },
+>(candidates: readonly Candidate[], threads: readonly AgentGroupThreadCandidate[]): Candidate[] {
+  const latestThreadById = new Map(threads.map((thread) => [thread.id, thread] as const));
+  return candidates.filter((candidate) => {
+    const thread = latestThreadById.get(candidate.threadId);
+    return !thread || !isRuntimeSubagentThread(thread);
   });
 }
 
@@ -170,9 +185,11 @@ export function collectCompletedThreadCandidates(
     if (!previousThread) {
       continue;
     }
+    if (hasActivePersistentGoal(previousThread) || hasActivePersistentGoal(thread)) continue;
 
-    const completedAt = thread.latestTurn?.completedAt;
-    if (!completedAt) {
+    const latestTurn = thread.latestTurn;
+    const completedAt = latestTurn?.completedAt;
+    if (!latestTurn || !completedAt || latestTurn.state !== "completed") {
       continue;
     }
     if (!isCompletionNotificationSettled(thread)) {
@@ -195,12 +212,19 @@ export function collectCompletedThreadCandidates(
       threadId: thread.id,
       projectId: thread.projectId,
       title: thread.title,
+      turnId: latestTurn.turnId,
       completedAt,
       assistantSummary: summarizeLatestAssistantMessage(thread),
     });
   }
 
   return candidates;
+}
+
+// A snapshot can settle the same Turn more than once while status and checkpoint
+// fields catch up. Turn identity stays stable across those projection rewrites.
+export function completedThreadNotificationKey(candidate: CompletedThreadCandidate): string {
+  return `${candidate.threadId}:${candidate.turnId}`;
 }
 function resolveTerminalNotificationState(
   threadState: TerminalNotificationThreadState | undefined,

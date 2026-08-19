@@ -14,6 +14,39 @@ import {
   toTurnId,
 } from "./codexManagerValues.ts";
 
+const MAX_CODEX_COLLAB_TURN_ROUTES = 512;
+const childProviderThreadByTurn = new WeakMap<CodexSessionContext, Map<TurnId, string>>();
+
+function knownChildProviderThreadId(
+  context: CodexSessionContext,
+  turnId: TurnId | undefined,
+): string | undefined {
+  return turnId ? childProviderThreadByTurn.get(context)?.get(turnId) : undefined;
+}
+
+function rememberChildTurnRoute(
+  context: CodexSessionContext,
+  turnId: TurnId | undefined,
+  route: CodexCollaborationRoute,
+): void {
+  if (!turnId || !route.isChildConversation || !route.providerThreadId) {
+    return;
+  }
+  let routes = childProviderThreadByTurn.get(context);
+  if (!routes) {
+    routes = new Map();
+    childProviderThreadByTurn.set(context, routes);
+  }
+  routes.delete(turnId);
+  routes.set(turnId, route.providerThreadId);
+  if (routes.size > MAX_CODEX_COLLAB_TURN_ROUTES) {
+    const oldestTurnId = routes.keys().next().value;
+    if (oldestTurnId) {
+      routes.delete(oldestTurnId);
+    }
+  }
+}
+
 export function readRouteFields(params: unknown): {
   turnId?: TurnId;
   itemId?: ProviderItemId;
@@ -49,35 +82,20 @@ export function readProviderConversationId(params: unknown): string | undefined 
   );
 }
 
-export function readChildParentTurnId(
-  context: CodexSessionContext,
-  params: unknown,
-): TurnId | undefined {
-  const providerConversationId = readProviderConversationId(params);
-  if (!providerConversationId) {
-    return undefined;
-  }
-  return context.collabReceiverTurns.get(providerConversationId);
-}
-
-export function readChildParentProviderThreadId(
-  context: CodexSessionContext,
-  params: unknown,
-): string | undefined {
-  const providerConversationId = readProviderConversationId(params);
-  if (!providerConversationId) {
-    return undefined;
-  }
-  return context.collabReceiverParents.get(providerConversationId);
-}
-
 export function resolveCollaborationRoute(
   context: CodexSessionContext,
   params: unknown,
 ): CodexCollaborationRoute {
-  const parentTurnId = readChildParentTurnId(context, params);
-  const providerThreadId = normalizeProviderThreadId(readProviderConversationId(params));
-  const mappedProviderParentThreadId = readChildParentProviderThreadId(context, params);
+  const rawRoute = readRouteFields(params);
+  const observedProviderThreadId = normalizeProviderThreadId(readProviderConversationId(params));
+  const providerThreadId =
+    knownChildProviderThreadId(context, rawRoute.turnId) ?? observedProviderThreadId;
+  const parentTurnId = providerThreadId
+    ? context.collabReceiverTurns.get(providerThreadId)
+    : undefined;
+  const mappedProviderParentThreadId = providerThreadId
+    ? context.collabReceiverParents.get(providerThreadId)
+    : undefined;
   const activeProviderThreadId = normalizeProviderThreadId(
     readResumeThreadId({
       threadId: context.session.threadId,
@@ -85,7 +103,7 @@ export function resolveCollaborationRoute(
       resumeCursor: context.session.resumeCursor,
     }),
   );
-  return resolveRoute({
+  const route = resolveRoute({
     ...(parentTurnId ? { parentTurnId } : {}),
     ...(providerThreadId ? { providerThreadId } : {}),
     ...(mappedProviderParentThreadId ? { mappedProviderParentThreadId } : {}),
@@ -93,6 +111,8 @@ export function resolveCollaborationRoute(
     hasActiveParentTurn:
       context.session.status === "running" && context.session.activeTurnId !== undefined,
   });
+  rememberChildTurnRoute(context, rawRoute.turnId, route);
+  return route;
 }
 
 export function rememberCollabReceiverTurns(
@@ -121,6 +141,8 @@ export function rememberCollabReceiverTurns(
 }
 
 export function shouldSuppressChildConversationNotification(method: string): boolean {
+  // Child Turn lifecycle must reach orchestration so the synthetic child
+  // session can settle. The notification router guards parent session state.
   // Intentionally do NOT suppress `turn/plan/updated` or `item/plan/delta` here,
   // even for child conversations. These are the events that let the active plan
   // card advance ("1 out of 5" → "2 out of 5" ...) and render streaming plan text;
@@ -133,9 +155,6 @@ export function shouldSuppressChildConversationNotification(method: string): boo
     method === "thread/closed" ||
     method === "thread/compacted" ||
     method === "thread/name/updated" ||
-    method === "thread/tokenUsage/updated" ||
-    method === "turn/started" ||
-    method === "turn/completed" ||
-    method === "turn/aborted"
+    method === "thread/tokenUsage/updated"
   );
 }

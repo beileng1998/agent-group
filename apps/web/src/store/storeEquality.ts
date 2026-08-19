@@ -110,6 +110,10 @@ export function threadShellsEqual(left: ThreadShell | undefined, right: ThreadSh
     deepEqualJson(left.pinnedMessages ?? null, right.pinnedMessages ?? null) &&
     deepEqualJson(left.threadMarkers ?? null, right.threadMarkers ?? null) &&
     (left.notes ?? "") === (right.notes ?? "") &&
+    (left.goal ?? "") === (right.goal ?? "") &&
+    (left.goalStartedAt ?? null) === (right.goalStartedAt ?? null) &&
+    (left.goalPausedAt ?? null) === (right.goalPausedAt ?? null) &&
+    deepEqualJson(left.goalAchievements ?? null, right.goalAchievements ?? null) &&
     left.latestUserMessageAt === right.latestUserMessageAt &&
     left.hasPendingApprovals === right.hasPendingApprovals &&
     left.hasPendingUserInput === right.hasPendingUserInput &&

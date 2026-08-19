@@ -27,6 +27,10 @@ import {
 } from "../../threadScrollPositionStore";
 import { ACTIVE_TURN_LAYOUT_SETTLE_DELAY_MS } from "../ChatView.dispatch";
 import { TRANSCRIPT_DISCLOSURE_CLEANUP_BUFFER_MS } from "./MessagesTimeline.motion";
+import {
+  scrollTranscriptToSettledEnd,
+  stopTranscriptScrollAtCurrentOffset,
+} from "./transcriptScroll";
 
 const PROGRAMMATIC_SCROLL_GUARD_MS = 200;
 const SCROLL_STATE_DEBOUNCE_MS = 150;
@@ -38,17 +42,36 @@ export const TRANSCRIPT_AUTO_FOLLOW_SETTLE_DELAY_MS =
 interface UseTranscriptScrollControllerOptions {
   threadId: ThreadId;
   activeThreadId: ThreadId | null;
+  activeTurnInProgress: boolean;
   composerStackedChromeHeight: number;
   timelineEntries: readonly TimelineEntry[];
 }
 
 export function useTranscriptScrollController(options: UseTranscriptScrollControllerOptions) {
-  const { threadId, activeThreadId, composerStackedChromeHeight, timelineEntries } = options;
+  const {
+    threadId,
+    activeThreadId,
+    activeTurnInProgress,
+    composerStackedChromeHeight,
+    timelineEntries,
+  } = options;
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const legendListRef = useRef<LegendListRef | null>(null);
   const isAtEndRef = useRef(true);
   const autoFollowThreadIdRef = useRef<ThreadId | null>(null);
+  // Completion folding can transiently invalidate LegendList's end position.
+  // Preserve user follow intent separately until the disclosure finishes closing.
+  const followedActiveTurnThreadIdRef = useRef<ThreadId | null>(null);
+  const settlingTurnFollowThreadIdRef = useRef<ThreadId | null>(null);
+  const activeTurnInProgressRef = useRef(activeTurnInProgress);
+  activeTurnInProgressRef.current = activeTurnInProgress;
+  const previousActiveTurnRef = useRef({
+    threadId: activeThreadId,
+    inProgress: activeTurnInProgress,
+  });
   const programmaticScrollUntilRef = useRef(0);
+  const settledScrollRequestRef = useRef(0);
+  const settledScrollInFlightRef = useRef(false);
   const animateNextAutoFollowScrollRef = useRef(false);
   const previousComposerStackedChromeHeightRef = useRef(0);
   const pendingInteractionAnchorRef = useRef<{
@@ -81,6 +104,8 @@ export function useTranscriptScrollController(options: UseTranscriptScrollContro
   useEffect(() => {
     const scrollDebouncer = showScrollDebouncer.current;
     return () => {
+      settledScrollRequestRef.current += 1;
+      settledScrollInFlightRef.current = false;
       scrollDebouncer.cancel();
       const pendingFrame = pendingInteractionAnchorFrameRef.current;
       if (pendingFrame !== null) {
@@ -105,6 +130,8 @@ export function useTranscriptScrollController(options: UseTranscriptScrollContro
 
   const armTranscriptAutoFollow = useCallback((targetThreadId: ThreadId, animated = false) => {
     autoFollowThreadIdRef.current = targetThreadId;
+    followedActiveTurnThreadIdRef.current = targetThreadId;
+    settlingTurnFollowThreadIdRef.current = null;
     animateNextAutoFollowScrollRef.current = animated;
     isAtEndRef.current = true;
     rememberedScrollPositionRef.current = { threadId: targetThreadId, offsetPx: null };
@@ -115,15 +142,25 @@ export function useTranscriptScrollController(options: UseTranscriptScrollContro
   }, []);
 
   const clearTranscriptAutoFollow = useCallback(() => {
+    const settledScrollTarget = settledScrollInFlightRef.current ? legendListRef.current : null;
     autoFollowThreadIdRef.current = null;
+    followedActiveTurnThreadIdRef.current = null;
+    settlingTurnFollowThreadIdRef.current = null;
     animateNextAutoFollowScrollRef.current = false;
+    settledScrollRequestRef.current += 1;
+    settledScrollInFlightRef.current = false;
     programmaticScrollUntilRef.current = 0;
+    if (settledScrollTarget) void stopTranscriptScrollAtCurrentOffset(settledScrollTarget);
   }, []);
 
   useLayoutEffect(() => {
     const shouldRestoreScrollPosition = initialScrollOffsetPx !== null;
     rememberedScrollPositionRef.current = { threadId, offsetPx: initialScrollOffsetPx };
     isAtEndRef.current = !shouldRestoreScrollPosition;
+    settledScrollRequestRef.current += 1;
+    settledScrollInFlightRef.current = false;
+    followedActiveTurnThreadIdRef.current = null;
+    settlingTurnFollowThreadIdRef.current = null;
     if (shouldRestoreScrollPosition) {
       programmaticScrollUntilRef.current = performance.now() + PROGRAMMATIC_SCROLL_GUARD_MS;
     }
@@ -185,9 +222,37 @@ export function useTranscriptScrollController(options: UseTranscriptScrollContro
   }, [timelineEntries]);
 
   useLayoutEffect(() => {
+    const previousActiveTurn = previousActiveTurnRef.current;
+    const activeTurnJustSettled =
+      previousActiveTurn.threadId === activeThreadId &&
+      previousActiveTurn.inProgress &&
+      !activeTurnInProgress;
+    const followedTurnJustSettled =
+      activeTurnJustSettled &&
+      activeThreadId !== null &&
+      followedActiveTurnThreadIdRef.current === activeThreadId;
+    previousActiveTurnRef.current = {
+      threadId: activeThreadId,
+      inProgress: activeTurnInProgress,
+    };
+
     const shouldFollowPendingTurn =
       activeThreadId !== null && autoFollowThreadIdRef.current === activeThreadId;
-    if (!isAtEndRef.current && !shouldFollowPendingTurn) {
+    if (
+      activeTurnInProgress &&
+      activeThreadId !== null &&
+      (isAtEndRef.current || shouldFollowPendingTurn)
+    ) {
+      followedActiveTurnThreadIdRef.current = activeThreadId;
+      settlingTurnFollowThreadIdRef.current = null;
+    } else if (activeTurnJustSettled) {
+      followedActiveTurnThreadIdRef.current = null;
+      settlingTurnFollowThreadIdRef.current = followedTurnJustSettled ? activeThreadId : null;
+    }
+    const shouldFollowSettledTurn =
+      activeThreadId !== null && settlingTurnFollowThreadIdRef.current === activeThreadId;
+
+    if (!isAtEndRef.current && !shouldFollowPendingTurn && !shouldFollowSettledTurn) {
       return;
     }
 
@@ -196,14 +261,19 @@ export function useTranscriptScrollController(options: UseTranscriptScrollContro
       const shouldAnimate = animateNextAutoFollowScrollRef.current;
       animateNextAutoFollowScrollRef.current = false;
       scrollToEnd(shouldAnimate);
-      if (shouldFollowPendingTurn) {
-        // A just-settled turn can keep its expanded layout briefly, then close through
-        // the shared disclosure animation after the optimistic user row has landed.
+      if (shouldFollowPendingTurn || shouldFollowSettledTurn) {
+        // A just-settled turn keeps its expanded rows through the layout grace window,
+        // then closes them through the shared disclosure animation.
         // Re-stick once that known presentation window finishes instead of coupling
         // virtualizer item measurement callbacks to bottom-follow state.
         settleTimeoutId = window.setTimeout(() => {
-          if (autoFollowThreadIdRef.current !== activeThreadId) return;
+          const pendingTurnStillFollowed =
+            shouldFollowPendingTurn && autoFollowThreadIdRef.current === activeThreadId;
+          const settledTurnStillFollowed =
+            shouldFollowSettledTurn && settlingTurnFollowThreadIdRef.current === activeThreadId;
+          if (!pendingTurnStillFollowed && !settledTurnStillFollowed) return;
           scrollToEnd(false);
+          if (settledTurnStillFollowed) settlingTurnFollowThreadIdRef.current = null;
         }, TRANSCRIPT_AUTO_FOLLOW_SETTLE_DELAY_MS);
       }
     });
@@ -211,19 +281,39 @@ export function useTranscriptScrollController(options: UseTranscriptScrollContro
       window.cancelAnimationFrame(frameId);
       if (settleTimeoutId !== null) window.clearTimeout(settleTimeoutId);
     };
-  }, [activeThreadId, scrollToEnd, transcriptMessageCount, transcriptTailKey]);
+  }, [
+    activeThreadId,
+    activeTurnInProgress,
+    scrollToEnd,
+    transcriptMessageCount,
+    transcriptTailKey,
+  ]);
 
-  const onIsAtEndChange = useCallback((nextIsAtEnd: boolean) => {
-    if (isAtEndRef.current === nextIsAtEnd) return;
-    if (!nextIsAtEnd && performance.now() < programmaticScrollUntilRef.current) return;
-    isAtEndRef.current = nextIsAtEnd;
-    if (nextIsAtEnd) {
-      showScrollDebouncer.current.cancel();
-      setShowScrollToBottom(false);
-      return;
-    }
-    showScrollDebouncer.current.maybeExecute();
-  }, []);
+  const onIsAtEndChange = useCallback(
+    (nextIsAtEnd: boolean) => {
+      if (isAtEndRef.current === nextIsAtEnd) return;
+      if (
+        !nextIsAtEnd &&
+        (settledScrollInFlightRef.current || performance.now() < programmaticScrollUntilRef.current)
+      ) {
+        return;
+      }
+      isAtEndRef.current = nextIsAtEnd;
+      if (nextIsAtEnd) {
+        if (activeTurnInProgress && activeThreadId !== null) {
+          followedActiveTurnThreadIdRef.current = activeThreadId;
+        }
+        showScrollDebouncer.current.cancel();
+        setShowScrollToBottom(false);
+        return;
+      }
+      if (activeTurnInProgressRef.current) {
+        followedActiveTurnThreadIdRef.current = null;
+      }
+      showScrollDebouncer.current.maybeExecute();
+    },
+    [activeThreadId, activeTurnInProgress],
+  );
 
   const cancelPendingInteractionAnchorAdjustment = useCallback(() => {
     const pendingFrame = pendingInteractionAnchorFrameRef.current;
@@ -274,7 +364,12 @@ export function useTranscriptScrollController(options: UseTranscriptScrollContro
   }, [clearTranscriptAutoFollow]);
   const onMessagesPointerUpBase = useCallback<PointerEventHandler<HTMLDivElement>>(() => {}, []);
   const onMessagesScrollBase = useCallback(() => {
-    if (performance.now() < programmaticScrollUntilRef.current) return;
+    if (
+      settledScrollInFlightRef.current ||
+      performance.now() < programmaticScrollUntilRef.current
+    ) {
+      return;
+    }
     const scrollContainer = legendListRef.current?.getScrollableNode?.();
     if (!(scrollContainer instanceof HTMLElement)) return;
 
@@ -302,8 +397,35 @@ export function useTranscriptScrollController(options: UseTranscriptScrollContro
     rememberThreadScrollPosition(threadId, null);
     showScrollDebouncer.current.cancel();
     setShowScrollToBottom(false);
-    scrollToEnd(true);
-  }, [scrollToEnd, threadId]);
+    const target = legendListRef.current;
+    if (!target) return;
+
+    const requestId = settledScrollRequestRef.current + 1;
+    settledScrollRequestRef.current = requestId;
+    settledScrollInFlightRef.current = true;
+    programmaticScrollUntilRef.current = performance.now() + PROGRAMMATIC_SCROLL_GUARD_MS;
+    void scrollTranscriptToSettledEnd({
+      target,
+      isCurrent: () =>
+        settledScrollRequestRef.current === requestId && legendListRef.current === target,
+      beforeFinalScroll: () => {
+        programmaticScrollUntilRef.current = performance.now() + PROGRAMMATIC_SCROLL_GUARD_MS;
+      },
+    })
+      .then((settled) => {
+        if (settledScrollRequestRef.current !== requestId) return;
+        settledScrollInFlightRef.current = false;
+        if (!settled) return;
+        isAtEndRef.current = true;
+        showScrollDebouncer.current.cancel();
+        setShowScrollToBottom(false);
+      })
+      .catch(() => {
+        if (settledScrollRequestRef.current === requestId) {
+          settledScrollInFlightRef.current = false;
+        }
+      });
+  }, [threadId]);
 
   return {
     legendListRef,

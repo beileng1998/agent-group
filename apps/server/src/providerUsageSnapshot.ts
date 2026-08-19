@@ -13,10 +13,7 @@ import type {
 import { Effect } from "effect";
 
 import { ServerConfig } from "./config";
-import {
-  normalizeCodexUsageLimits,
-  readCodexTotalTokens,
-} from "./provider-usage-snapshot/codexUsageValues";
+import { readCodexSessionSummary } from "./provider-usage-snapshot/codexSessionSummary";
 import {
   asNonNegativeNumber,
   asRecord,
@@ -70,57 +67,6 @@ async function listRecentCodexSessionFiles(sessionsRoot: string): Promise<Readon
   }
 
   return listRecentFiles(candidates);
-}
-
-async function readCodexSessionSummary(path: string): Promise<CodexSessionSummary | null> {
-  let fileContents: string;
-  try {
-    fileContents = await fs.readFile(path, "utf8");
-  } catch {
-    return null;
-  }
-
-  const lines = fileContents.split(/\r?\n/u);
-  for (let index = lines.length - 1; index >= 0; index -= 1) {
-    const line = lines[index];
-    if (!line || !line.trim()) {
-      continue;
-    }
-
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(line);
-    } catch {
-      continue;
-    }
-
-    const record = asRecord(parsed);
-    if (!record || record.type !== "event_msg") {
-      continue;
-    }
-
-    const payload = asRecord(record.payload);
-    if (!payload || payload.type !== "token_count") {
-      continue;
-    }
-
-    const timestampMs = parseTimestampMs(record.timestamp ?? payload.timestamp);
-    if (timestampMs === null) {
-      continue;
-    }
-
-    const summary = {
-      timestampMs,
-      totalTokens: readCodexTotalTokens(payload),
-      limits: normalizeCodexUsageLimits(payload.rate_limits ?? payload.rateLimits),
-    } satisfies CodexSessionSummary;
-
-    // Codex session JSONL is chronological; only the final token_count event is
-    // needed for lifetime accounting and the latest quota snapshot per file.
-    return summary;
-  }
-
-  return null;
 }
 
 function readClaudeTotalTokens(value: unknown): number {

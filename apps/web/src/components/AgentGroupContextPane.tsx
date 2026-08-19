@@ -1,9 +1,9 @@
-import type { AgentGroupSessionDocument, ThreadId } from "@agent-group/contracts";
-import { useCallback, useEffect, useRef, useState } from "react";
+import type { ThreadId } from "@agent-group/contracts";
+import { useCallback } from "react";
 
 import { useGroupSettingsStore } from "~/groupSettingsStore";
+import { useAgentGroupSessionDocument } from "~/hooks/useAgentGroupSessionDocument";
 import { FileIcon, Loader2Icon, RefreshCwIcon, SettingsIcon } from "~/lib/icons";
-import { readNativeApi } from "~/nativeApi";
 import ChatMarkdown from "./ChatMarkdown";
 import { Button } from "./ui/button";
 
@@ -13,54 +13,10 @@ interface AgentGroupContextPaneProps {
 }
 
 export default function AgentGroupContextPane(props: AgentGroupContextPaneProps) {
-  const [document, setDocument] = useState<AgentGroupSessionDocument | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const observedThreadVersionRef = useRef<string | undefined>(props.threadUpdatedAt);
-  const latestThreadVersionRef = useRef<string | undefined>(props.threadUpdatedAt);
-  latestThreadVersionRef.current = props.threadUpdatedAt;
-
-  const load = useCallback(
-    async (background = false) => {
-      const api = readNativeApi();
-      if (!api) {
-        setError("The Agent Group service is unavailable.");
-        setLoading(false);
-        return;
-      }
-      if (background) setRefreshing(true);
-      else setLoading(true);
-      setError(null);
-      try {
-        setDocument(await api.agentGroup.getSession({ sessionId: props.sessionId }));
-      } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : "Context could not be loaded.");
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [props.sessionId],
-  );
-
-  useEffect(() => {
-    setDocument(null);
-    observedThreadVersionRef.current = latestThreadVersionRef.current;
-    void load();
-  }, [load]);
-
-  useEffect(() => {
-    if (
-      !document ||
-      !props.threadUpdatedAt ||
-      observedThreadVersionRef.current === props.threadUpdatedAt
-    ) {
-      return;
-    }
-    observedThreadVersionRef.current = props.threadUpdatedAt;
-    void load(true);
-  }, [document, load, props.threadUpdatedAt]);
+  const { document, error, loading, refreshing, reload } = useAgentGroupSessionDocument({
+    sessionId: props.sessionId,
+    threadUpdatedAt: props.threadUpdatedAt,
+  });
 
   const openGroupSettings = useCallback(() => {
     if (document) useGroupSettingsStore.getState().open(document.config.groupId);
@@ -78,7 +34,7 @@ export default function AgentGroupContextPane(props: AgentGroupContextPaneProps)
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
         <p className="max-w-sm text-sm text-muted-foreground">{error ?? "Context unavailable."}</p>
-        <Button variant="outline" size="sm" onClick={() => void load()}>
+        <Button variant="outline" size="sm" onClick={() => void reload()}>
           <RefreshCwIcon className="size-3.5" /> Retry
         </Button>
       </div>
@@ -113,7 +69,7 @@ export default function AgentGroupContextPane(props: AgentGroupContextPaneProps)
             aria-label="Refresh session inspector"
             title="Refresh session inspector"
             disabled={refreshing}
-            onClick={() => void load(true)}
+            onClick={() => void reload(true)}
           >
             <RefreshCwIcon className={refreshing ? "size-3.5 animate-spin" : "size-3.5"} />
           </Button>

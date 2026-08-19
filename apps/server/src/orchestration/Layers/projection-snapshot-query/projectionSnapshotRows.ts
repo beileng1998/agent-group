@@ -16,6 +16,7 @@ import {
   ProviderSkillReference,
   ThreadEnvironmentMode,
   ThreadHandoff,
+  ThreadGoalAchievements,
   ThreadId,
   ThreadMarkers,
   ThreadPinnedMessages,
@@ -75,6 +76,7 @@ export const ProjectionThreadDbRowSchema = ProjectionThread.mapFields(
     lastKnownPr: Schema.NullOr(Schema.fromJsonString(OrchestrationThreadPullRequest)),
     pinnedMessages: Schema.NullOr(Schema.fromJsonString(ThreadPinnedMessages)),
     threadMarkers: Schema.NullOr(Schema.fromJsonString(ThreadMarkers)),
+    goalAchievements: Schema.NullOr(Schema.fromJsonString(ThreadGoalAchievements)),
     modelSelection: ModelSelectionJsonUnknown,
   }),
 );
@@ -83,6 +85,7 @@ const {
   pinnedMessages: _projectionThreadPinnedMessagesField,
   threadMarkers: _projectionThreadMarkersField,
   notes: _projectionThreadNotesField,
+  goalAchievements: _projectionThreadGoalAchievementsField,
   ...ProjectionThreadShellFields
 } = ProjectionThread.fields;
 
@@ -127,6 +130,9 @@ export const ProjectionLatestTurnDbRowSchema = Schema.Struct({
   assistantMessageId: Schema.NullOr(MessageId),
   sourceProposedPlanThreadId: Schema.NullOr(ThreadId),
   sourceProposedPlanId: Schema.NullOr(OrchestrationProposedPlanId),
+});
+export const ProjectionChildTurnIdDbRowSchema = Schema.Struct({
+  turnId: TurnId,
 });
 export const ProjectionStateDbRowSchema = ProjectionState;
 export const ProjectionCountsRowSchema = Schema.Struct({

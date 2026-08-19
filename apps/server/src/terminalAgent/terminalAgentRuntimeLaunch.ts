@@ -8,6 +8,7 @@ import type {
 import { Effect, Result } from "effect";
 import type { ChildProcessSpawner } from "effect/unstable/process";
 
+import type { FirstTurnTitleInput } from "../orchestration/Services/FirstTurnThreadTitle";
 import type { OrchestrationEngineShape } from "../orchestration/Services/OrchestrationEngine";
 import type {
   ExecutionAdapterCoordinatorShape,
@@ -42,6 +43,9 @@ export interface TerminalRuntimeLaunchDependencies {
   readonly ingestion: ProviderRuntimeIngestionShape;
   readonly childProcessSpawner: ChildProcessSpawner.ChildProcessSpawner["Service"];
   readonly getSettings: () => Promise<ServerSettings>;
+  readonly maybeGenerateAndRenameThreadTitleForFirstTurn: (
+    input: FirstTurnTitleInput,
+  ) => Promise<void>;
   readonly listProviderSessions: () => Promise<ReadonlyArray<ProviderSession>>;
   readonly readPersistedProviderResumeCursor: (
     threadId: ThreadId,
@@ -152,6 +156,8 @@ async function launchTerminalRuntimeUnlocked(input: {
     coordinator: input.dependencies.coordinator,
     engine: input.dependencies.engine,
     ingestion: input.dependencies.ingestion,
+    maybeGenerateAndRenameThreadTitleForFirstTurn:
+      input.dependencies.maybeGenerateAndRenameThreadTitleForFirstTurn,
     adoptProviderResumeCursor: (cursor, providerSessionId) =>
       input.dependencies.adoptProviderResumeCursor(runtime, cursor, providerSessionId),
   });

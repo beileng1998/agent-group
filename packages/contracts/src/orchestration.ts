@@ -59,6 +59,16 @@ export {
   CorrelationId,
 } from "./orchestration/protocol";
 export {
+  THREAD_GOAL_MAX_CHARS,
+  THREAD_GOAL_ACHIEVEMENTS_MAX_COUNT,
+  ThreadGoal,
+  ThreadGoalStartBehavior,
+  ThreadGoalContinuationTrigger,
+  ThreadGoalTimingFields,
+  ThreadGoalAchievement,
+  ThreadGoalAchievements,
+} from "./orchestration/goalSchemas";
+export {
   ChatImageAttachment,
   ChatFileAttachment,
   ChatAssistantSelectionAttachment,
@@ -148,6 +158,7 @@ export {
   ThreadMessageSentPayload,
   ThreadTurnStartRequestedPayload,
   ThreadTurnQueuedPayload,
+  ThreadGoalContinuationRequestedPayload,
   ThreadTurnInterruptRequestedPayload,
   ThreadApprovalResponseRequestedPayload,
   ThreadCheckpointRevertRequestedPayload,

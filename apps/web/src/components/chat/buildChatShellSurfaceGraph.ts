@@ -224,6 +224,7 @@ export function buildChatShellSurfaceGraph(input: ChatShellSurfaceGraphInput) {
       initialScrollOffsetPx: timeline.scroll.initialScrollOffsetPx,
       chatFontSizePx: app.settings.chatFontSizePx,
       enteringUserMessageIds: runtimeActivity.transcript.enteringUserMessageIds,
+      ...(activeThread.goalAchievements ? { goalAchievements: activeThread.goalAchievements } : {}),
       listRef: timeline.scroll.legendListRef,
       pinnedMessageIds: timeline.references.pinnedMessageIds,
       resolvedTheme: app.resolvedTheme,
@@ -235,6 +236,15 @@ export function buildChatShellSurfaceGraph(input: ChatShellSurfaceGraphInput) {
       timestampFormat: app.timestampFormat,
       turnDiffSummaryByAssistantMessageId: timeline.diff.turnDiffSummaryByAssistantMessageId,
     },
+    ...(!thread.isTemporarySidechat && !app.shell.isEditorRail
+      ? {
+          knowledge: {
+            sessionId: activeThread.id,
+            ...(activeThread.updatedAt ? { threadUpdatedAt: activeThread.updatedAt } : {}),
+            onOpenThread: timeline.navigation.navigation.toThread,
+          },
+        }
+      : {}),
     interactions: {
       isPendingSetupBubbleId: runtimeActivity.automation.isPendingSetupBubbleId,
       isRevertingCheckpoint: runtimeActivity.checkpoint.isRevertingCheckpoint,

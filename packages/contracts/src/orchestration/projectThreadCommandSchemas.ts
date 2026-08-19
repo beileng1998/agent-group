@@ -11,6 +11,7 @@ import {
 } from "../baseSchemas";
 import { ProjectKind } from "../project";
 import { ChatAttachment } from "./attachments";
+import { ThreadGoal, ThreadGoalStartBehavior } from "./goalSchemas";
 import {
   DEFAULT_PROVIDER_INTERACTION_MODE,
   ModelSelection,
@@ -176,6 +177,36 @@ export const ThreadSidechatPromoteCommand = Schema.Struct({
   threadId: ThreadId,
 });
 
+/**
+ * Creates a durable, Learning-initialized child session directly from a Knowledge card.
+ * The thread is born promoted: parentThreadId/sidechatSourceThreadId both point at the
+ * source session and forkSourceThreadId stays null, so it never exists as a temporary Side.
+ */
+export const ThreadKnowledgeChildCreateCommand = Schema.Struct({
+  type: Schema.Literal("thread.knowledge-child.create"),
+  commandId: CommandId,
+  threadId: ThreadId,
+  sourceThreadId: ThreadId,
+  projectId: ProjectId,
+  title: TrimmedNonEmptyString,
+  modelSelection: ModelSelection,
+  runtimeMode: RuntimeMode,
+  interactionMode: ProviderInteractionMode.pipe(
+    Schema.withDecodingDefault(() => DEFAULT_PROVIDER_INTERACTION_MODE),
+  ),
+  envMode: Schema.optional(ThreadEnvironmentMode).pipe(Schema.withDecodingDefault(() => "local")),
+  branch: Schema.NullOr(TrimmedNonEmptyString),
+  worktreePath: Schema.NullOr(TrimmedNonEmptyString),
+  associatedWorktreePath: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
+  associatedWorktreeBranch: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
+  associatedWorktreeRef: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
+  createBranchFlowCompleted: Schema.optional(Schema.Boolean).pipe(
+    Schema.withDecodingDefault(() => false),
+  ),
+  importedMessages: Schema.Array(ThreadHandoffImportedMessage),
+  createdAt: IsoDateTime,
+});
+
 export const ThreadDeleteCommand = Schema.Struct({
   type: Schema.Literal("thread.delete"),
   commandId: CommandId,
@@ -217,6 +248,10 @@ export const ThreadMetaUpdateCommand = Schema.Struct({
   pinnedMessages: Schema.optional(ThreadPinnedMessages),
   threadMarkers: Schema.optional(ThreadMarkers),
   notes: Schema.optional(ThreadNotes),
+  goal: Schema.optional(ThreadGoal),
+  goalStartBehavior: Schema.optional(ThreadGoalStartBehavior),
+  goalPaused: Schema.optional(Schema.Boolean),
+  goalAchieved: Schema.optional(Schema.Boolean),
 });
 
 export const ThreadPinnedMessageAddCommand = Schema.Struct({

@@ -6,15 +6,6 @@ import {
   type ProviderStartOptions,
   type ThreadId,
 } from "@agent-group/contracts";
-import {
-  formatTemporarySidechatTitle,
-  isTemporarySidechatThread,
-  stripTemporarySidechatTitlePrefix,
-} from "@agent-group/shared/agentGroupSessions";
-import {
-  buildPromptThreadTitleFallback,
-  isGenericChatThreadTitle,
-} from "@agent-group/shared/chatThreads";
 import { isTemporaryWorktreeBranch, WORKTREE_BRANCH_PREFIX } from "@agent-group/shared/git";
 import { Cause, Effect } from "effect";
 
@@ -22,7 +13,6 @@ import type { GitCoreShape } from "../../git/Services/GitCore.ts";
 import type {
   BranchNameGenerationInput,
   TextGenerationShape,
-  ThreadTitleGenerationInput,
 } from "../../git/Services/TextGeneration.ts";
 import type { TextGenerationProviderInput } from "../../git/textGenerationSelection.ts";
 import type { OrchestrationEngineShape } from "../Services/OrchestrationEngine.ts";
@@ -66,15 +56,6 @@ export interface FirstTurnBranchInput {
   readonly providerOptions?: ProviderStartOptions;
 }
 
-export interface FirstTurnTitleInput {
-  readonly threadId: ThreadId;
-  readonly messageId: string;
-  readonly messageText: string;
-  readonly attachments?: ReadonlyArray<ChatAttachment>;
-  readonly modelSelection?: ModelSelection;
-  readonly providerOptions?: ProviderStartOptions;
-}
-
 function buildGeneratedWorktreeBranchName(raw: string): string {
   const normalized = raw
     .trim()
@@ -94,7 +75,7 @@ function buildGeneratedWorktreeBranchName(raw: string): string {
   return `${WORKTREE_BRANCH_PREFIX}/${branchFragment || "update"}`;
 }
 
-/** Owns first-turn title and temporary worktree branch naming side effects. */
+/** Owns temporary worktree branch naming side effects for the first native turn. */
 export function makeProviderFirstTurnMetadata<
   ResolveThreadError,
   ResolveWorkspaceError,
@@ -222,123 +203,7 @@ export function makeProviderFirstTurnMetadata<
     );
   });
 
-  const maybeGenerateAndRenameThreadTitleForFirstTurn = Effect.fnUntraced(function* (
-    input: FirstTurnTitleInput,
-  ) {
-    const thread = yield* dependencies.resolveThread(input.threadId);
-    if (!thread) return;
-    const userMessages = thread.messages.filter(
-      (message) => message.role === "user" && message.source === "native",
-    );
-    if (userMessages.length !== 1 || userMessages[0]?.id !== input.messageId) return;
-
-    const fallbackTitle = buildPromptThreadTitleFallback(
-      input.messageText.trim() || attachmentTitleSeed(input.attachments?.[0]) || "",
-    );
-    const currentTitle = thread.title.trim();
-    const temporarySidechat = isTemporarySidechatThread(thread);
-    const currentTitleBody = temporarySidechat
-      ? stripTemporarySidechatTitlePrefix(currentTitle)
-      : currentTitle;
-    const legacySelectionTitle = temporarySidechat
-      ? input.attachments?.find((attachment) => attachment.type === "assistant-selection")?.text
-      : undefined;
-    const legacySelectionFallback = legacySelectionTitle
-      ? buildPromptThreadTitleFallback(legacySelectionTitle)
-      : null;
-    if (
-      !isGenericChatThreadTitle(currentTitleBody) &&
-      currentTitleBody !== fallbackTitle &&
-      currentTitleBody !== legacySelectionFallback
-    ) {
-      return;
-    }
-
-    const resolveThreadTitle = (title: string) =>
-      temporarySidechat ? formatTemporarySidechatTitle(title) : title;
-    const cwd = yield* dependencies.resolveProjectedThreadWorkspaceCwd(thread);
-    const textGenerationInput = yield* dependencies.resolveThreadTextGenerationInput({
-      threadId: input.threadId,
-      ...(input.modelSelection ? { modelSelection: input.modelSelection } : {}),
-      ...(input.providerOptions ? { providerOptions: input.providerOptions } : {}),
-      useConfiguredFallback: true,
-    });
-    if (!textGenerationInput) {
-      const nextTitle = resolveThreadTitle(fallbackTitle);
-      if (nextTitle !== currentTitle) {
-        yield* dependencies.orchestrationEngine.dispatch({
-          type: "thread.meta.update",
-          commandId: dependencies.serverCommandId("thread-title-fallback-rename"),
-          threadId: input.threadId,
-          title: nextTitle,
-        });
-      }
-      return;
-    }
-
-    const textGenerationSelection = textGenerationInput.modelSelection ?? null;
-    const textGenerationModel =
-      textGenerationSelection?.model ??
-      ("model" in textGenerationInput ? textGenerationInput.model : null);
-    const textGenerationProviderOptions = textGenerationInput.providerOptions;
-    yield* Effect.logDebug("provider command reactor generating thread title", {
-      threadId: input.threadId,
-      cwd,
-      threadProvider: thread.modelSelection.provider,
-      threadModel: thread.modelSelection.model,
-      requestedProvider: input.modelSelection?.provider ?? null,
-      requestedModel: input.modelSelection?.model ?? null,
-      textGenerationProvider: textGenerationSelection?.provider ?? null,
-      textGenerationModel,
-      textGenerationOptions: textGenerationSelection?.options ?? null,
-      hasProviderOptions: Boolean(textGenerationProviderOptions),
-    });
-    const titleGenerationInput: ThreadTitleGenerationInput = {
-      cwd: cwd ?? process.cwd(),
-      message: input.messageText,
-      ...(input.attachments?.length ? { attachments: input.attachments } : {}),
-      ...("model" in textGenerationInput && typeof textGenerationInput.model === "string"
-        ? { model: textGenerationInput.model }
-        : {}),
-      ...(textGenerationInput.modelSelection
-        ? { modelSelection: textGenerationInput.modelSelection }
-        : {}),
-      ...(textGenerationInput.providerOptions
-        ? { providerOptions: textGenerationInput.providerOptions }
-        : {}),
-    };
-    const generatedTitle = yield* dependencies.textGeneration
-      .generateThreadTitle(titleGenerationInput)
-      .pipe(
-        Effect.map((generated) => generated.title),
-        Effect.catch((error) =>
-          Effect.logWarning("provider command reactor failed to generate thread title", {
-            threadId: input.threadId,
-            cwd,
-            reason: error.message,
-            threadProvider: thread.modelSelection.provider,
-            threadModel: thread.modelSelection.model,
-            requestedProvider: input.modelSelection?.provider ?? null,
-            requestedModel: input.modelSelection?.model ?? null,
-            textGenerationProvider: textGenerationSelection?.provider ?? null,
-            textGenerationModel,
-            textGenerationOptions: textGenerationSelection?.options ?? null,
-          }).pipe(Effect.as(fallbackTitle)),
-        ),
-      );
-    const nextTitle = resolveThreadTitle(generatedTitle);
-    if (nextTitle === currentTitle) return;
-
-    yield* dependencies.orchestrationEngine.dispatch({
-      type: "thread.meta.update",
-      commandId: dependencies.serverCommandId("thread-title-rename"),
-      threadId: input.threadId,
-      title: nextTitle,
-    });
-  });
-
   return {
-    maybeGenerateAndRenameThreadTitleForFirstTurn,
     maybeGenerateAndRenameWorktreeBranchForFirstTurn,
   } as const;
 }

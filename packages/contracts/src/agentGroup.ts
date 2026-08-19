@@ -11,6 +11,44 @@ import {
 const ContextText = Schema.String.check(Schema.isMaxLength(1_048_576));
 const PromptInstructionText = Schema.String.check(Schema.isMaxLength(16_384));
 const ContextRevision = TrimmedNonEmptyString.check(Schema.isMaxLength(128));
+const KnowledgeCardKey = TrimmedNonEmptyString.check(Schema.isMaxLength(16_384));
+const KnowledgeCardTitle = TrimmedNonEmptyString.check(Schema.isMaxLength(16_384));
+const KnowledgeCardMarkdown = TrimmedNonEmptyString.check(Schema.isMaxLength(1_048_576));
+
+export const AgentGroupKnowledgeAcknowledgement = Schema.Struct({
+  cardKey: KnowledgeCardKey,
+  cardMarkdown: KnowledgeCardMarkdown,
+  acknowledgedAt: IsoDateTime,
+});
+export type AgentGroupKnowledgeAcknowledgement = typeof AgentGroupKnowledgeAcknowledgement.Type;
+
+export const AgentGroupLearningOrigin = Schema.Struct({
+  sourceSessionId: ThreadId,
+  sourceContextRevision: ContextRevision,
+  cardKey: KnowledgeCardKey,
+  cardTitle: KnowledgeCardTitle,
+  cardMarkdown: KnowledgeCardMarkdown,
+  selectedText: Schema.NullOr(Schema.String.check(Schema.isMaxLength(1_048_576))),
+  selectionStartOffset: Schema.optional(Schema.NullOr(NonNegativeInt)).pipe(
+    Schema.withDecodingDefault(() => null),
+  ),
+  selectionEndOffset: Schema.optional(Schema.NullOr(NonNegativeInt)).pipe(
+    Schema.withDecodingDefault(() => null),
+  ),
+});
+export type AgentGroupLearningOrigin = typeof AgentGroupLearningOrigin.Type;
+
+export const AgentGroupKnowledgeLink = Schema.Struct({
+  targetThreadId: ThreadId,
+  sourceContextRevision: ContextRevision,
+  cardKey: KnowledgeCardKey,
+  cardTitle: KnowledgeCardTitle,
+  selectedText: Schema.NullOr(Schema.String.check(Schema.isMaxLength(16_384))),
+  selectionStartOffset: Schema.NullOr(NonNegativeInt),
+  selectionEndOffset: Schema.NullOr(NonNegativeInt),
+  createdAt: IsoDateTime,
+});
+export type AgentGroupKnowledgeLink = typeof AgentGroupKnowledgeLink.Type;
 
 export const AgentGroupContextTemplateId = TrimmedNonEmptyString.check(
   Schema.isMaxLength(64),
@@ -95,6 +133,15 @@ export const AgentGroupSessionState = Schema.Struct({
   firstTurnCompleted: Schema.Boolean,
   contextAwarenessEnabled: Schema.Boolean,
   contextSeenCommit: Schema.NullOr(Schema.String),
+  knowledgeAcknowledgements: Schema.optional(
+    Schema.Array(AgentGroupKnowledgeAcknowledgement).check(Schema.isMaxLength(2_048)),
+  ).pipe(Schema.withDecodingDefault(() => [])),
+  knowledgeLinks: Schema.optional(
+    Schema.Array(AgentGroupKnowledgeLink).check(Schema.isMaxLength(128)),
+  ).pipe(Schema.withDecodingDefault(() => [])),
+  learningOrigin: Schema.optional(Schema.NullOr(AgentGroupLearningOrigin)).pipe(
+    Schema.withDecodingDefault(() => null),
+  ),
 });
 export type AgentGroupSessionState = typeof AgentGroupSessionState.Type;
 
@@ -144,7 +191,10 @@ export type AgentGroupUpdateConfigInput = typeof AgentGroupUpdateConfigInput.Typ
 
 export const AgentGroupUpdateSessionInput = Schema.Struct({
   ...AgentGroupSessionSelector.fields,
-  contextAwarenessEnabled: Schema.Boolean,
+  contextAwarenessEnabled: Schema.optional(Schema.Boolean),
+  knowledgeAcknowledgement: Schema.optional(AgentGroupKnowledgeAcknowledgement),
+  knowledgeLink: Schema.optional(AgentGroupKnowledgeLink),
+  learningOrigin: Schema.optional(AgentGroupLearningOrigin),
   expectedRevision: NonNegativeInt,
 });
 export type AgentGroupUpdateSessionInput = typeof AgentGroupUpdateSessionInput.Type;

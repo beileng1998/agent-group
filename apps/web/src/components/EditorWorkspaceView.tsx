@@ -29,6 +29,7 @@ export function EditorWorkspaceView(props: EditorWorkspaceViewProps) {
         currentProjectId={props.currentProjectId ?? null}
         projectOptions={props.projectOptions ?? []}
         chatPaneVisible={controller.chatPaneVisible}
+        leadingControl={props.leadingControl}
         onSelectProject={props.onSelectProject}
         onToggleChatPane={controller.toggleChatPaneVisible}
         onExitEditorView={props.onExitEditorView}

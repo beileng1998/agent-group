@@ -63,6 +63,18 @@ describe("getPiDiscoverableModels", () => {
       rmSync(agentDir, { recursive: true, force: true });
     }
   });
+
+  it("omits models whose normalized identity would no longer resolve", async () => {
+    const malformedModels = [
+      { provider: " openrouter", id: "google/gemma", name: "Gemma" },
+      { provider: "openrouter", id: " google/gemma", name: "Gemma" },
+    ] as Model<Api>[];
+    const runtime = {
+      getAvailable: async () => malformedModels,
+    } as Pick<ModelRuntime, "getAvailable">;
+
+    await expect(getPiDiscoverableModels(runtime)).resolves.toEqual([]);
+  });
 });
 
 describe("resolveFreshPiModel", () => {

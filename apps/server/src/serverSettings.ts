@@ -18,6 +18,7 @@ import {
 } from "@agent-group/contracts";
 import { deepMerge, type DeepPartial } from "@agent-group/shared/Struct";
 import { CONTEXT_TEMPLATE_PRESETS } from "@agent-group/shared/contextTemplates";
+import { LEARNING_CONTEXT_TEMPLATE_ID } from "@agent-group/shared/learningContext";
 import { applyServerSettingsPatch } from "@agent-group/shared/serverSettings";
 import {
   Cause,
@@ -150,12 +151,23 @@ function migrateAgentGroupPromptDefaults(settings: ServerSettings): ServerSettin
 }
 
 function withDefaultAgentGroupTemplates(settings: ServerSettings): ServerSettings {
-  if (settings.agentGroup.contextTemplates.length > 0) return settings;
+  const editableTemplates = settings.agentGroup.contextTemplates.filter(
+    (template) => template.id !== LEARNING_CONTEXT_TEMPLATE_ID,
+  );
+  if (
+    editableTemplates.length > 0 &&
+    editableTemplates.length === settings.agentGroup.contextTemplates.length
+  ) {
+    return settings;
+  }
   return {
     ...settings,
     agentGroup: {
       ...settings.agentGroup,
-      contextTemplates: CONTEXT_TEMPLATE_PRESETS.map((template) => ({ ...template })),
+      contextTemplates:
+        editableTemplates.length > 0
+          ? editableTemplates
+          : CONTEXT_TEMPLATE_PRESETS.map((template) => ({ ...template })),
     },
   };
 }

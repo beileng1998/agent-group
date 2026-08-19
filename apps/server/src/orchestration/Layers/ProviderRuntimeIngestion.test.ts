@@ -3230,6 +3230,26 @@ describe("ProviderRuntimeIngestion", () => {
         ),
     );
 
+    const terminalEvents = await Effect.runPromise(
+      Stream.runCollect(harness.engine.readEvents(0)).pipe(
+        Effect.map((chunk) => Array.from(chunk)),
+      ),
+    );
+    const assistantCompletion = terminalEvents.find(
+      (event) =>
+        event.type === "thread.message-sent" &&
+        event.payload.messageId === "assistant:item-late-completion" &&
+        event.payload.streaming === false,
+    );
+    const sessionCompletion = terminalEvents.find(
+      (event) =>
+        event.type === "thread.session-set" &&
+        String(event.commandId).includes(
+          "provider:evt-turn-completed-late-completion:thread-session-set:",
+        ),
+    );
+    expect(assistantCompletion?.sequence).toBeLessThan(sessionCompletion?.sequence ?? -1);
+
     harness.emit({
       type: "item.completed",
       eventId: asEventId("evt-item-completed-late-without-turn"),
@@ -5155,6 +5175,35 @@ describe("ProviderRuntimeIngestion", () => {
     expect(
       parentThread.activities.some((activity) => activity.id === "evt-child-turn-started"),
     ).toBe(false);
+
+    harness.emit({
+      type: "turn.completed",
+      eventId: asEventId("evt-child-turn-completed"),
+      provider: "codex",
+      createdAt: new Date().toISOString(),
+      threadId: asThreadId("thread-1"),
+      turnId: asTurnId("turn-child"),
+      parentTurnId: asTurnId("turn-parent"),
+      providerRefs: {
+        providerThreadId: "child-provider-1",
+        providerParentThreadId: "parent-provider-1",
+        providerTurnId: "turn-child",
+        parentProviderTurnId: "turn-parent",
+      },
+      payload: { state: "completed" },
+    });
+
+    const completedChildThread = await waitForThread(
+      harness.engine,
+      (entry) =>
+        entry.latestTurn?.turnId === "turn-child" &&
+        entry.latestTurn.state === "completed" &&
+        entry.session?.status === "ready" &&
+        entry.session.activeTurnId === null,
+      2000,
+      asThreadId("subagent:thread-1:child-provider-1"),
+    );
+    expect(completedChildThread.latestTurn?.completedAt).not.toBeNull();
   });
 
   it("handles collab receiver and child provider refs on the same event without duplicate thread creation", async () => {

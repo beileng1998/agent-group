@@ -197,6 +197,9 @@ export function toProjectedThreadShell(input: {
     updatedAt: threadRow.updatedAt,
     archivedAt: threadRow.archivedAt ?? null,
     handoff: threadRow.handoff,
+    ...(threadRow.goal !== null ? { goal: threadRow.goal } : {}),
+    goalStartedAt: threadRow.goalStartedAt,
+    goalPausedAt: threadRow.goalPausedAt,
     session: input.session,
   };
 }
@@ -238,6 +241,9 @@ export function toProjectedThreadShellFromStoredSummary(input: {
     updatedAt: threadRow.updatedAt,
     archivedAt: threadRow.archivedAt ?? null,
     handoff: threadRow.handoff,
+    ...(threadRow.goal !== null ? { goal: threadRow.goal } : {}),
+    goalStartedAt: threadRow.goalStartedAt,
+    goalPausedAt: threadRow.goalPausedAt,
     session: input.session,
   };
 }
@@ -292,6 +298,12 @@ export function toProjectedThread(input: {
     ...(threadRow.pinnedMessages !== null ? { pinnedMessages: threadRow.pinnedMessages } : {}),
     ...(threadRow.threadMarkers !== null ? { threadMarkers: threadRow.threadMarkers } : {}),
     ...(threadRow.notes !== null ? { notes: threadRow.notes } : {}),
+    ...(threadRow.goal !== null ? { goal: threadRow.goal } : {}),
+    goalStartedAt: threadRow.goalStartedAt,
+    goalPausedAt: threadRow.goalPausedAt,
+    ...(threadRow.goalAchievements !== null
+      ? { goalAchievements: threadRow.goalAchievements }
+      : {}),
     session: input.session,
   };
 }

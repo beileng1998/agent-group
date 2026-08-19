@@ -68,6 +68,14 @@ export class ProviderTurnQueue {
     );
   }
 
+  hasPending(threadId: ThreadId): boolean {
+    return (
+      (this.queuedByThread.get(threadId)?.length ?? 0) > 0 ||
+      this.drainingThreads.has(threadId) ||
+      this.pendingDispatchThreads.has(threadId)
+    );
+  }
+
   deleteQueuedTurns(threadId: ThreadId): void {
     const existing = this.queuedByThread.get(threadId);
     if (existing) this.canceledClaims.push(...existing.map((entry) => entry.claim));

@@ -255,7 +255,7 @@ describe("composerSlashCommands", () => {
         canOfferSideCommand: true,
         canOfferExportCommand: true,
       }),
-    ).toEqual(["side", "export", "automation"]);
+    ).toEqual(["side", "export", "automation", "goal"]);
   });
 
   it("offers the app-level /export command on every provider", () => {
@@ -367,6 +367,7 @@ describe("composerSlashCommands", () => {
       "subagents",
       "export",
       "automation",
+      "goal",
     ]);
   });
 

@@ -13,7 +13,8 @@ import type {
   ExecutionAdapterAuthorityError,
   StructuredAdmissionClaim,
 } from "../Services/ExecutionAdapterAuthority.ts";
-import type { FirstTurnBranchInput, FirstTurnTitleInput } from "./providerFirstTurnMetadata.ts";
+import type { FirstTurnTitleInput } from "../Services/FirstTurnThreadTitle.ts";
+import type { FirstTurnBranchInput } from "./providerFirstTurnMetadata.ts";
 import type { ProviderTurnDispatchInput } from "./providerTurnPreparation.ts";
 import type { ProviderTurnQueue } from "./providerTurnQueue.ts";
 

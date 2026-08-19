@@ -7,6 +7,7 @@ import { isTemporarySidechatThread } from "../agentGroupCapabilities";
 import { getAvailableComposerSlashCommands } from "../composerSlashCommands";
 import type { ComposerSlashCommandsInput } from "./composer-slash/types";
 import { useComposerSlashExecution } from "./composer-slash/useComposerSlashExecution";
+import { useComposerSlashGoalActions } from "./composer-slash/useComposerSlashGoalActions";
 import { useComposerSlashModeActions } from "./composer-slash/useComposerSlashModeActions";
 import { useComposerSlashSelection } from "./composer-slash/useComposerSlashSelection";
 import { useComposerSlashThreadActions } from "./composer-slash/useComposerSlashThreadActions";
@@ -29,15 +30,19 @@ export function useComposerSlashCommands(input: ComposerSlashCommandsInput) {
     canOfferExportCommand: input.canOfferExportCommand,
     providerNativeCommandNames: input.providerNativeCommands.map((command) => command.name),
   }).filter(
-    (command) => !input.surfaceAppSlashCommands || input.surfaceAppSlashCommands.has(command),
+    (command) =>
+      (!input.surfaceAppSlashCommands || input.surfaceAppSlashCommands.has(command)) &&
+      (command !== "goal" || (input.isServerThread && input.activeThread?.parentThreadId == null)),
   );
 
   const modeActions = useComposerSlashModeActions(input);
   const threadActions = useComposerSlashThreadActions({ ...input, canCreateSidechat });
+  const goalActions = useComposerSlashGoalActions(input);
   const handleStandaloneSlashCommand = useComposerSlashExecution({
     ...input,
     ...modeActions,
     ...threadActions,
+    ...goalActions,
     availableBuiltInSlashCommands,
     setIsSlashStatusDialogOpen,
   });

@@ -1,5 +1,5 @@
 import { Outlet, createFileRoute, useLocation } from "@tanstack/react-router";
-import { lazy, Suspense, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 
 import AgentGroupSidebar from "~/components/AgentGroupSidebar";
 import { AgentGroupRecentViewShortcuts } from "~/components/AgentGroupRecentViewShortcuts";
@@ -46,13 +46,18 @@ function ChatRouteLayout() {
   const isEditorView = useLocation({
     select: (location) => (location.search as { view?: unknown }).view === "editor",
   });
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const resolvedSidebarOpen = isEditorView ? false : sidebarOpen;
+  const [sidebarOpen, setSidebarOpen] = useState(() => !isEditorView);
+
+  useEffect(() => {
+    if (isEditorView) {
+      setSidebarOpen(false);
+    }
+  }, [isEditorView]);
 
   return (
     <SidebarProvider
       defaultOpen
-      open={resolvedSidebarOpen}
+      open={sidebarOpen}
       onOpenChange={setSidebarOpen}
       className="bg-[var(--app-shell-background)]"
       data-sidebar-side="left"

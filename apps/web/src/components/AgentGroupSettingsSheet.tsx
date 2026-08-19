@@ -4,6 +4,7 @@ import type {
   ModelSelection,
 } from "@agent-group/contracts";
 import { CONTEXT_TEMPLATE_PRESETS } from "@agent-group/shared/contextTemplates";
+import { contextTemplatesWithLearning } from "@agent-group/shared/learningContext";
 import { getDefaultModel } from "@agent-group/shared/model";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
@@ -58,8 +59,13 @@ export default function AgentGroupSettingsSheet() {
     model: getDefaultModel("codex"),
   };
   const defaultAgent = project?.defaultModelSelection ?? globalDefaultAgent;
-  const contextTemplates =
-    serverSettingsQuery.data?.agentGroup.contextTemplates ?? CONTEXT_TEMPLATE_PRESETS;
+  const contextTemplates = useMemo(
+    () =>
+      contextTemplatesWithLearning(
+        serverSettingsQuery.data?.agentGroup.contextTemplates ?? CONTEXT_TEMPLATE_PRESETS,
+      ),
+    [serverSettingsQuery.data?.agentGroup.contextTemplates],
+  );
   const [config, setConfig] = useState<AgentGroupConfig | null>(null);
   const [groupName, setGroupName] = useState(canonicalName);
   const [groupRules, setGroupRules] = useState("");

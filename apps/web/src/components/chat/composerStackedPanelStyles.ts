@@ -57,6 +57,10 @@ export const COMPOSER_STACKED_PANEL_META_CLASS_NAME =
 /** Horizontal padding for multi-line stacked panel bodies. */
 export const COMPOSER_STACKED_PANEL_BODY_PADDING_CLASS_NAME = "px-3 pb-2.5";
 
+/** Bound expanded panel bodies while keeping longer content reachable. */
+export const COMPOSER_STACKED_PANEL_SCROLL_REGION_CLASS_NAME =
+  "max-h-48 overflow-y-auto overscroll-contain";
+
 /** Footer/meta row below stacked panel content (background agents). */
 export const COMPOSER_STACKED_PANEL_FOOTER_ROW_CLASS_NAME =
   "flex items-center justify-between gap-2 px-3 py-2 text-[11px] text-muted-foreground/70";

@@ -1094,7 +1094,7 @@ describe("MessagesTimeline", () => {
     expect(markup).not.toContain('data-timeline-row-kind="work"');
   });
 
-  it("collapses every completed-turn tool call behind a single Worked-for toggle", async () => {
+  it("collapses completed-turn process messages and tools behind one Worked-for toggle", async () => {
     const { MessagesTimeline } = await import("./MessagesTimeline");
     const markup = renderToStaticMarkup(
       <MessagesTimeline
@@ -1103,6 +1103,19 @@ describe("MessagesTimeline", () => {
         activeTurnInProgress={false}
         activeTurnStartedAt={null}
         timelineEntries={[
+          {
+            id: "entry-assistant-process",
+            kind: "message",
+            createdAt: "2026-03-17T19:12:27.000Z",
+            message: {
+              id: MessageId.makeUnsafe("message-assistant-process"),
+              role: "assistant",
+              text: "Checking the implementation now.",
+              createdAt: "2026-03-17T19:12:27.000Z",
+              completedAt: "2026-03-17T19:12:27.500Z",
+              streaming: false,
+            },
+          },
           {
             id: "entry-inline-tools",
             kind: "work",
@@ -1201,8 +1214,9 @@ describe("MessagesTimeline", () => {
 
     expect(markup).toContain("Worked for");
     expect(markup).toContain(">done</span></p>");
-    // Completed turns fold all tool work behind the single collapsed disclosure,
-    // which stays unmounted until expanded, so no inline tool rows leak out.
+    // Completed turns fold process narration and tool work behind the closed
+    // disclosure, leaving only the final answer in the main transcript.
+    expect(markup).not.toContain("Checking the implementation now.");
     expect(markup).not.toContain("+2 more tool calls");
     expect(markup).not.toContain("Tool 1");
     expect(markup).not.toContain("Tool 5");

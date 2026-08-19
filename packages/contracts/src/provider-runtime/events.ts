@@ -32,6 +32,7 @@ import {
   ProviderRuntimeConfigWarningEvent,
   ProviderRuntimeDeprecationNoticeEvent,
   ProviderRuntimeErrorEvent,
+  ProviderRuntimeEventUnmappedEvent,
   ProviderRuntimeFilesPersistedEvent,
   ProviderRuntimeHookCompletedEvent,
   ProviderRuntimeHookProgressEvent,
@@ -99,6 +100,7 @@ export const ProviderRuntimeEventV2 = Schema.Union([
   ProviderRuntimeFilesPersistedEvent,
   ProviderRuntimeWarningEvent,
   ProviderRuntimeErrorEvent,
+  ProviderRuntimeEventUnmappedEvent,
 ]);
 export type ProviderRuntimeEventV2 = typeof ProviderRuntimeEventV2.Type;
 

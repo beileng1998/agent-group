@@ -1,6 +1,6 @@
 {
   "name": "@agent-group/contracts",
-  "version": "0.6.4",
+  "version": "0.6.8",
   "private": true,
   "license": "MIT",
   "files": [

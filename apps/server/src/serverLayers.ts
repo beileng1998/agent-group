@@ -7,6 +7,7 @@ import { AutomationServiceLive } from "./automation/Layers/AutomationService";
 import { CheckpointDiffQueryLive } from "./checkpointing/Layers/CheckpointDiffQuery";
 import { CheckpointStoreLive } from "./checkpointing/Layers/CheckpointStore";
 import { CheckpointReactorLive } from "./orchestration/Layers/CheckpointReactor";
+import { FirstTurnThreadTitleLive } from "./orchestration/Layers/FirstTurnThreadTitle";
 import { OrchestrationReactorLive } from "./orchestration/Layers/OrchestrationReactor";
 import { StudioOutputReactorLive } from "./orchestration/Layers/StudioOutputReactor";
 import { ProviderCommandReactorLive } from "./orchestration/Layers/ProviderCommandReactor";
@@ -70,17 +71,24 @@ export function makeServerRuntimeServicesLayer() {
   const studioOutputReactorLayer = StudioOutputReactorLive.pipe(
     Layer.provideMerge(runtimeServicesLayer),
   );
+  const firstTurnThreadTitleLayer = FirstTurnThreadTitleLive.pipe(
+    Layer.provideMerge(runtimeServicesLayer),
+    Layer.provideMerge(TextGenerationLayerLive),
+    Layer.provideMerge(ServerSettingsLive),
+  );
   const terminalAgentBridgeLayer = TerminalAgentBridgeLive;
   const terminalAgentServiceLayer = TerminalAgentServiceLive.pipe(
     Layer.provideMerge(runtimeServicesLayer),
     Layer.provideMerge(runtimeIngestionLayer),
     Layer.provideMerge(terminalAgentBridgeLayer),
+    Layer.provideMerge(firstTurnThreadTitleLayer),
     Layer.provideMerge(ServerSettingsLive),
   );
   const providerCommandReactorLayer = ProviderCommandReactorLive.pipe(
     Layer.provideMerge(runtimeServicesLayer),
     Layer.provideMerge(studioOutputReactorLayer),
     Layer.provideMerge(terminalAgentServiceLayer),
+    Layer.provideMerge(firstTurnThreadTitleLayer),
     Layer.provideMerge(GitCoreLive),
     Layer.provideMerge(TextGenerationLayerLive),
     Layer.provideMerge(ServerSettingsLive),
@@ -157,6 +165,7 @@ export function makeServerRuntimeServicesLayer() {
     pullRequestServiceLayer,
     remoteAccessLayer,
     orchestrationReactorLayer,
+    firstTurnThreadTitleLayer,
     threadDeletionReactorLayer,
     terminalAgentBridgeLayer,
     terminalAgentServiceLayer,

@@ -21,6 +21,7 @@ import { resolveTextGenerationInputForSelection } from "../../git/textGeneration
 import { ProviderService } from "../../provider/Services/ProviderService.ts";
 import { ServerSettingsService } from "../../serverSettings.ts";
 import { TerminalAgentService } from "../../terminalAgent/Services/TerminalAgentService.ts";
+import { FirstTurnThreadTitle } from "../Services/FirstTurnThreadTitle.ts";
 import { OrchestrationEngineService } from "../Services/OrchestrationEngine.ts";
 import { ProjectionSnapshotQuery } from "../Services/ProjectionSnapshotQuery.ts";
 import {
@@ -48,20 +49,17 @@ import { makeProviderTurnAdmission } from "./providerTurnAdmission.ts";
 import {
   makeProviderTurnQueueDrain,
   releaseCanceledProviderTurnClaims,
-  withCanceledProviderTurnClaimCleanup,
 } from "./providerTurnQueueLifecycle.ts";
 import { ProviderSessionSelectionState } from "./providerSessionSelectionState.ts";
-import {
-  isProviderIntentEvent,
-  makeProviderIntentRouter,
-  type ProviderIntentEvent,
-} from "./providerIntentRouter.ts";
+import { isProviderIntentEvent, makeProviderIntentRouter } from "./providerIntentRouter.ts";
 import { makeProviderAgentGroupBridge } from "./providerAgentGroupBridge.ts";
 import { makeProviderThreadRouting } from "./providerThreadRouting.ts";
 import { makeProviderProjectionWriter } from "./providerProjectionWriter.ts";
 import { makeProviderResumeRecovery } from "./providerResumeRecovery.ts";
 import { makeProviderReactorAuthority } from "./providerReactorAuthority.ts";
 import { withStructuredRuntimeLease } from "./executionAdapterStructuredLease.ts";
+import { makeProviderGoalContinuation } from "./providerGoalContinuation.ts";
+import { makeProviderReactorEventSafety } from "./providerReactorEventSafety.ts";
 
 export { normalizeSkillMentionTextForProvider } from "./providerTurnPrompt.ts";
 
@@ -78,6 +76,7 @@ const make = Effect.gen(function* () {
   const serverSettings = yield* ServerSettingsService;
   const serverConfig = yield* ServerConfig;
   const terminalAgentService = yield* TerminalAgentService;
+  const firstTurnThreadTitle = yield* FirstTurnThreadTitle;
   const authority = yield* makeProviderReactorAuthority;
 
   const selectionState = new ProviderSessionSelectionState();
@@ -163,10 +162,7 @@ const make = Effect.gen(function* () {
     },
   });
 
-  const {
-    maybeGenerateAndRenameThreadTitleForFirstTurn,
-    maybeGenerateAndRenameWorktreeBranchForFirstTurn,
-  } = makeProviderFirstTurnMetadata({
+  const { maybeGenerateAndRenameWorktreeBranchForFirstTurn } = makeProviderFirstTurnMetadata({
     orchestrationEngine,
     git,
     textGeneration,
@@ -367,6 +363,7 @@ const make = Effect.gen(function* () {
     ) {
       bootstrapState.clearPriorTranscript(input.threadId);
     }
+    return dispatchedTurnId ?? undefined;
   });
 
   const drainQueuedTurnsForThread = makeProviderTurnQueueDrain({
@@ -387,11 +384,24 @@ const make = Effect.gen(function* () {
       setThreadSession,
       setThreadSessionError,
       maybeGenerateAndRenameWorktreeBranchForFirstTurn,
-      maybeGenerateAndRenameThreadTitleForFirstTurn,
+      maybeGenerateAndRenameThreadTitleForFirstTurn: firstTurnThreadTitle.maybeGenerateAndRename,
       dispatchTurnForThread,
       interruptProviderTurn,
       drainQueuedTurnsForThread,
     });
+
+  const goalContinuation = yield* makeProviderGoalContinuation({
+    orchestrationEngine,
+    turnQueue,
+    resolveThread,
+    hasLiveProviderTurn,
+    drainQueuedTurnsForThread,
+    dispatchTurnForThread,
+    setThreadSession,
+    setThreadSessionError,
+    interruptProviderTurn,
+    serverCommandId,
+  });
 
   const processQueueDrainEvent = (event: ProviderQueueDrainEvent) =>
     withStructuredRuntimeLease({
@@ -416,6 +426,9 @@ const make = Effect.gen(function* () {
     setThreadSessionError,
     processTurnQueued,
     processTurnStartRequested,
+    processGoalMetaUpdated: goalContinuation.processMetaUpdated,
+    processInteractionModeUpdated: goalContinuation.processInteractionModeUpdated,
+    processGoalContinuationRequested: goalContinuation.processRequested,
     processTurnInterruptRequested,
     processApprovalResponseRequested,
     processUserInputResponseRequested,
@@ -424,35 +437,14 @@ const make = Effect.gen(function* () {
     processSessionStopRequested,
   });
 
-  const processDomainEventSafely = (event: ProviderIntentEvent) =>
-    withCanceledProviderTurnClaimCleanup(
-      processDomainEvent(event).pipe(
-        Effect.catchCause((cause) => {
-          if (Cause.hasInterruptsOnly(cause)) {
-            return Effect.failCause(cause);
-          }
-          return Effect.logWarning("provider command reactor failed to process event", {
-            eventType: event.type,
-            cause: Cause.pretty(cause),
-          });
-        }),
-      ),
-      { turnQueue, releaseStructured: authority.releaseStructured },
-    );
-
-  const processQueueDrainEventSafely = (event: ProviderQueueDrainEvent) =>
-    processQueueDrainEvent(event).pipe(
-      Effect.catchCause((cause) => {
-        if (Cause.hasInterruptsOnly(cause)) {
-          return Effect.failCause(cause);
-        }
-        return Effect.logWarning("provider command reactor failed to drain queued turn", {
-          eventType: event.type,
-          threadId: event.threadId,
-          cause: Cause.pretty(cause),
-        });
-      }),
-    );
+  const { processDomainEventSafely, processQueueDrainEventSafely } = makeProviderReactorEventSafety(
+    {
+      turnQueue,
+      releaseStructured: authority.releaseStructured,
+      processDomainEvent,
+      processQueueDrainEvent,
+    },
+  );
 
   const worker = yield* makeDrainableWorker(processDomainEventSafely);
 
@@ -485,7 +477,19 @@ const make = Effect.gen(function* () {
           }
           return processQueueDrainEventSafely(event);
         }).pipe(Effect.forkScoped),
+        goalContinuation.runRetries.pipe(Effect.forkScoped),
       ]).pipe(Effect.asVoid),
+    ),
+    Effect.andThen(
+      goalContinuation.recoverActiveGoals.pipe(
+        Effect.catchCause((cause) =>
+          Cause.hasInterruptsOnly(cause)
+            ? Effect.interrupt
+            : Effect.logWarning("provider command reactor failed to recover active goals", {
+                cause: Cause.pretty(cause),
+              }),
+        ),
+      ),
     ),
   );
 

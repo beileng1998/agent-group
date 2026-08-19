@@ -7,7 +7,6 @@ import {
   ApprovalRequestId,
   type ProviderApprovalDecision,
   type ProviderRuntimeEvent,
-  type ProviderUserInputAnswers,
   type UserInputQuestion,
 } from "@agent-group/contracts";
 import { Deferred, Effect, Random, Ref } from "effect";
@@ -15,9 +14,14 @@ import { Deferred, Effect, Random, Ref } from "effect";
 import type {
   ClaudePendingApproval,
   ClaudePendingUserInput,
+  ClaudePendingUserInputResult,
   ClaudeSessionContext,
 } from "./claudeAdapterRuntime.ts";
 import { asCanonicalTurnId, asRuntimeRequestId } from "./claudeAdapterProtocol.ts";
+import {
+  remapClaudeUserInputAnswers,
+  type ClaudePendingInteractions,
+} from "./claudePendingInteractions.ts";
 import { extractExitPlanModePlan, nativeProviderRefs } from "./claudeSdkMessage.ts";
 import { classifyRequestType, summarizeToolRequest } from "./claudeToolMapping.ts";
 
@@ -31,35 +35,6 @@ export interface ClaudeProposedPlanCapture {
   readonly rawPayload: unknown;
 }
 
-function coerceAnswerValue(value: unknown): string {
-  if (typeof value === "string") return value;
-  if (Array.isArray(value)) {
-    return value.filter((entry): entry is string => typeof entry === "string").join(", ");
-  }
-  return "";
-}
-
-function remapAnswersToQuestionText(
-  questions: ReadonlyArray<UserInputQuestion>,
-  answers: ProviderUserInputAnswers,
-): Record<string, string> {
-  const remapped: Record<string, string> = {};
-  for (const [key, value] of Object.entries(answers)) {
-    remapped[key] = coerceAnswerValue(value);
-  }
-
-  for (const question of questions) {
-    if (Object.hasOwn(remapped, question.question)) {
-      continue;
-    }
-    if (Object.hasOwn(remapped, question.id)) {
-      remapped[question.question] = remapped[question.id]!;
-      delete remapped[question.id];
-    }
-  }
-  return remapped;
-}
-
 export function makeClaudePermissionBridge(input: {
   readonly contextRef: Ref.Ref<ClaudeSessionContext | undefined>;
   readonly runtimeMode: string | undefined;
@@ -69,6 +44,10 @@ export function makeClaudePermissionBridge(input: {
     context: ClaudeSessionContext,
     capture: ClaudeProposedPlanCapture,
   ) => Effect.Effect<void>;
+  readonly pendingInteractions: Pick<
+    ClaudePendingInteractions,
+    "settleApproval" | "settleUserInput"
+  >;
 }) {
   const pendingApprovals = new Map<ApprovalRequestId, ClaudePendingApproval>();
   const pendingUserInputs = new Map<ApprovalRequestId, ClaudePendingUserInput>();
@@ -76,10 +55,13 @@ export function makeClaudePermissionBridge(input: {
   const handleAskUserQuestion = (
     context: ClaudeSessionContext,
     toolInput: Record<string, unknown>,
-    callbackOptions: { readonly signal: AbortSignal; readonly toolUseID?: string },
+    callbackOptions: Parameters<CanUseTool>[2],
   ) =>
     Effect.gen(function* () {
       const requestId = ApprovalRequestId.makeUnsafe(yield* Random.nextUUIDv4);
+      const interactionTurnId =
+        context.turnState?.turnId ??
+        (callbackOptions.agentID !== undefined ? context.turns.at(-1)?.id : undefined);
       const rawQuestions = Array.isArray(toolInput.questions) ? toolInput.questions : [];
       const questions: Array<UserInputQuestion> = rawQuestions.map(
         (question: Record<string, unknown>, index: number) => ({
@@ -96,12 +78,17 @@ export function makeClaudePermissionBridge(input: {
         }),
       );
 
-      const answersDeferred = yield* Deferred.make<ProviderUserInputAnswers>();
-      let aborted = false;
-      pendingUserInputs.set(requestId, {
+      const resultDeferred = yield* Deferred.make<ClaudePendingUserInputResult>();
+      const settledDeferred = yield* Deferred.make<ClaudePendingUserInputResult>();
+      const pendingInput: ClaudePendingUserInput = {
         questions,
-        answers: answersDeferred,
-      });
+        result: resultDeferred,
+        settled: settledDeferred,
+        ...(interactionTurnId ? { turnId: interactionTurnId } : {}),
+        ...(callbackOptions.toolUseID ? { providerItemId: callbackOptions.toolUseID } : {}),
+        ...(callbackOptions.agentID ? { agentId: callbackOptions.agentID } : {}),
+        settlementStarted: false,
+      };
 
       const requestedStamp = yield* input.makeEventStamp();
       yield* input.offerRuntimeEvent({
@@ -110,7 +97,7 @@ export function makeClaudePermissionBridge(input: {
         provider: PROVIDER,
         createdAt: requestedStamp.createdAt,
         threadId: context.session.threadId,
-        ...(context.turnState ? { turnId: asCanonicalTurnId(context.turnState.turnId) } : {}),
+        ...(interactionTurnId ? { turnId: asCanonicalTurnId(interactionTurnId) } : {}),
         requestId: asRuntimeRequestId(requestId),
         payload: { questions },
         providerRefs: nativeProviderRefs(context, {
@@ -123,47 +110,31 @@ export function makeClaudePermissionBridge(input: {
         },
       });
 
+      pendingUserInputs.set(requestId, pendingInput);
+      if (callbackOptions.agentID && context.terminalTaskIds.has(callbackOptions.agentID)) {
+        yield* input.pendingInteractions.settleUserInput(context, requestId, pendingInput, {
+          answers: {},
+          cancelled: true,
+        });
+      }
+
       const onAbort = () => {
-        if (!pendingUserInputs.has(requestId)) {
-          return;
-        }
-        aborted = true;
-        pendingUserInputs.delete(requestId);
-        Effect.runFork(Deferred.succeed(answersDeferred, {} as ProviderUserInputAnswers));
+        Effect.runFork(
+          input.pendingInteractions.settleUserInput(context, requestId, pendingInput, {
+            answers: {},
+            cancelled: true,
+          }),
+        );
       };
       callbackOptions.signal.addEventListener("abort", onAbort, { once: true });
 
-      const answers = remapAnswersToQuestionText(
-        questions,
-        yield* Deferred.await(answersDeferred).pipe(
-          Effect.ensuring(
-            Effect.sync(() => callbackOptions.signal.removeEventListener("abort", onAbort)),
-          ),
+      const result = yield* Deferred.await(resultDeferred).pipe(
+        Effect.ensuring(
+          Effect.sync(() => callbackOptions.signal.removeEventListener("abort", onAbort)),
         ),
       );
-      pendingUserInputs.delete(requestId);
 
-      const resolvedStamp = yield* input.makeEventStamp();
-      yield* input.offerRuntimeEvent({
-        type: "user-input.resolved",
-        eventId: resolvedStamp.eventId,
-        provider: PROVIDER,
-        createdAt: resolvedStamp.createdAt,
-        threadId: context.session.threadId,
-        ...(context.turnState ? { turnId: asCanonicalTurnId(context.turnState.turnId) } : {}),
-        requestId: asRuntimeRequestId(requestId),
-        payload: { answers },
-        providerRefs: nativeProviderRefs(context, {
-          providerItemId: callbackOptions.toolUseID,
-        }),
-        raw: {
-          source: "claude.sdk.permission",
-          method: "canUseTool/AskUserQuestion/resolved",
-          payload: { answers },
-        },
-      });
-
-      if (aborted) {
+      if (result.cancelled) {
         return {
           behavior: "deny",
           message: "User cancelled tool execution.",
@@ -174,7 +145,7 @@ export function makeClaudePermissionBridge(input: {
         behavior: "allow",
         updatedInput: {
           questions: toolInput.questions,
-          answers,
+          answers: remapClaudeUserInputAnswers(questions, result.answers),
         },
       } satisfies PermissionResult;
     });
@@ -222,11 +193,20 @@ export function makeClaudePermissionBridge(input: {
         const requestId = ApprovalRequestId.makeUnsafe(yield* Random.nextUUIDv4);
         const requestType = classifyRequestType(toolName);
         const detail = summarizeToolRequest(toolName, toolInput);
+        const interactionTurnId =
+          context.turnState?.turnId ??
+          (callbackOptions.agentID !== undefined ? context.turns.at(-1)?.id : undefined);
         const decisionDeferred = yield* Deferred.make<ProviderApprovalDecision>();
+        const settledDeferred = yield* Deferred.make<ProviderApprovalDecision>();
         const pendingApproval: ClaudePendingApproval = {
           requestType,
           detail,
           decision: decisionDeferred,
+          settled: settledDeferred,
+          ...(interactionTurnId ? { turnId: interactionTurnId } : {}),
+          ...(callbackOptions.toolUseID ? { providerItemId: callbackOptions.toolUseID } : {}),
+          ...(callbackOptions.agentID ? { agentId: callbackOptions.agentID } : {}),
+          settlementStarted: false,
           ...(callbackOptions.suggestions
             ? { suggestions: callbackOptions.suggestions as ReadonlyArray<PermissionUpdate> }
             : {}),
@@ -239,7 +219,7 @@ export function makeClaudePermissionBridge(input: {
           provider: PROVIDER,
           createdAt: requestedStamp.createdAt,
           threadId: context.session.threadId,
-          ...(context.turnState ? { turnId: asCanonicalTurnId(context.turnState.turnId) } : {}),
+          ...(interactionTurnId ? { turnId: asCanonicalTurnId(interactionTurnId) } : {}),
           requestId: asRuntimeRequestId(requestId),
           payload: {
             requestType,
@@ -261,12 +241,18 @@ export function makeClaudePermissionBridge(input: {
         });
 
         pendingApprovals.set(requestId, pendingApproval);
+        if (callbackOptions.agentID && context.terminalTaskIds.has(callbackOptions.agentID)) {
+          yield* input.pendingInteractions.settleApproval(
+            context,
+            requestId,
+            pendingApproval,
+            "cancel",
+          );
+        }
         const onAbort = () => {
-          if (!pendingApprovals.has(requestId)) {
-            return;
-          }
-          pendingApprovals.delete(requestId);
-          Effect.runFork(Deferred.succeed(decisionDeferred, "cancel"));
+          Effect.runFork(
+            input.pendingInteractions.settleApproval(context, requestId, pendingApproval, "cancel"),
+          );
         };
         callbackOptions.signal.addEventListener("abort", onAbort, { once: true });
 
@@ -275,27 +261,6 @@ export function makeClaudePermissionBridge(input: {
             Effect.sync(() => callbackOptions.signal.removeEventListener("abort", onAbort)),
           ),
         );
-        pendingApprovals.delete(requestId);
-
-        const resolvedStamp = yield* input.makeEventStamp();
-        yield* input.offerRuntimeEvent({
-          type: "request.resolved",
-          eventId: resolvedStamp.eventId,
-          provider: PROVIDER,
-          createdAt: resolvedStamp.createdAt,
-          threadId: context.session.threadId,
-          ...(context.turnState ? { turnId: asCanonicalTurnId(context.turnState.turnId) } : {}),
-          requestId: asRuntimeRequestId(requestId),
-          payload: { requestType, decision },
-          providerRefs: nativeProviderRefs(context, {
-            providerItemId: callbackOptions.toolUseID,
-          }),
-          raw: {
-            source: "claude.sdk.permission",
-            method: "canUseTool/decision",
-            payload: { decision },
-          },
-        });
 
         if (decision === "accept" || decision === "acceptForSession") {
           return {

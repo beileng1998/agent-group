@@ -16,6 +16,7 @@
 import zlib from "node:zlib";
 
 import type { OrchestrationMessage, OrchestrationThread } from "@agent-group/contracts";
+import { stripGoalSettlementMarker } from "@agent-group/shared/goalSettlement";
 
 export interface ThreadArchiveEntry {
   readonly name: string;
@@ -131,12 +132,18 @@ const MESSAGE_ROLE_HEADING: Record<string, string> = {
   system: "System",
 };
 
+function exportedMessageText(message: OrchestrationMessage): string {
+  return message.role === "assistant" && !message.streaming
+    ? stripGoalSettlementMarker(message.text)
+    : message.text;
+}
+
 // One chunk for the header, then one chunk per message; nothing accumulates.
 function* transcriptMarkdownChunks(thread: OrchestrationThread): Generator<string> {
   yield `# ${thread.title}\n\n> Exported from Agent Group.\n`;
   for (const message of thread.messages) {
     const heading = MESSAGE_ROLE_HEADING[message.role] ?? "Message";
-    yield `\n## ${heading} \`${message.createdAt}\`\n\n${message.text}\n`;
+    yield `\n## ${heading} \`${message.createdAt}\`\n\n${exportedMessageText(message)}\n`;
   }
 }
 
@@ -144,7 +151,7 @@ function exportMessageProjection(message: OrchestrationMessage): Record<string, 
   return {
     id: message.id,
     role: message.role,
-    text: message.text,
+    text: exportedMessageText(message),
     source: message.source,
     // Attachment/skill/mention references are part of the user's input for a
     // turn; keep them in the structured export (metadata only — the archive

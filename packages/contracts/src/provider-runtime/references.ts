@@ -202,6 +202,7 @@ export const ProviderRuntimeEventType = Schema.Literals([
   "files.persisted",
   "runtime.warning",
   "runtime.error",
+  "event.unmapped",
 ]);
 export type ProviderRuntimeEventType = typeof ProviderRuntimeEventType.Type;
 
@@ -252,6 +253,7 @@ export const DeprecationNoticeType = Schema.Literal("deprecation.notice");
 export const FilesPersistedType = Schema.Literal("files.persisted");
 export const RuntimeWarningType = Schema.Literal("runtime.warning");
 export const RuntimeErrorType = Schema.Literal("runtime.error");
+export const EventUnmappedType = Schema.Literal("event.unmapped");
 
 export const ProviderRuntimeEventBase = Schema.Struct({
   eventId: EventId,

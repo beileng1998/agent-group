@@ -44,6 +44,7 @@ import {
   ThreadSessionStopRequestedPayload,
   ThreadTurnDiffCompletedPayload,
   ThreadTurnInterruptRequestedPayload,
+  ThreadGoalContinuationRequestedPayload,
   ThreadTurnQueuedPayload,
   ThreadTurnStartRequestedPayload,
   ThreadUnarchivedPayload,
@@ -186,6 +187,11 @@ export const OrchestrationEvent = Schema.Union([
     ...EventBaseFields,
     type: Schema.Literal("thread.turn-start-requested"),
     payload: ThreadTurnStartRequestedPayload,
+  }),
+  Schema.Struct({
+    ...EventBaseFields,
+    type: Schema.Literal("thread.goal-continuation-requested"),
+    payload: ThreadGoalContinuationRequestedPayload,
   }),
   Schema.Struct({
     ...EventBaseFields,

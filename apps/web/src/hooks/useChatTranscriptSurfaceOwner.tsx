@@ -2,9 +2,10 @@
 // Purpose: Assemble transcript and workspace presentation models from grouped chat owners.
 // Layer: Web chat presentation owner
 
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 
 import { AGENT_GROUP_CAPABILITIES } from "../agentGroupCapabilities";
+import type { AgentGroupKnowledgePanel } from "../components/AgentGroupKnowledgePanel";
 import {
   type ChatTranscriptSurfaceModel,
   ChatTranscriptSurface,
@@ -25,6 +26,7 @@ type TranscriptTimelineInput = Pick<
   TranscriptModel,
   | "chatFontSizePx"
   | "enteringUserMessageIds"
+  | "goalAchievements"
   | "listRef"
   | "pinnedMessageIds"
   | "resolvedTheme"
@@ -94,6 +96,7 @@ export interface ChatTranscriptSurfaceOwnerInput {
     readonly workspaceRoot: string | null | undefined;
   };
   readonly timeline: TranscriptTimelineInput;
+  readonly knowledge?: ComponentProps<typeof AgentGroupKnowledgePanel>;
   readonly interactions: TranscriptInteractionInput;
   readonly composer: {
     readonly content: ReactNode;
@@ -154,6 +157,7 @@ export function buildChatTranscriptSurface(
       isHomeLanding: input.thread.isHomeLanding,
       projectDisplayName: input.thread.activeProjectDisplayName,
     },
+    ...(input.knowledge ? { knowledge: input.knowledge } : {}),
     transcript: {
       activeThreadId: input.thread.activeThreadId,
       ...(input.thread.activeTurnId !== undefined
@@ -180,6 +184,9 @@ export function buildChatTranscriptSurface(
         : {}),
       ...(input.timeline.threadMarkers !== undefined
         ? { threadMarkers: input.timeline.threadMarkers }
+        : {}),
+      ...(input.timeline.goalAchievements !== undefined
+        ? { goalAchievements: input.timeline.goalAchievements }
         : {}),
       ...(input.timeline.enteringUserMessageIds !== undefined
         ? { enteringUserMessageIds: input.timeline.enteringUserMessageIds }
@@ -264,6 +271,7 @@ export function buildChatTranscriptSurface(
       content: <ChatTranscriptSurface model={transcriptSurfaceModel} />,
       terminalWorkspaceActive: input.workspace.terminalWorkspaceTerminalTabActive,
     },
+    ...(input.knowledge ? { knowledge: input.knowledge } : {}),
     terminal: {
       open: terminalState.terminalOpen,
       drawerProps: input.workspace.drawerProps,

@@ -53,6 +53,7 @@ export interface WorkLogEntry {
   // (e.g. user-input.requested -> question glyph) instead of the generic
   // tone fallback. Same rationale as `toolName` below.
   activityKind?: OrchestrationThreadActivity["kind"];
+  nativeEventType?: string;
 }
 
 // Created-automation rows render as a dedicated card (icon + name + cadence + Open)

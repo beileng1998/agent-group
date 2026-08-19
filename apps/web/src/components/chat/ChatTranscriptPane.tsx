@@ -3,7 +3,13 @@
 // Layer: Chat transcript shell
 // Depends on: MessagesTimeline and ChatView's list-owned scroll contract.
 
-import { type MessageId, ThreadId, type ThreadMarker, type TurnId } from "@agent-group/contracts";
+import {
+  type MessageId,
+  ThreadId,
+  type ThreadGoalAchievement,
+  type ThreadMarker,
+  type TurnId,
+} from "@agent-group/contracts";
 import { type LegendListRef } from "@legendapp/list/react";
 import {
   memo,
@@ -60,6 +66,7 @@ interface ChatTranscriptPaneProps {
   canPinMessage?: (messageId: MessageId) => boolean;
   onTogglePinMessage?: (messageId: MessageId) => void;
   threadMarkers?: readonly ThreadMarker[];
+  goalAchievements?: readonly ThreadGoalAchievement[];
   enteringUserMessageIds?: ComponentProps<typeof MessagesTimeline>["enteringUserMessageIds"];
   markdownCwd: string | undefined;
   onExpandTimelineImage: (preview: ExpandedImagePreview) => void;
@@ -120,6 +127,7 @@ export const ChatTranscriptPane = memo(function ChatTranscriptPane({
   canPinMessage,
   onTogglePinMessage,
   threadMarkers,
+  goalAchievements,
   enteringUserMessageIds,
   markdownCwd,
   onExpandTimelineImage,
@@ -224,6 +232,7 @@ export const ChatTranscriptPane = memo(function ChatTranscriptPane({
             {...(canPinMessage ? { canPinMessage } : {})}
             {...(onTogglePinMessage ? { onTogglePinMessage } : {})}
             {...(threadMarkers ? { threadMarkers } : {})}
+            {...(goalAchievements ? { goalAchievements } : {})}
             {...(enteringUserMessageIds ? { enteringUserMessageIds } : {})}
             timelineEntries={timelineEntries}
             turnDiffSummaryByAssistantMessageId={turnDiffSummaryByAssistantMessageId}

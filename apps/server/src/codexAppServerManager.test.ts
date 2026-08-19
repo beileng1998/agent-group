@@ -2498,7 +2498,94 @@ describe("collab child conversation routing", () => {
     );
   });
 
-  it("suppresses child lifecycle notifications without mutating the parent session state", () => {
+  it("keeps delayed child output on the child route after the parent turn completes", () => {
+    const { manager, context, emitEvent, updateSession } = createCollabNotificationHarness();
+    const notify = (notification: Record<string, unknown>) =>
+      (
+        manager as unknown as {
+          handleServerNotification: (
+            context: unknown,
+            notification: Record<string, unknown>,
+          ) => void;
+        }
+      ).handleServerNotification(context, notification);
+
+    notify({
+      method: "item/completed",
+      params: {
+        item: {
+          type: "collabAgentToolCall",
+          id: "call_collab_1",
+          receiverThreadIds: ["child_provider_1"],
+        },
+        threadId: "provider_parent",
+        turnId: "turn_parent",
+      },
+    });
+    notify({
+      method: "item/agentMessage/delta",
+      params: {
+        threadId: "child_provider_1",
+        turnId: "turn_child_1",
+        itemId: "msg_child_1",
+        delta: "working",
+      },
+    });
+    notify({
+      method: "turn/completed",
+      params: {
+        threadId: "provider_parent",
+        turn: { id: "turn_parent", status: "completed" },
+      },
+    });
+    emitEvent.mockClear();
+    updateSession.mockClear();
+
+    // Codex can report a late child final message with the parent provider
+    // thread while retaining the child's Turn id.
+    notify({
+      method: "item/completed",
+      params: {
+        threadId: "provider_parent",
+        turnId: "turn_child_1",
+        item: {
+          type: "agentMessage",
+          id: "msg_child_final",
+          text: "child result",
+        },
+      },
+    });
+
+    expect(emitEvent).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        method: "item/completed",
+        turnId: "turn_child_1",
+        itemId: "msg_child_final",
+        providerThreadId: "child_provider_1",
+        providerParentThreadId: "provider_parent",
+      }),
+    );
+
+    notify({
+      method: "turn/completed",
+      params: {
+        threadId: "provider_parent",
+        turn: { id: "turn_child_1", status: "completed" },
+      },
+    });
+
+    expect(emitEvent).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        method: "turn/completed",
+        turnId: "turn_child_1",
+        providerThreadId: "child_provider_1",
+        providerParentThreadId: "provider_parent",
+      }),
+    );
+    expect(updateSession).not.toHaveBeenCalled();
+  });
+
+  it("forwards child Turn lifecycle without mutating the parent session state", () => {
     const { manager, context, emitEvent, updateSession } = createCollabNotificationHarness();
 
     (
@@ -2544,11 +2631,31 @@ describe("collab child conversation routing", () => {
       },
     });
 
-    expect(emitEvent).not.toHaveBeenCalled();
+    expect(emitEvent).toHaveBeenCalledTimes(2);
+    expect(emitEvent).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        method: "turn/started",
+        turnId: "turn_child_1",
+        parentTurnId: "turn_parent",
+        providerThreadId: "child_provider_1",
+        providerParentThreadId: "provider_parent",
+      }),
+    );
+    expect(emitEvent).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        method: "turn/completed",
+        turnId: "turn_child_1",
+        parentTurnId: "turn_parent",
+        providerThreadId: "child_provider_1",
+        providerParentThreadId: "provider_parent",
+      }),
+    );
     expect(updateSession).not.toHaveBeenCalled();
   });
 
-  it("suppresses child lifecycle notifications that arrive before receiver mapping", () => {
+  it("forwards inferred child lifecycle that arrives before receiver mapping", () => {
     const { manager, context, emitEvent, updateSession } = createCollabNotificationHarness();
     context.session.status = "running";
     context.session.activeTurnId = "turn_parent";
@@ -2565,7 +2672,14 @@ describe("collab child conversation routing", () => {
       },
     });
 
-    expect(emitEvent).not.toHaveBeenCalled();
+    expect(emitEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "turn/started",
+        turnId: "turn_child_unmapped",
+        providerThreadId: "child_provider_unmapped",
+        providerParentThreadId: "provider_parent",
+      }),
+    );
     expect(updateSession).not.toHaveBeenCalled();
     expect(context.session.activeTurnId).toBe("turn_parent");
   });
@@ -2597,7 +2711,7 @@ describe("collab child conversation routing", () => {
     );
   });
 
-  it("suppresses child lifecycle notifications when only the provider parent is known", () => {
+  it("forwards child lifecycle when only the provider parent is known", () => {
     const { manager, context, emitEvent, updateSession } = createCollabNotificationHarness();
     context.collabReceiverParents.set("child_provider_1", "provider_parent");
 
@@ -2613,7 +2727,14 @@ describe("collab child conversation routing", () => {
       },
     });
 
-    expect(emitEvent).not.toHaveBeenCalled();
+    expect(emitEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "turn/started",
+        turnId: "turn_child_1",
+        providerThreadId: "child_provider_1",
+        providerParentThreadId: "provider_parent",
+      }),
+    );
     expect(updateSession).not.toHaveBeenCalled();
   });
 

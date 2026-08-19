@@ -8,6 +8,7 @@ import { decideProjectCommand } from "./decider/projectCommands.ts";
 import { decideThreadAnnotationCommand } from "./decider/threadAnnotationCommands.ts";
 import { decideThreadCreationCommand } from "./decider/threadCreationCommands.ts";
 import { decideThreadHistoryCommand } from "./decider/threadHistoryCommands.ts";
+import { decideThreadGoalCommand } from "./decider/threadGoalCommands.ts";
 import { decideThreadLifecycleCommand } from "./decider/threadLifecycleCommands.ts";
 import { decideTurnCommand } from "./decider/turnCommands.ts";
 
@@ -28,6 +29,7 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
     case "thread.handoff.create":
     case "thread.fork.create":
     case "thread.sidechat.promote":
+    case "thread.knowledge-child.create":
       return yield* decideThreadCreationCommand({ command, readModel });
 
     case "thread.delete":
@@ -57,6 +59,9 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
     case "thread.approval.respond":
     case "thread.user-input.respond":
       return yield* decideTurnCommand({ command, readModel });
+
+    case "thread.goal.continue":
+      return yield* decideThreadGoalCommand({ command, readModel });
 
     case "thread.checkpoint.revert":
     case "thread.conversation.rollback":

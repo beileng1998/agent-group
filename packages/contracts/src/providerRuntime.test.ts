@@ -166,4 +166,25 @@ describe("ProviderRuntimeEvent", () => {
     expect(parsed.payload.usage.usedTokens).toBe(31251);
     expect(parsed.payload.usage.usedPercent).toBe(15.6255);
   });
+
+  it("keeps untrimmed tool output in item lifecycle detail", () => {
+    const detail = " command output\n";
+    const parsed = decodeRuntimeEvent({
+      type: "item.completed",
+      eventId: "event-tool-output",
+      provider: "pi",
+      createdAt: "2026-08-15T00:00:00.000Z",
+      threadId: "thread-1",
+      turnId: "turn-1",
+      payload: {
+        itemType: "command_execution",
+        status: "completed",
+        detail,
+      },
+    });
+
+    expect(parsed.type).toBe("item.completed");
+    if (parsed.type !== "item.completed") throw new Error("expected item.completed");
+    expect(parsed.payload.detail).toBe(detail);
+  });
 });

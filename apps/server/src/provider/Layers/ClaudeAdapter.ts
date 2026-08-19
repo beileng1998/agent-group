@@ -24,6 +24,7 @@ import { makeClaudeAssistantProjection } from "../claudeAssistantProjection.ts";
 import type { ClaudeQueryRuntime } from "../claudeAdapterRuntime.ts";
 import { makeClaudeCapabilityDiscovery } from "../claudeCapabilityDiscovery.ts";
 import { makeClaudeContextUsage } from "../claudeContextUsage.ts";
+import { makeClaudePendingInteractions } from "../claudePendingInteractions.ts";
 import { buildClaudeProcessEnv } from "../claudeProcessEnv.ts";
 import { readClaudeResumeState } from "../claudeAdapterProtocol.ts";
 import { makeClaudeRuntimeEventSink } from "../claudeRuntimeEventSink.ts";
@@ -119,6 +120,11 @@ function makeClaudeAdapter(options?: ClaudeAdapterLiveOptions) {
       offerRuntimeEvent,
     });
 
+    const pendingInteractions = makeClaudePendingInteractions({
+      makeEventStamp,
+      offerRuntimeEvent,
+    });
+
     const completeTurn = makeClaudeTurnCompletion({
       readContextUsage: readClaudeContextUsage,
       snapshotContextUsage: snapshotFromClaudeContextUsage,
@@ -126,6 +132,7 @@ function makeClaudeAdapter(options?: ClaudeAdapterLiveOptions) {
       makeEventStamp,
       nowIso,
       offerRuntimeEvent,
+      settlePendingForTurn: pendingInteractions.settleForTurn,
       updateResumeCursor,
     });
 
@@ -182,6 +189,7 @@ function makeClaudeAdapter(options?: ClaudeAdapterLiveOptions) {
         makeEventStamp,
         offerRuntimeEvent,
         resolveModelCapabilities: capabilityDiscovery.resolveModelCapabilities,
+        settlePendingForAgent: pendingInteractions.settleForAgent,
         settleSubagentRun,
         updateResumeCursor,
         warnUnhandledSdkKind,
@@ -209,6 +217,7 @@ function makeClaudeAdapter(options?: ClaudeAdapterLiveOptions) {
       nowIso,
       offerRuntimeEvent,
       removeSessionIfCurrent: sessionRegistry.removeIfCurrent,
+      settlePendingForSession: pendingInteractions.settleForSession,
       settleSubagentRun,
     });
 
@@ -223,6 +232,7 @@ function makeClaudeAdapter(options?: ClaudeAdapterLiveOptions) {
       makeEventStamp,
       nowIso,
       offerRuntimeEvent,
+      pendingInteractions,
       prefetchCapabilities: capabilityDiscovery.prefetchFromQuery,
       resolveModelCapabilities: capabilityDiscovery.resolveModelCapabilities,
       resolveSdkEnv: resolveClaudeSdkEnv,
@@ -250,6 +260,8 @@ function makeClaudeAdapter(options?: ClaudeAdapterLiveOptions) {
       requireSession,
       resolveModelCapabilities: capabilityDiscovery.resolveModelCapabilities,
       snapshotThread,
+      settlePendingApproval: pendingInteractions.settleApproval,
+      settlePendingUserInput: pendingInteractions.settleUserInput,
       stopSessionInternal,
       updateResumeCursor,
       withLifecycleLock: withSessionLifecycleLock,

@@ -70,7 +70,16 @@ function findModel(
 export async function getPiDiscoverableModels(
   runtime: Pick<ModelRuntime, "getAvailable">,
 ): Promise<ReadonlyArray<Model<Api>>> {
-  return runtime.getAvailable();
+  return (await runtime.getAvailable()).filter((model) => {
+    const provider = trimToUndefined(model.provider);
+    const modelId = trimToUndefined(model.id);
+    return (
+      provider !== undefined &&
+      modelId !== undefined &&
+      provider === model.provider &&
+      modelId === model.id
+    );
+  });
 }
 
 export async function resolveFreshPiModel(

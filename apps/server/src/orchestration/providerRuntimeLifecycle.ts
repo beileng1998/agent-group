@@ -17,6 +17,7 @@ import {
   STRICT_PROVIDER_LIFECYCLE_GUARD,
 } from "./providerRuntimeIngestionValues.ts";
 import { terminalRuntimeCommandFence } from "./providerRuntimeTerminalFence.ts";
+import { settleThreadGoalAfterTerminal } from "./providerGoalSettlement.ts";
 
 type Plans = ReturnType<typeof makeProviderRuntimePlans>;
 
@@ -31,35 +32,47 @@ export function makeProviderRuntimeLifecycle(input: {
   readonly orchestrationEngine: OrchestrationEngineShape;
   readonly plans: Plans;
 }) {
-  const applyLifecycle = (event: ProviderRuntimeEvent, thread: OrchestrationThread) =>
-    Effect.gen(function* () {
-      const activeTurnId = thread.session?.activeTurnId ?? null;
-      const eventTurnId = resolveTerminalTurnId(event, activeTurnId);
-      const isTerminalTurnEvent = event.type === "turn.completed" || event.type === "turn.aborted";
-      const conflictsWithActiveTurn =
-        activeTurnId !== null && eventTurnId !== undefined && !sameId(activeTurnId, eventTurnId);
-      const missingTurnForActiveTurn = activeTurnId !== null && eventTurnId === undefined;
-      const shouldApplyThreadLifecycle = (() => {
-        if (!STRICT_PROVIDER_LIFECYCLE_GUARD) return true;
-        switch (event.type) {
-          case "session.exited":
-          case "session.started":
-          case "thread.started":
-            return true;
-          case "turn.started":
-            return !conflictsWithActiveTurn;
-          case "turn.completed":
-          case "turn.aborted":
-            if (conflictsWithActiveTurn || missingTurnForActiveTurn) return false;
-            if (activeTurnId !== null && eventTurnId !== undefined) {
-              return sameId(activeTurnId, eventTurnId);
-            }
-            return true;
-          default:
-            return true;
-        }
-      })();
+  const resolveLifecycle = (
+    event: ProviderRuntimeEvent,
+    thread: OrchestrationThread,
+  ): RuntimeLifecycleResolution => {
+    const activeTurnId = thread.session?.activeTurnId ?? null;
+    const eventTurnId = resolveTerminalTurnId(event, activeTurnId);
+    const isTerminalTurnEvent = event.type === "turn.completed" || event.type === "turn.aborted";
+    const conflictsWithActiveTurn =
+      activeTurnId !== null && eventTurnId !== undefined && !sameId(activeTurnId, eventTurnId);
+    const missingTurnForActiveTurn = activeTurnId !== null && eventTurnId === undefined;
+    const shouldApplyThreadLifecycle = (() => {
+      if (!STRICT_PROVIDER_LIFECYCLE_GUARD) return true;
+      switch (event.type) {
+        case "session.exited":
+        case "session.started":
+        case "thread.started":
+          return true;
+        case "turn.started":
+          return !conflictsWithActiveTurn;
+        case "turn.completed":
+        case "turn.aborted":
+          if (conflictsWithActiveTurn || missingTurnForActiveTurn) return false;
+          if (activeTurnId !== null && eventTurnId !== undefined) {
+            return sameId(activeTurnId, eventTurnId);
+          }
+          return true;
+        default:
+          return true;
+      }
+    })();
+    return { activeTurnId, eventTurnId, isTerminalTurnEvent, shouldApplyThreadLifecycle };
+  };
 
+  const applyLifecycle = (
+    event: ProviderRuntimeEvent,
+    thread: OrchestrationThread,
+    resolution = resolveLifecycle(event, thread),
+  ) =>
+    Effect.gen(function* () {
+      const { activeTurnId, eventTurnId, isTerminalTurnEvent, shouldApplyThreadLifecycle } =
+        resolution;
       const acceptedSourcePlan =
         event.type === "turn.started" && shouldApplyThreadLifecycle
           ? yield* input.plans.getSourceProposedPlanReferenceForAcceptedTurnStart(
@@ -152,10 +165,18 @@ export function makeProviderRuntimeLifecycle(input: {
             createdAt: event.createdAt,
             ...terminalRuntimeCommandFence(event),
           });
+          if (isTerminalTurnEvent) {
+            yield* settleThreadGoalAfterTerminal({
+              orchestrationEngine: input.orchestrationEngine,
+              event,
+              threadId: thread.id,
+              ...(eventTurnId !== undefined ? { turnId: eventTurnId } : {}),
+            });
+          }
         }
       }
-      return { activeTurnId, eventTurnId, isTerminalTurnEvent, shouldApplyThreadLifecycle };
+      return resolution;
     });
 
-  return { applyLifecycle };
+  return { resolveLifecycle, applyLifecycle };
 }

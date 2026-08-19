@@ -1,6 +1,6 @@
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { ProviderRuntimeEvent, ProviderRuntimeTurnStatus } from "@agent-group/contracts";
-import { Cause, Deferred, Effect, Exit, Fiber, Queue, Stream } from "effect";
+import { Cause, Effect, Exit, Fiber, Queue, Stream } from "effect";
 
 import type { ClaudeSessionContext } from "./claudeAdapterRuntime.ts";
 import {
@@ -12,8 +12,7 @@ import {
   messageFromClaudeStreamCause,
   toError,
 } from "./claudeAdapterErrors.ts";
-import { asCanonicalTurnId, asRuntimeRequestId } from "./claudeAdapterProtocol.ts";
-import { nativeProviderRefs } from "./claudeSdkMessage.ts";
+import type { ClaudePendingInteractions } from "./claudePendingInteractions.ts";
 
 const PROVIDER = "claudeAgent" as const;
 
@@ -36,6 +35,7 @@ export function makeClaudeSessionLifecycle(input: {
   readonly nowIso: Effect.Effect<string>;
   readonly offerRuntimeEvent: (event: ProviderRuntimeEvent) => Effect.Effect<void>;
   readonly removeSessionIfCurrent: (context: ClaudeSessionContext) => void;
+  readonly settlePendingForSession: ClaudePendingInteractions["settleForSession"];
   readonly settleSubagentRun: (
     context: ClaudeSessionContext,
     lookup: { readonly toolUseId?: string; readonly taskId?: string },
@@ -61,25 +61,7 @@ export function makeClaudeSessionLifecycle(input: {
         yield* input.settleSubagentRun(context, { toolUseId }, "stopped");
       }
 
-      for (const [requestId, pending] of context.pendingApprovals) {
-        yield* Deferred.succeed(pending.decision, "cancel");
-        const stamp = yield* input.makeEventStamp();
-        yield* input.offerRuntimeEvent({
-          type: "request.resolved",
-          eventId: stamp.eventId,
-          provider: PROVIDER,
-          createdAt: stamp.createdAt,
-          threadId: context.session.threadId,
-          ...(context.turnState ? { turnId: asCanonicalTurnId(context.turnState.turnId) } : {}),
-          requestId: asRuntimeRequestId(requestId),
-          payload: {
-            requestType: pending.requestType,
-            decision: "cancel",
-          },
-          providerRefs: nativeProviderRefs(context),
-        });
-      }
-      context.pendingApprovals.clear();
+      yield* input.settlePendingForSession(context);
 
       if (context.turnState) {
         yield* input.completeTurn(context, "interrupted", "Session stopped.");

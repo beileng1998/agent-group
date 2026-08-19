@@ -63,6 +63,10 @@ export function useMessagesTimelineUiState({
   const setCollapsedWorkExpanded = useCallback((messageId: string, open: boolean) => {
     setExpandedCollapsedWork((current) => ({ ...current, [messageId]: open }));
   }, []);
+  const revealCollapsedMessage = useCallback(
+    (ownerMessageId: MessageId) => setCollapsedWorkExpanded(ownerMessageId, true),
+    [setCollapsedWorkExpanded],
+  );
   const toggleFileChangesExpanded = useCallback((turnId: TurnId) => {
     setExpandedFileChangesByTurnId((current) => ({
       ...current,
@@ -134,6 +138,7 @@ export function useMessagesTimelineUiState({
     handleToolDetailsOpenChange,
     latestEditableUserMessageId,
     openToolDetails,
+    revealCollapsedMessage,
     selectedToolDetailsEntry,
     setCollapsedWorkExpanded,
     setExpandedUserMessagesById,

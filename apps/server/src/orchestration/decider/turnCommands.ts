@@ -185,12 +185,12 @@ export const decideTurnCommand = Effect.fn("decideTurnCommand")(function* ({
     }
 
     case "thread.turn.interrupt": {
-      yield* requireThread({
+      const thread = yield* requireThread({
         readModel,
         command,
         threadId: command.threadId,
       });
-      return {
+      const interruptEvent = {
         ...withEventBase({
           aggregateKind: "thread",
           aggregateId: command.threadId,
@@ -203,7 +203,24 @@ export const decideTurnCommand = Effect.fn("decideTurnCommand")(function* ({
           ...(command.turnId !== undefined ? { turnId: command.turnId } : {}),
           createdAt: command.createdAt,
         },
+      } as const;
+      if (!(thread.goal ?? "").trim() || thread.goalPausedAt != null) return interruptEvent;
+      const pausedAt = command.createdAt;
+      const pauseEvent = {
+        ...withEventBase({
+          aggregateKind: "thread" as const,
+          aggregateId: command.threadId,
+          occurredAt: pausedAt,
+          commandId: command.commandId,
+        }),
+        type: "thread.meta-updated" as const,
+        payload: {
+          threadId: command.threadId,
+          goalPausedAt: pausedAt,
+          updatedAt: pausedAt,
+        },
       };
+      return [pauseEvent, { ...interruptEvent, causationEventId: pauseEvent.eventId }];
     }
 
     case "thread.approval.respond": {

@@ -146,6 +146,7 @@ export function makeClaudeTurnActivity(input: {
         lastActivityAt: Date.now(),
         nextSyntheticAssistantBlockIndex: -1,
       };
+      context.lastTurnId = turnId;
       context.session = {
         ...context.session,
         status: "running",

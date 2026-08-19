@@ -50,6 +50,7 @@ export function makeClaudeSubagentRuntime(input: {
         inFlightTools: new Map(),
         trackedTasks: new Map(),
         turnState: undefined,
+        lastTurnId: undefined,
         interruptRequestedTurnId: undefined,
         lastKnownContextWindow: context.lastKnownContextWindow,
         currentAutoCompactWindow: context.currentAutoCompactWindow,
@@ -64,6 +65,7 @@ export function makeClaudeSubagentRuntime(input: {
         warnedUnhandledSdkKinds: context.warnedUnhandledSdkKinds,
         subagentRoutes: new ClaudeSubagentRouteRegistry(),
         subagentRuns: new Map(),
+        terminalTaskIds: new Set(),
         subagentRefs: {
           providerThreadId: toolUseId,
           providerParentThreadId: String(context.session.threadId),

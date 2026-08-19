@@ -5,6 +5,7 @@ import {
   AuthStatusPayload,
   ConfigWarningPayload,
   DeprecationNoticePayload,
+  EventUnmappedPayload,
   FilesPersistedPayload,
   HookCompletedPayload,
   HookProgressPayload,
@@ -30,6 +31,7 @@ import {
   AuthStatusType,
   ConfigWarningType,
   DeprecationNoticeType,
+  EventUnmappedType,
   FilesPersistedType,
   HookCompletedType,
   HookProgressType,
@@ -216,3 +218,10 @@ export const ProviderRuntimeErrorEvent = Schema.Struct({
   payload: RuntimeErrorPayload,
 });
 export type ProviderRuntimeErrorEvent = typeof ProviderRuntimeErrorEvent.Type;
+
+export const ProviderRuntimeEventUnmappedEvent = Schema.Struct({
+  ...ProviderRuntimeEventBase.fields,
+  type: EventUnmappedType,
+  payload: EventUnmappedPayload,
+});
+export type ProviderRuntimeEventUnmappedEvent = typeof ProviderRuntimeEventUnmappedEvent.Type;

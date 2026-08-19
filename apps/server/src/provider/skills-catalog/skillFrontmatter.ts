@@ -81,6 +81,7 @@ function readBooleanField(
 export async function readSkillDescriptor(input: {
   readonly skillPath: string;
   readonly scope: string;
+  readonly namespace?: string;
 }): Promise<ProviderSkillDescriptor | null> {
   let raw: string;
   try {
@@ -95,7 +96,11 @@ export async function readSkillDescriptor(input: {
     skillFilename.toLowerCase() === "skill.md"
       ? nodePath.basename(nodePath.dirname(input.skillPath))
       : nodePath.basename(input.skillPath, nodePath.extname(input.skillPath));
-  const name = readStringField(frontmatter, ["name"]) ?? fallbackName;
+  const unqualifiedName = readStringField(frontmatter, ["name"]) ?? fallbackName;
+  const name =
+    input.namespace && !unqualifiedName.includes(":")
+      ? `${input.namespace}:${unqualifiedName}`
+      : unqualifiedName;
   const description = readStringField(frontmatter, ["description"]);
   const displayName = readStringField(frontmatter, ["display-name", "displayName", "title"]);
   const shortDescription = readStringField(frontmatter, [

@@ -11,6 +11,7 @@ import type {
   ExecutionAdapterCoordinatorShape,
   ExecutionAdapterState,
 } from "../orchestration/Services/ExecutionAdapterCoordinator";
+import type { FirstTurnTitleInput } from "../orchestration/Services/FirstTurnThreadTitle";
 import type { ProviderRuntimeIngestionShape } from "../orchestration/Services/ProviderRuntimeIngestion";
 import { resolveTerminalAgentBridgeOperation } from "./terminalAgentBridgeOperation";
 import { makeTerminalAgentBridgeHandler } from "./terminalAgentRuntimeEvents";
@@ -22,6 +23,7 @@ export function makeRuntimeEventsHarness(provider: "pi" | "claudeAgent" = "pi") 
   const commands: OrchestrationCommand[] = [];
   const events: ProviderRuntimeEvent[] = [];
   const adoptedCursors: unknown[] = [];
+  const firstTurnTitles: FirstTurnTitleInput[] = [];
   let failNextDispatch = false;
   let failNextPublish = false;
   let failNextAdoption = false;
@@ -149,6 +151,9 @@ export function makeRuntimeEventsHarness(provider: "pi" | "claudeAgent" = "pi") 
     coordinator,
     engine,
     ingestion,
+    maybeGenerateAndRenameThreadTitleForFirstTurn: async (input) => {
+      firstTurnTitles.push(input);
+    },
     adoptProviderResumeCursor: async (cursor) => {
       if (hangNextAdoption) {
         adoptionStarted = true;
@@ -179,6 +184,7 @@ export function makeRuntimeEventsHarness(provider: "pi" | "claudeAgent" = "pi") 
     commands,
     events,
     adoptedCursors,
+    firstTurnTitles,
     runtime,
     invoke,
     getState: () => state,

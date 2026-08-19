@@ -38,8 +38,13 @@ export function useComposerSlashSelection(input: Input) {
       const { snapshot, trigger } = input.editorActions.resolveActiveComposerTrigger();
       if (!trigger) return;
 
-      if (item.command === "model" || item.command === "automation") {
-        const replacement = item.command === "model" ? "/model " : "/automation ";
+      if (item.command === "model" || item.command === "automation" || item.command === "goal") {
+        const replacement =
+          item.command === "model"
+            ? "/model "
+            : item.command === "automation"
+              ? "/automation "
+              : "/goal ";
         const replacementRangeEnd = extendReplacementRangeForTrailingSpace(
           snapshot.value,
           trigger.rangeEnd,
@@ -53,7 +58,7 @@ export function useComposerSlashSelection(input: Input) {
         );
         if (wasPromptReplacementApplied(applied)) {
           input.editorActions.setComposerHighlightedItemId(null);
-          if (item.command === "automation") input.editorActions.scheduleComposerFocus();
+          if (item.command !== "model") input.editorActions.scheduleComposerFocus();
         }
         return;
       }

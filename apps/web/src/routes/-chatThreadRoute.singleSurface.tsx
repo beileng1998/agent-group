@@ -6,6 +6,7 @@ import { Suspense } from "react";
 import { ChatPaneDropOverlay } from "../components/chat-drop-overlay/ChatPaneDropOverlay";
 import { ChatMountSkeleton, DeferredChatView } from "../components/chat/ChatRouteDeferredSurface";
 import { RightDock } from "../components/chat/RightDock";
+import { SidebarLeadingControls } from "../components/SidebarHeaderNavigationControls";
 import { RIGHT_DOCK_ADD_MENU_KINDS } from "../components/chat/rightDockPaneMeta";
 import {
   CHAT_BACKGROUND_CLASS_NAME,
@@ -145,6 +146,7 @@ export function SingleChatSurface(props: {
               diffFilesLoading={editor.diff.filesLoading}
               selectedDiffFilePath={editor.diff.panelState.diffFilePath ?? null}
               diffOptionsControl={editor.diff.optionsControl}
+              leadingControl={<SidebarLeadingControls />}
               onSelectDiffFile={editor.diff.selectFile}
               onSelectFile={editor.explorer.selectFile}
               onToggleDirectory={editor.explorer.toggleDirectory}

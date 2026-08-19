@@ -303,7 +303,7 @@ export function buildConfiguredContextWindowPayload(
     return undefined;
   }
   const config = asObject(event.payload.config);
-  const rawContextWindow = config?.contextWindow ?? config?.autoCompactWindow;
+  const rawContextWindow = config?.autoCompactWindow ?? config?.contextWindow;
   const configuredContextWindow = asString(rawContextWindow)?.trim().toLowerCase();
   const maxTokens =
     asPositiveFiniteNumber(rawContextWindow) ??

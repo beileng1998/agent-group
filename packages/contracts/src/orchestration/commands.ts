@@ -26,6 +26,7 @@ import {
   ThreadHandoffCreateCommand,
   ThreadHandoffImportedMessage,
   ThreadInteractionModeSetCommand,
+  ThreadKnowledgeChildCreateCommand,
   ThreadMarkerAddCommand,
   ThreadMarkerColorSetCommand,
   ThreadMarkerDoneSetCommand,
@@ -55,6 +56,7 @@ import {
   ThreadUserInputRespondCommand,
 } from "./turnCommandSchemas";
 import { TerminalAgentRuntimeFence } from "../terminalAgent";
+import { ThreadGoalContinuationTrigger } from "./goalSchemas";
 
 const DispatchableClientOrchestrationCommand = Schema.Union([
   ProjectCreateCommand,
@@ -64,6 +66,7 @@ const DispatchableClientOrchestrationCommand = Schema.Union([
   ThreadHandoffCreateCommand,
   ThreadForkCreateCommand,
   ThreadSidechatPromoteCommand,
+  ThreadKnowledgeChildCreateCommand,
   ThreadDeleteCommand,
   ThreadArchiveCommand,
   ThreadUnarchiveCommand,
@@ -100,6 +103,7 @@ export const ClientOrchestrationCommand = Schema.Union([
   ThreadHandoffCreateCommand,
   ThreadForkCreateCommand,
   ThreadSidechatPromoteCommand,
+  ThreadKnowledgeChildCreateCommand,
   ThreadDeleteCommand,
   ThreadArchiveCommand,
   ThreadUnarchiveCommand,
@@ -230,8 +234,19 @@ const ThreadConversationRollbackCompleteCommand = Schema.Struct({
   createdAt: IsoDateTime,
 });
 
+const ThreadGoalContinueCommand = Schema.Struct({
+  type: Schema.Literal("thread.goal.continue"),
+  commandId: CommandId,
+  threadId: ThreadId,
+  goalStartedAt: Schema.NullOr(IsoDateTime),
+  trigger: ThreadGoalContinuationTrigger,
+  sourceTurnId: Schema.optional(TurnId),
+  createdAt: IsoDateTime,
+});
+
 const InternalOrchestrationCommand = Schema.Union([
   ThreadSessionSetCommand,
+  ThreadGoalContinueCommand,
   ThreadMessagesImportCommand,
   ThreadMessageAssistantDeltaCommand,
   ThreadMessageAssistantCompleteCommand,

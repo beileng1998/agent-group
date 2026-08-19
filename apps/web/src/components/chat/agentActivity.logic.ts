@@ -48,15 +48,22 @@ export function isAgentActivityWorkEntry(entry: WorkLogEntry): boolean {
   return entry.itemType === "collab_agent_tool_call" || isReasoningUpdateWorkEntry(entry);
 }
 
+export function isUnmappedProviderEventWorkEntry(
+  entry: Pick<WorkLogEntry, "activityKind">,
+): boolean {
+  return entry.activityKind === "provider.event.unmapped";
+}
+
 export function formatAgentActivityEntryTitle(entry: WorkLogEntry): string {
   if (isReasoningUpdateWorkEntry(entry)) {
     return "Reasoning";
   }
   const heading = normalizeCompactToolLabel(entry.toolTitle ?? entry.label).trim();
-  if (!heading) {
-    return entry.itemType === "collab_agent_tool_call" ? "Agent task" : "Activity";
+  if (heading) return capitalizePhrase(heading);
+  if (isUnmappedProviderEventWorkEntry(entry) && entry.nativeEventType) {
+    return capitalizePhrase(entry.nativeEventType);
   }
-  return capitalizePhrase(heading);
+  return entry.itemType === "collab_agent_tool_call" ? "Agent task" : "Activity";
 }
 
 export function formatAgentActivityEntryPreview(entry: WorkLogEntry): string | null {

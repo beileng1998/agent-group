@@ -1,10 +1,11 @@
 import { TurnId, type ModelCapabilities, type ProviderRuntimeEvent } from "@agent-group/contracts";
 import { resolveApiModelId } from "@agent-group/shared/model";
-import { Deferred, Effect, FileSystem, Queue, Random } from "effect";
+import { Effect, FileSystem, Queue, Random } from "effect";
 
 import type { ClaudeSessionContext, ClaudeTurnState } from "./claudeAdapterRuntime.ts";
 import { toRequestError } from "./claudeAdapterErrors.ts";
 import { buildUserMessageEffect } from "./claudePromptInput.ts";
+import type { ClaudePendingInteractions } from "./claudePendingInteractions.ts";
 import { hasOnlyCompletedClaudeTasks, hasUnfinishedClaudeTasks } from "./claudeTaskTracker.ts";
 import {
   resolveClaudeApiModelIdContextWindowMaxTokens,
@@ -33,6 +34,8 @@ export function makeClaudeTurnController(input: {
   readonly makeEventStamp: () => Effect.Effect<Pick<ProviderRuntimeEvent, "eventId" | "createdAt">>;
   readonly nowIso: Effect.Effect<string>;
   readonly offerRuntimeEvent: (event: ProviderRuntimeEvent) => Effect.Effect<void>;
+  readonly settlePendingApproval: ClaudePendingInteractions["settleApproval"];
+  readonly settlePendingUserInput: ClaudePendingInteractions["settleUserInput"];
   readonly requireSession: (
     threadId: Parameters<ClaudeAdapterShape["hasSession"]>[0],
   ) => Effect.Effect<ClaudeSessionContext, ProviderAdapterError>;
@@ -195,6 +198,7 @@ export function makeClaudeTurnController(input: {
       };
       const updatedAt = yield* input.nowIso;
       context.turnState = turnState;
+      context.lastTurnId = turnId;
       context.session = {
         ...context.session,
         status: "running",
@@ -295,8 +299,7 @@ export function makeClaudeTurnController(input: {
           detail: `Unknown pending approval request: ${requestId}`,
         });
       }
-      context.pendingApprovals.delete(requestId);
-      yield* Deferred.succeed(pending.decision, decision);
+      yield* input.settlePendingApproval(context, requestId, pending, decision);
     });
 
   const respondToUserInput: ClaudeAdapterShape["respondToUserInput"] = (
@@ -314,8 +317,10 @@ export function makeClaudeTurnController(input: {
           detail: `Unknown pending user-input request: ${requestId}`,
         });
       }
-      context.pendingUserInputs.delete(requestId);
-      yield* Deferred.succeed(pending.answers, answers);
+      yield* input.settlePendingUserInput(context, requestId, pending, {
+        answers,
+        cancelled: false,
+      });
     });
 
   const stopSession: ClaudeAdapterShape["stopSession"] = (threadId) =>

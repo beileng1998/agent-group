@@ -13,6 +13,7 @@ import {
   toPersistenceSqlError,
 } from "../../../persistence/Errors.ts";
 import type { ProjectionSnapshotQueryShape } from "../../Services/ProjectionSnapshotQuery.ts";
+import { omitChildTurnRows } from "./childTurnIsolation.ts";
 import { computeSnapshotSequence } from "./projectionSnapshotCollections.ts";
 import { decodeThreadDetail, decodeThreadDetailSnapshot } from "./projectionSnapshotDecoders.ts";
 import { toPersistenceSqlOrDecodeError } from "./projectionSnapshotErrors.ts";
@@ -42,6 +43,7 @@ export function makeThreadOperations(input: {
     listThreadActivityRowsByThread,
     listCheckpointRowsByThread,
     getLatestTurnRowByThread,
+    listChildTurnIdRowsByParent,
     getThreadSessionRowByThread,
     listProjectionStateRows,
   } = queries;
@@ -78,6 +80,7 @@ export function makeThreadOperations(input: {
         checkpointRows,
         latestTurnRow,
         sessionRow,
+        childTurnIdRows,
       ] = yield* Effect.all([
         listThreadMessageRowsByThread({ threadId, maxMessages: options.messageLimit }).pipe(
           Effect.mapError(
@@ -127,18 +130,35 @@ export function makeThreadOperations(input: {
             ),
           ),
         ),
+        listChildTurnIdRowsByParent({ threadId }).pipe(
+          Effect.mapError(
+            toPersistenceSqlOrDecodeError(
+              `${options.tracePrefix}:listChildTurns:query`,
+              `${options.tracePrefix}:listChildTurns:decodeRows`,
+            ),
+          ),
+        ),
       ]);
 
+      const childTurnIds = new Set(childTurnIdRows.map((row) => row.turnId));
       const thread = toProjectedThread({
         threadRow: threadRow.value,
         latestTurn: Option.match(latestTurnRow, {
           onNone: () => null,
           onSome: (row) => toProjectedLatestTurn(row),
         }),
-        messages: messageRows.map((row) => toProjectedMessage(row)),
-        proposedPlans: proposedPlanRows.map((row) => toProjectedProposedPlan(row)),
-        activities: activityRows.map((row) => toProjectedActivity(row)),
-        checkpoints: checkpointRows.map((row) => toProjectedCheckpoint(row)),
+        messages: omitChildTurnRows(messageRows, childTurnIds).map((row) =>
+          toProjectedMessage(row),
+        ),
+        proposedPlans: omitChildTurnRows(proposedPlanRows, childTurnIds).map((row) =>
+          toProjectedProposedPlan(row),
+        ),
+        activities: omitChildTurnRows(activityRows, childTurnIds).map((row) =>
+          toProjectedActivity(row),
+        ),
+        checkpoints: omitChildTurnRows(checkpointRows, childTurnIds).map((row) =>
+          toProjectedCheckpoint(row),
+        ),
         session: Option.match(sessionRow, {
           onNone: () => null,
           onSome: (row) => toProjectedSession(row),

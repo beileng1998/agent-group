@@ -3,6 +3,7 @@
 // Layer: Web composer application logic
 
 import { TEMPORARY_SIDECHAT_PLACEHOLDER_TITLE } from "@agent-group/shared/agentGroupSessions";
+import { buildPromotedLearningContext } from "@agent-group/shared/learningContext";
 import { deriveAssociatedWorktreeMetadata } from "@agent-group/shared/threadWorkspace";
 import { useCallback, useEffect } from "react";
 import { toastManager } from "../../components/ui/toast";
@@ -13,6 +14,11 @@ import {
 import { useComposerDraftStore } from "../../composerDraftStore";
 import { requestComposerFocus } from "../../composerFocusRequestStore";
 import { createAssistantSelectionAttachment } from "../../lib/assistantSelections";
+import {
+  registerKnowledgeChildCreator,
+  type KnowledgeChildCreatorOptions,
+} from "../../lib/knowledgeChildCreatorRegistry";
+import { buildKnowledgeSourceImportedMessage } from "../../lib/knowledgeSidechat";
 import { buildSidechatInitialMessage } from "../../lib/sidechatCreation";
 import {
   registerSidechatCreator,
@@ -121,6 +127,8 @@ export function useComposerSlashThreadActions(input: Input) {
         prompt: initialPrompt,
         ...(selection ? { selection } : {}),
       });
+      const createdAt = new Date().toISOString();
+      const importedMessages = [...buildThreadHandoffImportedMessages(input.activeThread)];
       await api.orchestration.dispatchCommand({
         type: "thread.fork.create",
         commandId: newCommandId(),
@@ -139,8 +147,8 @@ export function useComposerSlashThreadActions(input: Input) {
         associatedWorktreePath: input.activeThread.associatedWorktreePath ?? null,
         associatedWorktreeBranch: input.activeThread.associatedWorktreeBranch ?? null,
         associatedWorktreeRef: input.activeThread.associatedWorktreeRef ?? null,
-        importedMessages: [...buildThreadHandoffImportedMessages(input.activeThread)],
-        createdAt: new Date().toISOString(),
+        importedMessages,
+        createdAt,
       });
 
       const snapshot = await api.orchestration.getShellSnapshot().catch(() => null);
@@ -178,6 +186,7 @@ export function useComposerSlashThreadActions(input: Input) {
           throw error;
         }
       }
+      options?.onCreated?.(nextThreadId);
       return true;
     },
     [
@@ -190,10 +199,110 @@ export function useComposerSlashThreadActions(input: Input) {
     ],
   );
 
+  const createKnowledgeChildFromCard = useCallback(
+    async (options: KnowledgeChildCreatorOptions) => {
+      const api = readNativeApi();
+      if (!api || !input.activeProject || !input.activeThread || !input.canCreateSidechat) {
+        toastManager.add({
+          type: "warning",
+          title: "Side is unavailable",
+          description: "Open a server-backed main thread before starting Side.",
+        });
+        return true;
+      }
+
+      const nextThreadId = newThreadId();
+      const createdAt = new Date().toISOString();
+      const importedMessages = [
+        ...buildThreadHandoffImportedMessages(input.activeThread),
+        buildKnowledgeSourceImportedMessage(options.origin, createdAt),
+      ];
+      await api.orchestration.dispatchCommand({
+        type: "thread.knowledge-child.create",
+        commandId: newCommandId(),
+        threadId: nextThreadId,
+        sourceThreadId: input.activeThread.id,
+        projectId: input.activeProject.id,
+        title: options.origin.cardTitle.trim() || "Knowledge child",
+        modelSelection: input.selectedModelSelection,
+        runtimeMode: input.runtimeMode,
+        interactionMode: input.interactionMode,
+        envMode:
+          input.activeThread.envMode ?? (input.activeThread.worktreePath ? "worktree" : "local"),
+        branch: input.activeThread.branch,
+        worktreePath: input.activeThread.worktreePath,
+        associatedWorktreePath: input.activeThread.associatedWorktreePath ?? null,
+        associatedWorktreeBranch: input.activeThread.associatedWorktreeBranch ?? null,
+        associatedWorktreeRef: input.activeThread.associatedWorktreeRef ?? null,
+        importedMessages,
+        createdAt,
+      });
+
+      const snapshot = await api.orchestration.getShellSnapshot().catch(() => null);
+      if (snapshot) input.syncServerShellSnapshot(snapshot);
+
+      try {
+        const created = await api.agentGroup.getSession({ sessionId: nextThreadId });
+        const withOrigin = await api.agentGroup.updateSession({
+          sessionId: nextThreadId,
+          learningOrigin: options.origin,
+          expectedRevision: created.config.revision,
+        });
+        await api.agentGroup.writeContext({
+          sessionId: nextThreadId,
+          context: buildPromotedLearningContext({
+            goal: options.origin.selectedText ?? options.origin.cardTitle,
+            sourceTitle: options.origin.cardTitle,
+          }),
+          expectedRevision: withOrigin.contextRevision,
+        });
+      } catch (error) {
+        toastManager.add({
+          type: "warning",
+          title: "Child session created, but Learning context could not be initialized",
+          description: error instanceof Error ? error.message : undefined,
+        });
+      }
+
+      useRightDockStore.getState().openPane(input.activeThread.id, {
+        kind: "sidechat",
+        threadId: nextThreadId,
+      });
+      requestComposerFocus(nextThreadId);
+      options.onCreated?.(nextThreadId);
+      return true;
+    },
+    [
+      input.activeProject,
+      input.activeThread,
+      input.canCreateSidechat,
+      input.interactionMode,
+      input.runtimeMode,
+      input.selectedModelSelection,
+      input.syncServerShellSnapshot,
+    ],
+  );
+
   useEffect(() => {
     if (!input.canCreateSidechat) return;
-    return registerSidechatCreator(input.threadId, createSidechatFromSlashCommand);
-  }, [input.canCreateSidechat, createSidechatFromSlashCommand, input.threadId]);
+    const unregisterSidechat = registerSidechatCreator(
+      input.threadId,
+      createSidechatFromSlashCommand,
+    );
+    const unregisterKnowledgeChild = registerKnowledgeChildCreator(
+      input.threadId,
+      createKnowledgeChildFromCard,
+    );
+    return () => {
+      unregisterSidechat();
+      unregisterKnowledgeChild();
+    };
+  }, [
+    input.canCreateSidechat,
+    createKnowledgeChildFromCard,
+    createSidechatFromSlashCommand,
+    input.threadId,
+  ]);
 
   const runCodexReviewStart = useCallback(
     async (target: "changes" | "base-branch") => {

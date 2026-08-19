@@ -185,6 +185,10 @@
       "types": "./src/contextTemplates.ts",
       "import": "./src/contextTemplates.ts"
     },
+    "./learningContext": {
+      "types": "./src/learningContext.ts",
+      "import": "./src/learningContext.ts"
+    },
     "./agentGroupSessions": {
       "types": "./src/agentGroupSessions.ts",
       "import": "./src/agentGroupSessions.ts"
@@ -192,6 +196,10 @@
     "./agentGroupPrompt": {
       "types": "./src/agentGroupPrompt.ts",
       "import": "./src/agentGroupPrompt.ts"
+    },
+    "./goalSettlement": {
+      "types": "./src/goalSettlement.ts",
+      "import": "./src/goalSettlement.ts"
     }
   },
   "scripts": {

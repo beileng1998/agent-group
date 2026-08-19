@@ -75,6 +75,7 @@ function shouldKeepBuiltInSlashCommandDespiteNativeCollision(
   return (
     command === "automation" ||
     command === "export" ||
+    command === "goal" ||
     (provider === "codex" && command === "review")
   );
 }
@@ -88,6 +89,7 @@ export function shouldHideProviderNativeCommandFromComposerMenu(
   const appCommandIsAvailable = options.availableAppCommands?.has(normalizedCommand) ?? true;
   return (
     normalizedCommand === "automation" ||
+    (normalizedCommand === "goal" && appCommandIsAvailable) ||
     (normalizedCommand === "export" && appCommandIsAvailable) ||
     (provider === "codex" && normalizedCommand === "review")
   );
@@ -181,6 +183,12 @@ const COMPOSER_SLASH_COMMAND_DEFINITIONS: Record<
     command: "automation",
     label: "/automation",
     description: "Create a scheduled automation from this prompt",
+    source: "app",
+  },
+  goal: {
+    command: "goal",
+    label: "/goal",
+    description: "Set, pause, resume, or complete a persistent goal",
     source: "app",
   },
 };
@@ -384,6 +392,7 @@ export function getAvailableComposerSlashCommands(input: {
           "subagents",
           ...(input.canOfferExportCommand ? (["export"] as const) : []),
           "automation",
+          "goal",
         ]
       : [
           // Claude owns most slash-command UX natively; sidechat remains app-level because it
@@ -393,6 +402,7 @@ export function getAvailableComposerSlashCommands(input: {
           ...(input.canOfferSideCommand ? (["side"] as const) : []),
           ...(input.canOfferExportCommand ? (["export"] as const) : []),
           "automation",
+          "goal",
         ];
   return availableCommands.filter((command) => !collidingNativeCommandNames.has(command));
 }

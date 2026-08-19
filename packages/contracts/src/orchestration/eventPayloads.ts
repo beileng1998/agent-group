@@ -15,6 +15,12 @@ import { MessageMentionReference, ProviderSkillReference } from "../providerDisc
 import { ProjectKind } from "../project";
 import { ChatAttachment } from "./attachments";
 import {
+  ThreadGoal,
+  ThreadGoalAchievements,
+  ThreadGoalContinuationTrigger,
+  ThreadGoalStartBehavior,
+} from "./goalSchemas";
+import {
   AssistantDeliveryMode,
   DEFAULT_PROVIDER_INTERACTION_MODE,
   DEFAULT_RUNTIME_MODE,
@@ -80,6 +86,7 @@ export const OrchestrationEventType = Schema.Literals([
   "thread.message-sent",
   "thread.turn-queued",
   "thread.turn-start-requested",
+  "thread.goal-continuation-requested",
   "thread.turn-interrupt-requested",
   "thread.approval-response-requested",
   "thread.user-input-response-requested",
@@ -219,6 +226,11 @@ export const ThreadMetaUpdatedPayload = Schema.Struct({
   pinnedMessages: Schema.optional(ThreadPinnedMessages),
   threadMarkers: Schema.optional(ThreadMarkers),
   notes: Schema.optional(ThreadNotes),
+  goal: Schema.optional(ThreadGoal),
+  goalStartBehavior: Schema.optional(ThreadGoalStartBehavior),
+  goalStartedAt: Schema.optional(Schema.NullOr(IsoDateTime)),
+  goalPausedAt: Schema.optional(Schema.NullOr(IsoDateTime)),
+  goalAchievements: Schema.optional(ThreadGoalAchievements),
   updatedAt: IsoDateTime,
 });
 
@@ -296,6 +308,7 @@ export const ThreadRuntimeModeSetPayload = Schema.Struct({
 
 export const ThreadInteractionModeSetPayload = Schema.Struct({
   threadId: ThreadId,
+  previousInteractionMode: Schema.optional(ProviderInteractionMode),
   interactionMode: ProviderInteractionMode.pipe(
     Schema.withDecodingDefault(() => DEFAULT_PROVIDER_INTERACTION_MODE),
   ),
@@ -336,6 +349,14 @@ export const ThreadTurnStartRequestedPayload = Schema.Struct({
 });
 
 export const ThreadTurnQueuedPayload = ThreadTurnStartRequestedPayload;
+
+export const ThreadGoalContinuationRequestedPayload = Schema.Struct({
+  threadId: ThreadId,
+  goalStartedAt: Schema.NullOr(IsoDateTime),
+  trigger: ThreadGoalContinuationTrigger,
+  sourceTurnId: Schema.optional(TurnId),
+  createdAt: IsoDateTime,
+});
 
 export const ThreadTurnInterruptRequestedPayload = Schema.Struct({
   threadId: ThreadId,

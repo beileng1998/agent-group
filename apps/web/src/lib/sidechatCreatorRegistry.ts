@@ -14,6 +14,7 @@ import type { SidechatTextSelection } from "./sidechatCreation";
 export interface SidechatCreatorOptions {
   initialPrompt?: string;
   selection?: SidechatTextSelection;
+  onCreated?: (threadId: ThreadId) => void;
 }
 
 export type SidechatCreator = (options?: SidechatCreatorOptions) => Promise<unknown>;

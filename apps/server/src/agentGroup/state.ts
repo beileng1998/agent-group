@@ -14,6 +14,14 @@ import {
   existingPathState,
   isNodeError,
 } from "./filesystem";
+import {
+  type StoredKnowledgeAcknowledgement,
+  type StoredKnowledgeLink,
+  type StoredLearningOrigin,
+  validateKnowledgeAcknowledgements,
+  validateKnowledgeLinks,
+  validateLearningOrigin,
+} from "./sessionLearningState";
 
 const MAX_CONTEXT_BYTES = 1024 * 1024;
 const MAX_STATE_BYTES = 4 * 1024 * 1024;
@@ -36,6 +44,9 @@ export interface StoredSessionState {
   activeContextTurnId: string | null;
   activeContextAwarenessHead: string | null;
   activeContextRuntimeId: string | null;
+  knowledgeAcknowledgements: StoredKnowledgeAcknowledgement[];
+  knowledgeLinks: StoredKnowledgeLink[];
+  learningOrigin: StoredLearningOrigin | null;
 }
 
 export interface StoredGroupState {
@@ -211,6 +222,9 @@ export async function ensureSession(
       activeContextTurnId: null,
       activeContextAwarenessHead: null,
       activeContextRuntimeId: null,
+      knowledgeAcknowledgements: [],
+      knowledgeLinks: [],
+      learningOrigin: null,
     };
     state.sessions[input.sessionId] = session;
     state.revision += 1;
@@ -303,6 +317,12 @@ function validateStoredGroupState(input: unknown): StoredGroupState {
       value.activeContextAwarenessHead === undefined ? null : value.activeContextAwarenessHead;
     const activeContextRuntimeId =
       value.activeContextRuntimeId === undefined ? null : value.activeContextRuntimeId;
+    const knowledgeAcknowledgements = validateKnowledgeAcknowledgements(
+      value.knowledgeAcknowledgements,
+      sessionId,
+    );
+    const knowledgeLinks = validateKnowledgeLinks(value.knowledgeLinks, sessionId);
+    const learningOrigin = validateLearningOrigin(value.learningOrigin, sessionId);
     if (parentSessionId !== null && typeof parentSessionId !== "string") {
       throw new Error(`Invalid parent session for '${sessionId}'`);
     }
@@ -330,6 +350,9 @@ function validateStoredGroupState(input: unknown): StoredGroupState {
       activeContextTurnId,
       activeContextAwarenessHead,
       activeContextRuntimeId,
+      knowledgeAcknowledgements,
+      knowledgeLinks,
+      learningOrigin,
     };
   }
 

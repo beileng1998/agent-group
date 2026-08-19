@@ -43,6 +43,7 @@ export const AGENT_GROUP_APP_SLASH_COMMANDS: ReadonlySet<string> = new Set([
   "status",
   "subagents",
   "side",
+  "goal",
 ]);
 
 export const AGENT_GROUP_DOCK_KINDS = [

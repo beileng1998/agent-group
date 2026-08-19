@@ -867,7 +867,7 @@ describe("deriveMessagesTimelineRows", () => {
   const collapsedSignature = (row: MessageTimelineRow): string[] =>
     (row.collapsedTurnItems ?? []).map((item) => `${item.kind}:${String(item.id)}`);
 
-  it("keeps settled narration visible while folding work onto the terminal message", () => {
+  it("folds settled process narration and work onto the terminal message", () => {
     const rows = deriveMessagesTimelineRows({
       ...baseInput,
       timelineEntries: [
@@ -895,12 +895,18 @@ describe("deriveMessagesTimelineRows", () => {
     const visibleMessageIds = rows
       .filter((row): row is MessageTimelineRow => row.kind === "message")
       .map((row) => String(row.message.id));
-    expect(visibleMessageIds).toEqual(["u1", "a1", "a2", "a3"]);
+    expect(visibleMessageIds).toEqual(["u1", "a3"]);
 
     const terminal = messageRow(rows, "a3");
     expect(terminal).toBeDefined();
-    expect(collapsedSignature(terminal!)).toEqual(["work:w1", "work:w2"]);
-    expect(messageRow(rows, "a2")?.leadingWorkEntries).toBeUndefined();
+    expect(collapsedSignature(terminal!)).toEqual([
+      "assistant-message:a1",
+      "work:w1",
+      "assistant-message:a2",
+      "work:w2",
+    ]);
+    expect(messageRow(rows, "a1")).toBeUndefined();
+    expect(messageRow(rows, "a2")).toBeUndefined();
     expect(terminal!.inlineWorkEntries).toBeUndefined();
     // Timed from the user message, not from the last intermediate narration.
     expect(terminal!.collapsedWorkElapsed).toBe("6.0s");
@@ -960,8 +966,8 @@ describe("deriveMessagesTimelineRows", () => {
 
     const terminal = messageRow(rows, "a2");
     expect(terminal).toBeDefined();
-    expect(collapsedSignature(terminal!)).toEqual(["work:w1", "work:w2"]);
-    expect(messageRow(rows, "a1")).toBeDefined();
+    expect(collapsedSignature(terminal!)).toEqual(["work:w1", "assistant-message:a1", "work:w2"]);
+    expect(messageRow(rows, "a1")).toBeUndefined();
     expect(terminal!.collapsedWorkElapsed).toBe("23m");
   });
 
@@ -1074,7 +1080,7 @@ describe("deriveMessagesTimelineRows", () => {
     expect(rows.some((row) => row.kind === "work")).toBe(false);
   });
 
-  it("keeps adjacent provider mini-turn narration visible while grouping its work", () => {
+  it("folds adjacent provider mini-turn narration into the final disclosure", () => {
     const rows = deriveMessagesTimelineRows({
       ...baseInput,
       timelineEntries: [
@@ -1107,9 +1113,15 @@ describe("deriveMessagesTimelineRows", () => {
     const visibleMessageIds = rows
       .filter((row): row is MessageTimelineRow => row.kind === "message")
       .map((row) => String(row.message.id));
-    expect(visibleMessageIds).toEqual(["u1", "a1", "a2", "a3", "a4"]);
+    expect(visibleMessageIds).toEqual(["u1", "a4"]);
 
-    expect(collapsedSignature(messageRow(rows, "a4")!)).toEqual(["work:w1", "work:w2"]);
+    expect(collapsedSignature(messageRow(rows, "a4")!)).toEqual([
+      "assistant-message:a1",
+      "work:w1",
+      "assistant-message:a2",
+      "assistant-message:a3",
+      "work:w2",
+    ]);
   });
 
   it("collapses turn work across an intervening proposed plan card", () => {
@@ -1133,8 +1145,11 @@ describe("deriveMessagesTimelineRows", () => {
     });
 
     expect(rows.some((row) => row.kind === "proposed-plan")).toBe(true);
-    expect(messageRow(rows, "a1")).toBeDefined();
-    expect(collapsedSignature(messageRow(rows, "a2")!)).toEqual(["work:w1"]);
+    expect(messageRow(rows, "a1")).toBeUndefined();
+    expect(collapsedSignature(messageRow(rows, "a2")!)).toEqual([
+      "assistant-message:a1",
+      "work:w1",
+    ]);
   });
 
   const worktreeSetupSnapshot = (): WorktreeSetupSnapshot => ({

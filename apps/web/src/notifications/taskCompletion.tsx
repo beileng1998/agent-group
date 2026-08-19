@@ -17,14 +17,21 @@ import { createAllThreadsSelector } from "../storeSelectors";
 import { useTerminalStateStore } from "../terminalStateStore";
 import type { Thread } from "../types";
 import {
+  buildGoalCompletionCopy,
+  collectCompletedGoalCandidates,
+  completedGoalNotificationKey,
+} from "./goalCompletion";
+import {
   buildTerminalAttentionCopy,
   buildTerminalCompletionCopy,
   buildInputNeededCopy,
   buildTaskCompletionCopy,
   collectCompletedThreadCandidates,
+  completedThreadNotificationKey,
   collectCompletedTerminalCandidates,
   collectInputNeededThreadCandidates,
   collectTerminalAttentionCandidates,
+  excludeRuntimeSubagentCompletionCandidates,
   excludeTemporarySidechatNotificationCandidates,
   isNotificationRuntimeFreshTimestamp,
   shouldShowThreadNotificationToast,
@@ -159,6 +166,8 @@ export function TaskCompletionNotifications() {
   const previousTerminalStateRef = useRef(terminalStateByThreadId);
   const runtimeStartedAtMsRef = useRef(Date.now());
   const readyRef = useRef(false);
+  const notifiedCompletionKeysRef = useRef(new Set<string>());
+  const notifiedGoalCompletionKeysRef = useRef(new Set<string>());
 
   useEffect(() => {
     const onMenuAction = window.desktopBridge?.onMenuAction;
@@ -198,14 +207,41 @@ export function TaskCompletionNotifications() {
     // Keep the previous snapshot as fallback for late terminal events from a sidechat
     // that was just discarded. Current thread metadata wins when a sidechat was promoted.
     const notificationPolicyThreads = [...previousThreadsRef.current, ...threads];
-    const completions = excludeTemporarySidechatNotificationCandidates(
-      collectCompletedThreadCandidates(previousThreadsRef.current, threads).filter((candidate) =>
-        isNotificationRuntimeFreshTimestamp(candidate.completedAt, runtimeStartedAtMsRef.current),
+    const completions = excludeRuntimeSubagentCompletionCandidates(
+      excludeTemporarySidechatNotificationCandidates(
+        collectCompletedThreadCandidates(previousThreadsRef.current, threads).filter(
+          (candidate) =>
+            isNotificationRuntimeFreshTimestamp(
+              candidate.completedAt,
+              runtimeStartedAtMsRef.current,
+            ) && !notifiedCompletionKeysRef.current.has(completedThreadNotificationKey(candidate)),
+        ),
+        notificationPolicyThreads,
       ),
       notificationPolicyThreads,
     );
-    const terminalCompletions = excludeTemporarySidechatNotificationCandidates(
-      collectCompletedTerminalCandidates(previousTerminalStateRef.current, terminalStateByThreadId),
+    const terminalCompletions = excludeRuntimeSubagentCompletionCandidates(
+      excludeTemporarySidechatNotificationCandidates(
+        collectCompletedTerminalCandidates(
+          previousTerminalStateRef.current,
+          terminalStateByThreadId,
+        ),
+        notificationPolicyThreads,
+      ),
+      notificationPolicyThreads,
+    );
+    const goalCompletions = excludeRuntimeSubagentCompletionCandidates(
+      excludeTemporarySidechatNotificationCandidates(
+        collectCompletedGoalCandidates(previousThreadsRef.current, threads).filter(
+          (candidate) =>
+            isNotificationRuntimeFreshTimestamp(
+              candidate.achievedAt,
+              runtimeStartedAtMsRef.current,
+            ) &&
+            !notifiedGoalCompletionKeysRef.current.has(completedGoalNotificationKey(candidate)),
+        ),
+        notificationPolicyThreads,
+      ),
       notificationPolicyThreads,
     );
     const inputNeededCandidates = excludeTemporarySidechatNotificationCandidates(
@@ -223,6 +259,7 @@ export function TaskCompletionNotifications() {
 
     if (
       completions.length === 0 &&
+      goalCompletions.length === 0 &&
       inputNeededCandidates.length === 0 &&
       terminalCompletions.length === 0 &&
       terminalAttentionCandidates.length === 0
@@ -235,6 +272,7 @@ export function TaskCompletionNotifications() {
       (window.desktopBridge ? true : !isWindowForeground());
 
     for (const completion of completions) {
+      notifiedCompletionKeysRef.current.add(completedThreadNotificationKey(completion));
       const copy = buildTaskCompletionCopy(completion);
       if (
         settings.enableTaskCompletionToasts &&
@@ -246,6 +284,23 @@ export function TaskCompletionNotifications() {
         showThreadToast(copy, completion.threadId, "success", navigate);
       }
 
+      if (shouldAttemptSystemNotification) {
+        void showSystemThreadNotification(copy, completion.threadId, navigate);
+      }
+    }
+
+    for (const completion of goalCompletions) {
+      notifiedGoalCompletionKeysRef.current.add(completedGoalNotificationKey(completion));
+      const copy = buildGoalCompletionCopy(completion);
+      if (
+        settings.enableTaskCompletionToasts &&
+        shouldShowThreadNotificationToast({
+          threadId: completion.threadId,
+          visibleThreadIds,
+        })
+      ) {
+        showThreadToast(copy, completion.threadId, "success", navigate);
+      }
       if (shouldAttemptSystemNotification) {
         void showSystemThreadNotification(copy, completion.threadId, navigate);
       }

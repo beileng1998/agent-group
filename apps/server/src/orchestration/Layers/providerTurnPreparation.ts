@@ -44,6 +44,7 @@ import {
   wrapSidechatInput,
 } from "./providerTurnPrompt.ts";
 import { ProviderAdapterRequestError } from "../../provider/Errors.ts";
+import { activeThreadGoal, withProviderGoalPrompt } from "../../provider/providerGoalMode.ts";
 
 export interface ProviderTurnDispatchInput {
   readonly threadId: ThreadId;
@@ -58,6 +59,7 @@ export interface ProviderTurnDispatchInput {
   readonly runtimeMode?: RuntimeMode;
   readonly interactionMode?: "default" | "plan";
   readonly dispatchMode?: "queue" | "steer";
+  readonly turnKind?: "user" | "goal-continuation";
   readonly createdAt: string;
 }
 
@@ -172,13 +174,20 @@ export function makeProviderTurnPreparation<
       dependencies.recordModelSelection(input.threadId, input.modelSelection);
     }
 
-    const boundaryMessageText =
+    const rawBoundaryMessageText =
       agentGroupTurn?.prompt ??
       (thread.sidechatSourceThreadId ? wrapSidechatInput(input.messageText) : input.messageText);
+    const goal = activeThreadGoal(thread);
+    const boundaryMessageText = withProviderGoalPrompt({
+      text: rawBoundaryMessageText,
+      ...(goal ? { goal } : {}),
+    });
+    const transcriptBoundaryMessageId =
+      input.turnKind === "goal-continuation" ? undefined : input.messageId;
     const shouldBootstrapHandoff =
       agentGroupTurn === null &&
       thread.handoff?.bootstrapStatus === "pending" &&
-      !hasNativeAssistantMessagesBefore(thread, input.messageId);
+      !hasNativeAssistantMessagesBefore(thread, transcriptBoundaryMessageId);
     const handoffBootstrapAvailableChars = availableProviderContextChars({
       tag: "handoff_context",
       messageText: boundaryMessageText,
@@ -192,13 +201,20 @@ export function makeProviderTurnPreparation<
       dependencies.getSessionModelSelection(input.threadId)?.provider ??
       thread.session?.providerName ??
       thread.modelSelection.provider) as ProviderKind;
+    if (goal && boundaryMessageText.length > PROVIDER_SEND_TURN_MAX_INPUT_CHARS) {
+      return yield* new ProviderAdapterRequestError({
+        provider: selectedProvider,
+        method: "thread.turn.start",
+        detail: "The message is too long to include the persistent goal. Shorten it and retry.",
+      });
+    }
     const hasPendingPriorTranscriptBootstrap =
       dependencies.bootstrapState.hasPendingPriorTranscript(input.threadId);
     const shouldBootstrapSidechatContext =
       agentGroupTurn === null &&
       thread.sidechatSourceThreadId !== null &&
       dependencies.bootstrapState.hasSidechat(input.threadId) &&
-      !hasNativeAssistantMessagesBefore(thread, input.messageId) &&
+      !hasNativeAssistantMessagesBefore(thread, transcriptBoundaryMessageId) &&
       !shouldBootstrapHandoff &&
       !hasPendingPriorTranscriptBootstrap;
     const sidechatBootstrapAvailableChars = availableProviderContextChars({
@@ -234,7 +250,7 @@ export function makeProviderTurnPreparation<
       !shouldBootstrapSidechatContext;
     const hasPriorTranscriptBootstrapContent =
       shouldBootstrapPriorTranscriptContext &&
-      listPriorTranscriptMessages(thread, input.messageId).length > 0;
+      listPriorTranscriptMessages(thread, transcriptBoundaryMessageId).length > 0;
     const priorTranscriptBootstrapAvailableChars = availableProviderContextChars({
       tag: "thread_context",
       messageText: boundaryMessageText,
@@ -258,7 +274,7 @@ export function makeProviderTurnPreparation<
       shouldBootstrapPriorTranscriptContext && priorTranscriptBootstrapAvailableChars > 0
         ? buildPriorTranscriptBootstrapText(
             thread,
-            input.messageId,
+            transcriptBoundaryMessageId,
             priorTranscriptBootstrapAvailableChars,
           )
         : null;

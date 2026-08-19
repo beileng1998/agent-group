@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { excludeTemporarySidechatNotificationCandidates } from "./taskCompletion.logic";
+import {
+  excludeRuntimeSubagentCompletionCandidates,
+  excludeTemporarySidechatNotificationCandidates,
+} from "./taskCompletion.logic";
 
 describe("sidechat notification policy", () => {
   it("silences temporary sidechats but keeps regular and promoted Sessions", () => {
@@ -42,5 +45,23 @@ describe("sidechat notification policy", () => {
         },
       ]),
     ).toEqual(candidate);
+  });
+});
+
+describe("runtime subagent completion policy", () => {
+  it("keeps parent Sessions quiet when their runtime subagents settle", () => {
+    const candidates = [
+      { threadId: "main" },
+      { threadId: "subagent:main:provider-1" },
+      { threadId: "metadata-subagent" },
+    ];
+
+    expect(
+      excludeRuntimeSubagentCompletionCandidates(candidates, [
+        { id: "main" },
+        { id: "subagent:main:provider-1", parentThreadId: "main" },
+        { id: "metadata-subagent", parentThreadId: "main", subagentAgentId: "reviewer" },
+      ]),
+    ).toEqual([{ threadId: "main" }]);
   });
 });

@@ -53,6 +53,7 @@ export interface ChatTimelineOwnerInput {
     readonly timelineEntries: DiffInput["timelineEntries"];
     readonly workLogEntries: DiffInput["workLogEntries"];
     readonly latestTurnId: DiffInput["latestTurnId"];
+    readonly activeTurnInProgress: ScrollInput["activeTurnInProgress"];
     readonly composerStackedChromeHeight: ScrollInput["composerStackedChromeHeight"];
     readonly inactiveSplitPane: boolean;
     readonly pendingUserInputCount: number;
@@ -133,6 +134,7 @@ export function useChatTimelineOwner(input: ChatTimelineOwnerInput) {
   const scroll = useTranscriptScrollController({
     threadId: input.thread.id,
     activeThreadId: input.thread.activeId,
+    activeTurnInProgress: input.runtime.activeTurnInProgress,
     composerStackedChromeHeight: input.runtime.composerStackedChromeHeight,
     timelineEntries,
   });

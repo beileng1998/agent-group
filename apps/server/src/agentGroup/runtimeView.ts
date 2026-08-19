@@ -6,6 +6,10 @@ import {
   type AgentGroupServerSettings,
   type AgentGroupSessionDocument,
 } from "@agent-group/contracts";
+import {
+  resolveContextTemplateById,
+  LEARNING_CONTEXT_TEMPLATE_ID,
+} from "@agent-group/shared/learningContext";
 
 import {
   type AgentGroupLayout,
@@ -28,8 +32,8 @@ export function resolveContextTemplate(
 ): string {
   if (!state.contextTemplateId) return state.contextTemplate;
   return (
-    globalSettings.contextTemplates.find((template) => template.id === state.contextTemplateId)
-      ?.content ?? state.contextTemplate
+    resolveContextTemplateById(globalSettings.contextTemplates, state.contextTemplateId)?.content ??
+    state.contextTemplate
   );
 }
 
@@ -39,7 +43,8 @@ export function initializeContextTemplate(
 ): boolean {
   if (
     state.contextTemplateId &&
-    globalSettings.contextTemplates.some((template) => template.id === state.contextTemplateId)
+    (state.contextTemplateId === LEARNING_CONTEXT_TEMPLATE_ID ||
+      globalSettings.contextTemplates.some((template) => template.id === state.contextTemplateId))
   ) {
     return false;
   }
@@ -58,6 +63,17 @@ export function toSessionState(session: StoredSessionState): AgentGroupSessionDo
     firstTurnCompleted: session.firstTurnCompleted,
     contextAwarenessEnabled: session.contextAwarenessEnabled,
     contextSeenCommit: session.contextSeenCommit,
+    knowledgeAcknowledgements: session.knowledgeAcknowledgements,
+    knowledgeLinks: session.knowledgeLinks.map((link) => ({
+      ...link,
+      targetThreadId: ThreadId.makeUnsafe(link.targetThreadId),
+    })),
+    learningOrigin: session.learningOrigin
+      ? {
+          ...session.learningOrigin,
+          sourceSessionId: ThreadId.makeUnsafe(session.learningOrigin.sourceSessionId),
+        }
+      : null,
   };
 }
 
