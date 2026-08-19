@@ -55,10 +55,7 @@ export function validateKnowledgeAcknowledgements(
   });
 }
 
-export function validateKnowledgeLinks(
-  input: unknown,
-  sessionId: string,
-): StoredKnowledgeLink[] {
+export function validateKnowledgeLinks(input: unknown, sessionId: string): StoredKnowledgeLink[] {
   if (input === undefined) return [];
   if (!Array.isArray(input) || input.length > 128) {
     throw new Error(`Invalid knowledge links for '${sessionId}'`);

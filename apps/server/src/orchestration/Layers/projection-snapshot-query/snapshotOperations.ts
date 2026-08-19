@@ -19,10 +19,7 @@ import {
   computeSnapshotSequence,
   maxOptionalIso,
 } from "./projectionSnapshotCollections.ts";
-import {
-  collectChildTurnIdsByParent,
-  omitParentCopiesOfChildTurns,
-} from "./childTurnIsolation.ts";
+import { collectChildTurnIdsByParent, omitParentCopiesOfChildTurns } from "./childTurnIsolation.ts";
 import { decodeReadModel, decodeShellSnapshot } from "./projectionSnapshotDecoders.ts";
 import { toPersistenceSqlOrDecodeError } from "./projectionSnapshotErrors.ts";
 import {
@@ -157,10 +154,7 @@ export function makeSnapshotOperations(input: {
             ),
           ]);
 
-          const childTurnIdsByParent = collectChildTurnIdsByParent(
-            threadRows,
-            latestTurnRows,
-          );
+          const childTurnIdsByParent = collectChildTurnIdsByParent(threadRows, latestTurnRows);
           const messages = collectProjectedMessages(
             omitParentCopiesOfChildTurns(messageRows, childTurnIdsByParent),
           );
@@ -293,10 +287,7 @@ export function makeSnapshotOperations(input: {
             ),
           ]);
 
-          const childTurnIdsByParent = collectChildTurnIdsByParent(
-            threadRows,
-            latestTurnRows,
-          );
+          const childTurnIdsByParent = collectChildTurnIdsByParent(threadRows, latestTurnRows);
           const proposedPlans = collectProjectedProposedPlans(
             omitParentCopiesOfChildTurns(proposedPlanRows, childTurnIdsByParent),
           );
@@ -401,10 +392,7 @@ export function makeSnapshotOperations(input: {
                 ),
               ),
             ]);
-          const childTurnIdsByParent = collectChildTurnIdsByParent(
-            threadRows,
-            latestTurnRows,
-          );
+          const childTurnIdsByParent = collectChildTurnIdsByParent(threadRows, latestTurnRows);
           const latestTurns = collectProjectedLatestTurns(
             omitParentCopiesOfChildTurns(latestTurnRows, childTurnIdsByParent),
           );

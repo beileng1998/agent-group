@@ -117,8 +117,7 @@ export function useMessagesTimelineViewport(input: {
           row.kind === "message" &&
           (row.message.id === messageId ||
             row.collapsedTurnItems?.some(
-              (item) =>
-                item.kind === "assistant-message" && item.message.id === messageId,
+              (item) => item.kind === "assistant-message" && item.message.id === messageId,
             )),
       );
       const list = resolvedListRef.current;

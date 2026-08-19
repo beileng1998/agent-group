@@ -31,7 +31,9 @@ export function useComposerSlashGoalActions(input: ComposerSlashCommandsInput) {
           return;
         }
         if (normalizedAction === "edit") {
-          input.editorActions.setComposerPromptValue(currentGoal ? `/goal ${currentGoal}` : "/goal ");
+          input.editorActions.setComposerPromptValue(
+            currentGoal ? `/goal ${currentGoal}` : "/goal ",
+          );
           input.editorActions.scheduleComposerFocus();
           return;
         }

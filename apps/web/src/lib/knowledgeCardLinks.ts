@@ -49,10 +49,7 @@ export function buildKnowledgeLinkMarkers(input: {
     const storedRange =
       hasStoredRange &&
       selectionMatches(
-        input.cardBody.slice(
-          target.link.selectionStartOffset!,
-          target.link.selectionEndOffset!,
-        ),
+        input.cardBody.slice(target.link.selectionStartOffset!, target.link.selectionEndOffset!),
         selectedText,
       )
         ? {

@@ -9,8 +9,7 @@ export const LEARNING_CONTEXT_TEMPLATE_ID = "learning";
 export const LEARNING_CONTEXT_NOTE =
   "> Help the user understand the Goal. Preserve Knowledge. Keep Goal and State concise.";
 
-const GOAL_GUIDE =
-  "<!-- State what the user wants to understand and the intended depth. -->";
+const GOAL_GUIDE = "<!-- State what the user wants to understand and the intended depth. -->";
 
 const KNOWLEDGE_GUIDE = [
   "<!--",
@@ -76,10 +75,7 @@ export function resolveContextTemplateById(
   return templates.find((template) => template.id === id);
 }
 
-export function buildPromotedLearningContext(input: {
-  goal: string;
-  sourceTitle: string;
-}): string {
+export function buildPromotedLearningContext(input: { goal: string; sourceTitle: string }): string {
   const sourceTitle = input.sourceTitle.replace(/\s+/g, " ").trim() || "Knowledge card";
   return buildLearningContext({
     goal: input.goal,
@@ -112,7 +108,10 @@ export function parseLearningContext(markdown: string): LearningContextProjectio
       key: `${identity}\n${ordinal}`,
       title: heading.title,
       markdown: lines.slice(heading.line, end).join("\n").trim(),
-      body: lines.slice(heading.line + 1, end).join("\n").trim(),
+      body: lines
+        .slice(heading.line + 1, end)
+        .join("\n")
+        .trim(),
       ordinal,
     };
   });
@@ -123,9 +122,7 @@ export function parseLearningContext(markdown: string): LearningContextProjectio
       .filter(
         (heading) =>
           heading.level === 1 &&
-          (heading.raw === "# Goal" ||
-            heading.raw === "# Knowledge" ||
-            heading.raw === "# State"),
+          (heading.raw === "# Goal" || heading.raw === "# Knowledge" || heading.raw === "# State"),
       )
       .map((heading) => heading.line),
   );
@@ -198,7 +195,10 @@ function findSectionBody(
   const end =
     headings.find((candidate) => candidate.level === 1 && candidate.line > heading.line)?.line ??
     lines.length;
-  return lines.slice(heading.line + 1, end).join("\n").trim();
+  return lines
+    .slice(heading.line + 1, end)
+    .join("\n")
+    .trim();
 }
 
 function collectOtherContext(
@@ -211,9 +211,8 @@ function collectOtherContext(
     .filter((heading) => heading.level === 1 && !excluded.has(heading.line))
     .forEach((heading) => {
       const end =
-        headings.find(
-          (candidate) => candidate.level === 1 && candidate.line > heading.line,
-        )?.line ?? lines.length;
+        headings.find((candidate) => candidate.level === 1 && candidate.line > heading.line)
+          ?.line ?? lines.length;
       const section = lines.slice(heading.line, end).join("\n").trim();
       if (section) ranges.push(section);
     });

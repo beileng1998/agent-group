@@ -70,8 +70,8 @@ describe("terminal scroll compatibility", () => {
   it("builds cursor and SGR wheel sequences", () => {
     expect(buildTerminalArrowSequence(-1, false)).toBe("\x1b[A");
     expect(buildTerminalArrowSequence(1, true)).toBe("\x1bOB");
-    expect(
-      buildTerminalSgrWheelReport(1, 12, 7, { altKey: true, ctrlKey: true }),
-    ).toBe("\x1b[<89;12;7M");
+    expect(buildTerminalSgrWheelReport(1, 12, 7, { altKey: true, ctrlKey: true })).toBe(
+      "\x1b[<89;12;7M",
+    );
   });
 });

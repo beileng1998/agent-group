@@ -13,9 +13,7 @@ describe("Learning context", () => {
     expect(LEARNING_CONTEXT_TEMPLATE_CONTENT).toContain(
       "Grow H2 knowledge cards as the user's understanding develops.",
     );
-    expect(LEARNING_CONTEXT_TEMPLATE_CONTENT).toMatch(
-      /# Goal[\s\S]*# Knowledge[\s\S]*# State/,
-    );
+    expect(LEARNING_CONTEXT_TEMPLATE_CONTENT).toMatch(/# Goal[\s\S]*# Knowledge[\s\S]*# State/);
     expect(LEARNING_CONTEXT_TEMPLATE_CONTENT).not.toContain("100 lines");
   });
 

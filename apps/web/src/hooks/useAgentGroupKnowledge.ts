@@ -5,10 +5,7 @@ import { parseLearningContext } from "@agent-group/shared/learningContext";
 import { useCallback, useMemo } from "react";
 
 import { useAgentGroupSessionDocument } from "~/hooks/useAgentGroupSessionDocument";
-import {
-  resolveVisibleKnowledgeLinks,
-  type VisibleKnowledgeLink,
-} from "~/lib/knowledgeCardLinks";
+import { resolveVisibleKnowledgeLinks, type VisibleKnowledgeLink } from "~/lib/knowledgeCardLinks";
 import { useRightDockStore } from "~/rightDockStore";
 import { useStore } from "~/store";
 

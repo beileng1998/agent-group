@@ -8,7 +8,7 @@ import { settleThreadGoalAfterTerminal } from "./providerGoalSettlement";
 const threadId = ThreadId.makeUnsafe("thread-goal-settlement");
 const turnId = TurnId.makeUnsafe("turn-goal-settlement");
 
-function thread(text: string): OrchestrationThread {
+function thread(text: string, patch: Partial<OrchestrationThread> = {}): OrchestrationThread {
   return {
     id: threadId,
     goal: "Finish everything",
@@ -28,7 +28,8 @@ function thread(text: string): OrchestrationThread {
         updatedAt: "2026-08-15T00:00:01.000Z",
       },
     ],
-  } as OrchestrationThread;
+    ...patch,
+  } as unknown as OrchestrationThread;
 }
 
 function completedEvent(state = "completed") {
@@ -97,8 +98,9 @@ describe("provider goal settlement", () => {
 
   it("does not settle a new goal from an older turn marker", async () => {
     const commands: unknown[] = [];
-    const current = thread(`Old completion.\n${GOAL_ACHIEVED_MARKER}`);
-    current.goalStartedAt = "2026-08-15T00:00:02.000Z";
+    const current = thread(`Old completion.\n${GOAL_ACHIEVED_MARKER}`, {
+      goalStartedAt: "2026-08-15T00:00:02.000Z",
+    });
     await Effect.runPromise(
       settleThreadGoalAfterTerminal({
         orchestrationEngine: {

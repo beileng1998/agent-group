@@ -285,7 +285,10 @@ export function useComposerSlashThreadActions(input: Input) {
 
   useEffect(() => {
     if (!input.canCreateSidechat) return;
-    const unregisterSidechat = registerSidechatCreator(input.threadId, createSidechatFromSlashCommand);
+    const unregisterSidechat = registerSidechatCreator(
+      input.threadId,
+      createSidechatFromSlashCommand,
+    );
     const unregisterKnowledgeChild = registerKnowledgeChildCreator(
       input.threadId,
       createKnowledgeChildFromCard,
@@ -294,7 +297,12 @@ export function useComposerSlashThreadActions(input: Input) {
       unregisterSidechat();
       unregisterKnowledgeChild();
     };
-  }, [input.canCreateSidechat, createKnowledgeChildFromCard, createSidechatFromSlashCommand, input.threadId]);
+  }, [
+    input.canCreateSidechat,
+    createKnowledgeChildFromCard,
+    createSidechatFromSlashCommand,
+    input.threadId,
+  ]);
 
   const runCodexReviewStart = useCallback(
     async (target: "changes" | "base-branch") => {

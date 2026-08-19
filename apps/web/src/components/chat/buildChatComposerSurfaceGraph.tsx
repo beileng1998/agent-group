@@ -141,8 +141,7 @@ export function buildChatComposerSurfaceGraph(input: ChatComposerSurfaceGraphInp
                 },
                 onSetPaused: (paused) =>
                   runGoalAction(() => dispatchThreadGoalPaused(activeThread.id, paused)),
-                onAchieve: () =>
-                  runGoalAction(() => dispatchThreadGoalAchieved(activeThread.id)),
+                onAchieve: () => runGoalAction(() => dispatchThreadGoalAchieved(activeThread.id)),
                 onClear: () => runGoalAction(() => dispatchThreadGoal(activeThread.id, "")),
               }
             : null,

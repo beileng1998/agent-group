@@ -37,10 +37,7 @@ describe("Knowledge Side source", () => {
       cardTitle: "XOR",
       cardMarkdown: "## XOR\n\nInputs differ.",
     });
-    const imported = buildKnowledgeSourceImportedMessage(
-      source,
-      "2026-07-26T00:00:00.000Z",
-    );
+    const imported = buildKnowledgeSourceImportedMessage(source, "2026-07-26T00:00:00.000Z");
     const messages = [
       { ...imported, source: "fork-import" as const },
       {

@@ -226,9 +226,7 @@ export function projectThreadLifecycleEvent(
               ...(payload.goalStartedAt !== undefined
                 ? { goalStartedAt: payload.goalStartedAt }
                 : {}),
-              ...(payload.goalPausedAt !== undefined
-                ? { goalPausedAt: payload.goalPausedAt }
-                : {}),
+              ...(payload.goalPausedAt !== undefined ? { goalPausedAt: payload.goalPausedAt } : {}),
               ...(payload.goalAchievements !== undefined
                 ? { goalAchievements: payload.goalAchievements }
                 : {}),

@@ -28,9 +28,7 @@ function summary(input: {
     id: ThreadId.makeUnsafe(input.id),
     title: input.id,
     sidechatSourceThreadId: SOURCE_ID,
-    parentThreadId: input.parentThreadId
-      ? ThreadId.makeUnsafe(input.parentThreadId)
-      : null,
+    parentThreadId: input.parentThreadId ? ThreadId.makeUnsafe(input.parentThreadId) : null,
     forkSourceThreadId: input.forkSourceThreadId
       ? ThreadId.makeUnsafe(input.forkSourceThreadId)
       : null,

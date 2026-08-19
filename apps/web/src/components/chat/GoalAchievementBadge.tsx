@@ -23,11 +23,7 @@ export function indexGoalAchievements(
   return byTurnId;
 }
 
-export function GoalAchievementBadge({
-  achievement,
-}: {
-  achievement: ThreadGoalAchievement;
-}) {
+export function GoalAchievementBadge({ achievement }: { achievement: ThreadGoalAchievement }) {
   return (
     <>
       <div aria-hidden className="h-3 w-px shrink-0 bg-border" />

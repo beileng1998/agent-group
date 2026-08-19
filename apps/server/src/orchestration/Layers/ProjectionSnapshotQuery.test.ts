@@ -358,6 +358,8 @@ projectionSnapshotLayer("ProjectionSnapshotQuery", (it) => {
           archivedAt: null,
           deletedAt: null,
           handoff: null,
+          goalStartedAt: null,
+          goalPausedAt: null,
           messages: [
             {
               id: asMessageId("message-0"),
@@ -1678,6 +1680,8 @@ projectionSnapshotLayer("ProjectionSnapshotQuery", (it) => {
           updatedAt: "2026-03-03T00:00:03.000Z",
           archivedAt: null,
           handoff: null,
+          goalStartedAt: null,
+          goalPausedAt: null,
           session: {
             threadId: ThreadId.makeUnsafe("thread-shell"),
             status: "ready",

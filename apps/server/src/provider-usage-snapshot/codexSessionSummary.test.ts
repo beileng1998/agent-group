@@ -56,7 +56,10 @@ describe("readCodexSessionSummary", () => {
       limits: [{ window: "5h", usedPercent: 25, windowDurationMins: 300 }],
     });
     expect(readFile).not.toHaveBeenCalled();
-    expect(read.mock.calls.every((call) => (call[2] ?? 0) <= 64 * 1024)).toBe(true);
+    const readCalls = read.mock.calls as unknown as ReadonlyArray<
+      readonly [buffer: unknown, offset: number, length: number]
+    >;
+    expect(readCalls.every((call) => call[2] <= 64 * 1024)).toBe(true);
   });
 
   it("parses a CRLF token record split across read chunks", async () => {

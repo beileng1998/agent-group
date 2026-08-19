@@ -64,7 +64,8 @@ describe("thread goal policy", () => {
       elapsedMs: 10_000,
       turnId: null,
     });
-    expect(resolveThreadGoalPatch(command({ goal: "" }), thread({ goal: "Ship it" }), resumedAt))
-      .toEqual({ goal: "", goalStartedAt: null, goalPausedAt: null });
+    expect(
+      resolveThreadGoalPatch(command({ goal: "" }), thread({ goal: "Ship it" }), resumedAt),
+    ).toEqual({ goal: "", goalStartedAt: null, goalPausedAt: null });
   });
 });

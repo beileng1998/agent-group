@@ -40,7 +40,7 @@ describe("runBoundedProviderControl", () => {
       }),
     );
 
-    expect(result._tag).toBe("failed");
+    if (result._tag !== "failed") throw new Error(`Expected failure, received ${result._tag}`);
     expect(result.detail).toContain("stop failed");
   });
 });

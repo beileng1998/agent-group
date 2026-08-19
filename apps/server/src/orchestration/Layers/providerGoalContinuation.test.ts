@@ -52,25 +52,27 @@ describe("provider goal continuation", () => {
     let thread = activeThread();
     const dispatchedTurns: unknown[] = [];
     const sessions: unknown[] = [];
-    const continuation = await Effect.runPromise(makeProviderGoalContinuation({
-      orchestrationEngine: {
-        dispatch: () => Effect.void,
-        getReadModel: () => Effect.succeed({ threads: [thread] } as never),
-      },
-      turnQueue: new ProviderTurnQueue(),
-      resolveThread: () => Effect.succeed(thread),
-      hasLiveProviderTurn: () => Effect.succeed(false),
-      drainQueuedTurnsForThread: () => Effect.void,
-      dispatchTurnForThread: (input) =>
-        Effect.sync(() => {
-          dispatchedTurns.push(input);
-          return turnId;
-        }),
-      setThreadSession: (input) => Effect.sync(() => sessions.push(input)),
-      setThreadSessionError: () => Effect.void,
-      interruptProviderTurn: () => Effect.void,
-      serverCommandId: (tag) => CommandId.makeUnsafe(`server:${tag}`),
-    }));
+    const continuation = await Effect.runPromise(
+      makeProviderGoalContinuation({
+        orchestrationEngine: {
+          dispatch: () => Effect.succeed({ sequence: 1 }),
+          getReadModel: () => Effect.succeed({ threads: [thread] } as never),
+        },
+        turnQueue: new ProviderTurnQueue(),
+        resolveThread: () => Effect.succeed(thread),
+        hasLiveProviderTurn: () => Effect.succeed(false),
+        drainQueuedTurnsForThread: () => Effect.void,
+        dispatchTurnForThread: (input) =>
+          Effect.sync(() => {
+            dispatchedTurns.push(input);
+            return turnId;
+          }),
+        setThreadSession: (input) => Effect.sync(() => sessions.push(input)),
+        setThreadSessionError: () => Effect.void,
+        interruptProviderTurn: () => Effect.void,
+        serverCommandId: (tag) => CommandId.makeUnsafe(`server:${tag}`),
+      }),
+    );
 
     await Effect.runPromise(continuation.processRequested(requestedEvent()));
     expect(sessions).toHaveLength(1);
@@ -85,21 +87,27 @@ describe("provider goal continuation", () => {
 
   it("rejects stale goal generations", async () => {
     let dispatchCount = 0;
-    const continuation = await Effect.runPromise(makeProviderGoalContinuation({
-      orchestrationEngine: {
-        dispatch: () => Effect.void,
-        getReadModel: () => Effect.succeed({ threads: [] } as never),
-      },
-      turnQueue: new ProviderTurnQueue(),
-      resolveThread: () => Effect.succeed(activeThread({ goalStartedAt: `${startedAt}-new` })),
-      hasLiveProviderTurn: () => Effect.succeed(false),
-      drainQueuedTurnsForThread: () => Effect.void,
-      dispatchTurnForThread: () => Effect.sync(() => { dispatchCount += 1; return turnId; }),
-      setThreadSession: () => Effect.void,
-      setThreadSessionError: () => Effect.void,
-      interruptProviderTurn: () => Effect.void,
-      serverCommandId: (tag) => CommandId.makeUnsafe(`server:${tag}`),
-    }));
+    const continuation = await Effect.runPromise(
+      makeProviderGoalContinuation({
+        orchestrationEngine: {
+          dispatch: () => Effect.succeed({ sequence: 1 }),
+          getReadModel: () => Effect.succeed({ threads: [] } as never),
+        },
+        turnQueue: new ProviderTurnQueue(),
+        resolveThread: () => Effect.succeed(activeThread({ goalStartedAt: `${startedAt}-new` })),
+        hasLiveProviderTurn: () => Effect.succeed(false),
+        drainQueuedTurnsForThread: () => Effect.void,
+        dispatchTurnForThread: () =>
+          Effect.sync(() => {
+            dispatchCount += 1;
+            return turnId;
+          }),
+        setThreadSession: () => Effect.void,
+        setThreadSessionError: () => Effect.void,
+        interruptProviderTurn: () => Effect.void,
+        serverCommandId: (tag) => CommandId.makeUnsafe(`server:${tag}`),
+      }),
+    );
 
     await Effect.runPromise(continuation.processRequested(requestedEvent()));
     expect(dispatchCount).toBe(0);
@@ -111,7 +119,11 @@ describe("provider goal continuation", () => {
     const continuation = await Effect.runPromise(
       makeProviderGoalContinuation({
         orchestrationEngine: {
-          dispatch: (command) => Effect.sync(() => commands.push(command)),
+          dispatch: (command) =>
+            Effect.sync(() => {
+              commands.push(command);
+              return { sequence: commands.length };
+            }),
           getReadModel: () => Effect.succeed({ threads: [thread] } as never),
         },
         turnQueue: new ProviderTurnQueue(),
@@ -146,7 +158,11 @@ describe("provider goal continuation", () => {
     const continuation = await Effect.runPromise(
       makeProviderGoalContinuation({
         orchestrationEngine: {
-          dispatch: (command) => Effect.sync(() => commands.push(command)),
+          dispatch: (command) =>
+            Effect.sync(() => {
+              commands.push(command);
+              return { sequence: commands.length };
+            }),
           getReadModel: () =>
             Effect.succeed({
               threads: [
@@ -176,8 +192,6 @@ describe("provider goal continuation", () => {
     );
 
     await Effect.runPromise(continuation.recoverActiveGoals);
-    expect(commands).toMatchObject([
-      { type: "thread.goal.continue", trigger: "startup-recovery" },
-    ]);
+    expect(commands).toMatchObject([{ type: "thread.goal.continue", trigger: "startup-recovery" }]);
   });
 });

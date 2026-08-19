@@ -75,8 +75,7 @@ function loadDocument(sessionId: ThreadId, background: boolean): Promise<void> {
     })
     .catch((loadError: unknown) => {
       if (entry.requestId !== requestId) return;
-      entry.error =
-        loadError instanceof Error ? loadError.message : "Context could not be loaded.";
+      entry.error = loadError instanceof Error ? loadError.message : "Context could not be loaded.";
     })
     .finally(() => {
       if (entry.requestId === requestId) {

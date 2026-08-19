@@ -42,8 +42,7 @@ const make = Effect.gen(function* () {
 
     const userMessages = thread.messages.filter(
       (message) =>
-        message.role === "user" &&
-        (message.source === "native" || message.source === "terminal"),
+        message.role === "user" && (message.source === "native" || message.source === "terminal"),
     );
     if (userMessages.length !== 1 || userMessages[0]?.id !== input.messageId) return;
 

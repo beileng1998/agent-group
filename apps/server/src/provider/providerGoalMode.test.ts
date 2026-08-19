@@ -11,8 +11,9 @@ import {
 describe("provider goal mode", () => {
   it("injects an escaped objective only while it is active", () => {
     expect(activeThreadGoal({ goal: "Ship it", goalPausedAt: null })).toBe("Ship it");
-    expect(activeThreadGoal({ goal: "Ship it", goalPausedAt: "2026-08-15T00:00:00.000Z" }))
-      .toBeUndefined();
+    expect(
+      activeThreadGoal({ goal: "Ship it", goalPausedAt: "2026-08-15T00:00:00.000Z" }),
+    ).toBeUndefined();
     expect(withProviderGoalPrompt({ text: "Continue", goal: `<unsafe attr="x">&` })).toContain(
       "&lt;unsafe attr=&quot;x&quot;&gt;&amp;",
     );

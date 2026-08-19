@@ -32,8 +32,7 @@ export function useComposerSlashCommands(input: ComposerSlashCommandsInput) {
   }).filter(
     (command) =>
       (!input.surfaceAppSlashCommands || input.surfaceAppSlashCommands.has(command)) &&
-      (command !== "goal" ||
-        (input.isServerThread && input.activeThread?.parentThreadId == null)),
+      (command !== "goal" || (input.isServerThread && input.activeThread?.parentThreadId == null)),
   );
 
   const modeActions = useComposerSlashModeActions(input);

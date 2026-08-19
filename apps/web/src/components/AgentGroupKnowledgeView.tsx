@@ -13,10 +13,7 @@ import type {
 } from "@agent-group/shared/learningContext";
 import { useMemo, useRef, useState, type MouseEvent } from "react";
 
-import {
-  buildKnowledgeLinkMarkers,
-  type VisibleKnowledgeLink,
-} from "~/lib/knowledgeCardLinks";
+import { buildKnowledgeLinkMarkers, type VisibleKnowledgeLink } from "~/lib/knowledgeCardLinks";
 import { cn } from "~/lib/utils";
 import { getKnowledgeChildCreator } from "~/lib/knowledgeChildCreatorRegistry";
 import { makeLearningOrigin } from "~/lib/knowledgeSidechat";

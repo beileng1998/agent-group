@@ -1,11 +1,11 @@
 type ThreadParentRow = {
   readonly threadId: string;
-  readonly parentThreadId?: string | null;
+  readonly parentThreadId?: string | null | undefined;
 };
 
 type ThreadTurnRow = {
   readonly threadId: string;
-  readonly turnId?: string | null;
+  readonly turnId?: string | null | undefined;
 };
 
 export type ChildTurnIdsByParent = ReadonlyMap<string, ReadonlySet<string>>;

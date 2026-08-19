@@ -215,8 +215,7 @@ export const makeThreadTurnProjection = Effect.gen(function* () {
             Option.isSome(existingTurn) &&
             existingTurn.value.completedAt !== null &&
             (existingTurn.value.state === "completed" || existingTurn.value.state === "error");
-          const preservesExistingLifecycle =
-            isProviderDiffPlaceholder || hasCanonicalCompletion;
+          const preservesExistingLifecycle = isProviderDiffPlaceholder || hasCanonicalCompletion;
           const nextState = preservesExistingLifecycle
             ? Option.match(existingTurn, {
                 onNone: () => "running" as const,

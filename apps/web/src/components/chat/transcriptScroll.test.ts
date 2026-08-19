@@ -17,7 +17,12 @@ describe("transcript scroll helpers", () => {
     } as unknown as HTMLElement;
     const target: TranscriptScrollCancellationTarget = {
       getScrollableNode: () => scrollNode,
-      scrollToOffset: async (options) => void offsetCalls.push(options),
+      scrollToOffset: async (options) => {
+        offsetCalls.push({
+          offset: options.offset,
+          ...(options.animated === undefined ? {} : { animated: options.animated }),
+        });
+      },
     };
 
     await stopTranscriptScrollAtCurrentOffset(target);
@@ -32,9 +37,9 @@ describe("transcript scroll helpers", () => {
       scrollToEnd: async ({ animated = true } = {}) => void animations.push(animated),
     };
 
-    await expect(
-      scrollTranscriptToSettledEnd({ target, isCurrent: () => true }),
-    ).resolves.toBe(true);
+    await expect(scrollTranscriptToSettledEnd({ target, isCurrent: () => true })).resolves.toBe(
+      true,
+    );
     expect(animations).toEqual([true, false]);
   });
 

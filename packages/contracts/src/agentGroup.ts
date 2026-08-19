@@ -20,8 +20,7 @@ export const AgentGroupKnowledgeAcknowledgement = Schema.Struct({
   cardMarkdown: KnowledgeCardMarkdown,
   acknowledgedAt: IsoDateTime,
 });
-export type AgentGroupKnowledgeAcknowledgement =
-  typeof AgentGroupKnowledgeAcknowledgement.Type;
+export type AgentGroupKnowledgeAcknowledgement = typeof AgentGroupKnowledgeAcknowledgement.Type;
 
 export const AgentGroupLearningOrigin = Schema.Struct({
   sourceSessionId: ThreadId,

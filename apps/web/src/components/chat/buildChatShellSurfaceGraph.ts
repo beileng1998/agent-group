@@ -224,7 +224,7 @@ export function buildChatShellSurfaceGraph(input: ChatShellSurfaceGraphInput) {
       initialScrollOffsetPx: timeline.scroll.initialScrollOffsetPx,
       chatFontSizePx: app.settings.chatFontSizePx,
       enteringUserMessageIds: runtimeActivity.transcript.enteringUserMessageIds,
-      goalAchievements: activeThread.goalAchievements,
+      ...(activeThread.goalAchievements ? { goalAchievements: activeThread.goalAchievements } : {}),
       listRef: timeline.scroll.legendListRef,
       pinnedMessageIds: timeline.references.pinnedMessageIds,
       resolvedTheme: app.resolvedTheme,

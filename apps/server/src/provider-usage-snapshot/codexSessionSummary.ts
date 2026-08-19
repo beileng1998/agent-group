@@ -1,11 +1,7 @@
 import fs from "node:fs/promises";
 
 import { normalizeCodexUsageLimits, readCodexTotalTokens } from "./codexUsageValues";
-import {
-  asRecord,
-  type CodexSessionSummary,
-  parseTimestampMs,
-} from "./usageSnapshotValues";
+import { asRecord, type CodexSessionSummary, parseTimestampMs } from "./usageSnapshotValues";
 
 const READ_CHUNK_BYTES = 64 * 1024;
 const MAX_LINE_BYTES = 1024 * 1024;

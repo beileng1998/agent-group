@@ -363,12 +363,7 @@ export function makeProviderInteractionHandlers<
               turnId: thread.session.activeTurnId,
               createdAt: now,
             });
-            structuredProjection = settleThreadLocally(
-              thread,
-              now,
-              interrupted.detail,
-              "stopped",
-            );
+            structuredProjection = settleThreadLocally(thread, now, interrupted.detail, "stopped");
             return;
           }
           structuredProjection = dependencies.setThreadSession({

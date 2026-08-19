@@ -169,9 +169,7 @@ export function projectTurnSessionEvent(
             previousLatestCheckpointTurnCount > payload.checkpointTurnCount);
         const sameLatestTurn =
           thread.latestTurn?.turnId === payload.turnId ? thread.latestTurn : null;
-        const terminalLatestTurn = isTerminalLatestTurn(sameLatestTurn)
-          ? sameLatestTurn
-          : null;
+        const terminalLatestTurn = isTerminalLatestTurn(sameLatestTurn) ? sameLatestTurn : null;
         const latestTurn = preservesNewerLatestTurn
           ? thread.latestTurn
           : isProviderDiffPlaceholderRef(payload.checkpointRef) &&

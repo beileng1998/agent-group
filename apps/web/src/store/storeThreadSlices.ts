@@ -61,9 +61,7 @@ export function toThreadShell(thread: Thread): ThreadShell {
     ...(thread.goal !== undefined ? { goal: thread.goal } : {}),
     ...(thread.goalStartedAt !== undefined ? { goalStartedAt: thread.goalStartedAt } : {}),
     ...(thread.goalPausedAt !== undefined ? { goalPausedAt: thread.goalPausedAt } : {}),
-    ...(thread.goalAchievements !== undefined
-      ? { goalAchievements: thread.goalAchievements }
-      : {}),
+    ...(thread.goalAchievements !== undefined ? { goalAchievements: thread.goalAchievements } : {}),
     ...(thread.latestUserMessageAt !== undefined
       ? { latestUserMessageAt: thread.latestUserMessageAt }
       : {}),

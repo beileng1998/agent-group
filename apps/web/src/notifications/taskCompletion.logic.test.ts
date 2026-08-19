@@ -449,6 +449,7 @@ describe("buildTaskCompletionCopy", () => {
         threadId: ThreadId.makeUnsafe("thread-1"),
         projectId: ProjectId.makeUnsafe("project-1"),
         title: "Polish notifications",
+        turnId: TurnId.makeUnsafe("turn-1"),
         completedAt: "2026-04-05T10:00:05.000Z",
         assistantSummary: "Finished the task and everything looks good.",
       }),

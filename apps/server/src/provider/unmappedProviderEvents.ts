@@ -111,11 +111,15 @@ export function sanitizeUnmappedProviderEvent(event: ProviderEvent): ProviderEve
   return {
     ...event,
     method: sanitizeUnmappedProviderNativeType(event.method),
-    ...(event.message !== undefined ? { message: sanitizeText(event.message, MAX_DETAIL_CHARS) } : {}),
+    ...(event.message !== undefined
+      ? { message: sanitizeText(event.message, MAX_DETAIL_CHARS) }
+      : {}),
     ...(event.textDelta !== undefined
       ? { textDelta: sanitizeText(event.textDelta, MAX_DETAIL_CHARS) }
       : {}),
-    ...(event.payload !== undefined ? { payload: sanitizeUnmappedProviderData(event.payload) } : {}),
+    ...(event.payload !== undefined
+      ? { payload: sanitizeUnmappedProviderData(event.payload) }
+      : {}),
   };
 }
 

@@ -1,10 +1,7 @@
 import { TurnId } from "@agent-group/contracts";
 import { describe, expect, it } from "vitest";
 
-import {
-  EMPTY_GOAL_ACHIEVEMENTS_BY_TURN_ID,
-  indexGoalAchievements,
-} from "./GoalAchievementBadge";
+import { EMPTY_GOAL_ACHIEVEMENTS_BY_TURN_ID, indexGoalAchievements } from "./GoalAchievementBadge";
 
 describe("goal achievement transcript index", () => {
   it("anchors the latest achievement to its terminal turn", () => {

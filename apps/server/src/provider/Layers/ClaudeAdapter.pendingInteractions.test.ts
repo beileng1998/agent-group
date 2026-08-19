@@ -139,7 +139,9 @@ describe("Claude pending interaction ownership", () => {
         Stream.runHead,
       );
       assert.equal(resolved._tag === "Some" && resolved.value.type, "user-input.resolved");
-      assert.equal((yield* Effect.promise(() => permissionPromise)).behavior, "allow");
+      const permission = yield* Effect.promise(() => permissionPromise);
+      assert.ok(permission);
+      assert.equal(permission.behavior, "allow");
     }).pipe(Effect.provideService(Random.Random, randomService()), Effect.provide(harness.layer));
   });
 
@@ -147,12 +149,17 @@ describe("Claude pending interaction ownership", () => {
     const harness = makeClaudeAdapterTestHarness();
     return Effect.gen(function* () {
       const adapter = yield* ClaudeAdapter;
-      yield* adapter.startSession({ threadId, provider: "claudeAgent", runtimeMode: "full-access" });
+      yield* adapter.startSession({
+        threadId,
+        provider: "claudeAgent",
+        runtimeMode: "full-access",
+      });
       yield* Stream.take(adapter.streamEvents, 3).pipe(Stream.runDrain);
       const canUseTool = harness.getLastCreateQueryInput()?.options.canUseTool;
       if (!canUseTool) return assert.fail("Expected canUseTool");
       const permissionPromise = canUseTool("AskUserQuestion", askInput, {
         signal: new AbortController().signal,
+        toolUseID: "tool-terminal-agent-question",
         agentID: "background-agent-2",
         requestId: "request-terminal-agent-question",
       });
@@ -172,7 +179,9 @@ describe("Claude pending interaction ownership", () => {
       );
 
       assert.equal(resolved._tag === "Some" && resolved.value.type, "user-input.resolved");
-      assert.equal((yield* Effect.promise(() => permissionPromise)).behavior, "deny");
+      const permission = yield* Effect.promise(() => permissionPromise);
+      assert.ok(permission);
+      assert.equal(permission.behavior, "deny");
     }).pipe(Effect.provideService(Random.Random, randomService()), Effect.provide(harness.layer));
   });
 });

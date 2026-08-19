@@ -53,8 +53,7 @@ describe("provider interaction control bounds", () => {
       resolveSubagentProviderThreadId: () => undefined,
       appendProviderFailureActivity: (input) =>
         Effect.sync(() => void failures.push({ kind: input.kind, detail: input.detail })),
-      setThreadSession: (input) =>
-        Effect.sync(() => void sessions.push(input.session)),
+      setThreadSession: (input) => Effect.sync(() => void sessions.push(input.session)),
       stopCurrentAdapter: (_threadId, stopStructured) =>
         stopStructured().pipe(Effect.as("structured" as const)),
       releaseCanceledClaims: () => Effect.void,
@@ -91,8 +90,7 @@ describe("provider interaction control bounds", () => {
       resolveProviderSessionThread: () => Effect.succeed(null),
       resolveSubagentProviderThreadId: () => undefined,
       appendProviderFailureActivity: () => Effect.void,
-      setThreadSession: (input) =>
-        Effect.sync(() => void sessions.push(input.session)),
+      setThreadSession: (input) => Effect.sync(() => void sessions.push(input.session)),
       stopCurrentAdapter: () => Effect.succeed("structured" as const),
       releaseCanceledClaims: () => Effect.void,
     });
@@ -133,8 +131,7 @@ describe("provider interaction control bounds", () => {
       resolveProviderSessionThread: () => Effect.succeed(parent),
       resolveSubagentProviderThreadId: () => "provider-child",
       appendProviderFailureActivity: () => Effect.void,
-      setThreadSession: (input) =>
-        Effect.sync(() => void sessions.push(input.session)),
+      setThreadSession: (input) => Effect.sync(() => void sessions.push(input.session)),
       stopCurrentAdapter: () => Effect.succeed("structured" as const),
       releaseCanceledClaims: () => Effect.void,
       providerInterruptTimeoutMs: 5,

@@ -270,8 +270,7 @@ export function useTranscriptScrollController(options: UseTranscriptScrollContro
           const pendingTurnStillFollowed =
             shouldFollowPendingTurn && autoFollowThreadIdRef.current === activeThreadId;
           const settledTurnStillFollowed =
-            shouldFollowSettledTurn &&
-            settlingTurnFollowThreadIdRef.current === activeThreadId;
+            shouldFollowSettledTurn && settlingTurnFollowThreadIdRef.current === activeThreadId;
           if (!pendingTurnStillFollowed && !settledTurnStillFollowed) return;
           scrollToEnd(false);
           if (settledTurnStillFollowed) settlingTurnFollowThreadIdRef.current = null;
@@ -295,8 +294,7 @@ export function useTranscriptScrollController(options: UseTranscriptScrollContro
       if (isAtEndRef.current === nextIsAtEnd) return;
       if (
         !nextIsAtEnd &&
-        (settledScrollInFlightRef.current ||
-          performance.now() < programmaticScrollUntilRef.current)
+        (settledScrollInFlightRef.current || performance.now() < programmaticScrollUntilRef.current)
       ) {
         return;
       }

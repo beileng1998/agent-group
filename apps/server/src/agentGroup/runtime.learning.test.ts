@@ -5,11 +5,7 @@ import {
 } from "@agent-group/shared/learningContext";
 import { describe, expect, it } from "vitest";
 
-import {
-  getAgentGroupSession,
-  updateAgentGroupConfig,
-  updateAgentGroupSession,
-} from "./runtime";
+import { getAgentGroupSession, updateAgentGroupConfig, updateAgentGroupSession } from "./runtime";
 import { sessionRef, temporaryWorkspace } from "./runtime.testSupport";
 
 describe("Agent Group learning sessions", () => {

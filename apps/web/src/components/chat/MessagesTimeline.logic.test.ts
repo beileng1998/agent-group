@@ -966,11 +966,7 @@ describe("deriveMessagesTimelineRows", () => {
 
     const terminal = messageRow(rows, "a2");
     expect(terminal).toBeDefined();
-    expect(collapsedSignature(terminal!)).toEqual([
-      "work:w1",
-      "assistant-message:a1",
-      "work:w2",
-    ]);
+    expect(collapsedSignature(terminal!)).toEqual(["work:w1", "assistant-message:a1", "work:w2"]);
     expect(messageRow(rows, "a1")).toBeUndefined();
     expect(terminal!.collapsedWorkElapsed).toBe("23m");
   });

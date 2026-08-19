@@ -2,7 +2,13 @@
 // Purpose: Render one assistant message with inline work, collapse, footer, and changes.
 // Layer: Web chat timeline presentation
 
-import type { MessageId, ThreadGoalAchievement, ThreadId, ThreadMarker, TurnId } from "@agent-group/contracts";
+import type {
+  MessageId,
+  ThreadGoalAchievement,
+  ThreadId,
+  ThreadMarker,
+  TurnId,
+} from "@agent-group/contracts";
 import type { CSSProperties, ReactNode } from "react";
 import { PinIcon } from "~/lib/icons";
 import { cn } from "~/lib/utils";

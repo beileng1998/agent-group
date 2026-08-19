@@ -1,8 +1,4 @@
-import {
-  EventId,
-  type ProviderRuntimeEvent,
-  ThreadId,
-} from "@agent-group/contracts";
+import { EventId, type ProviderRuntimeEvent, ThreadId } from "@agent-group/contracts";
 import { describe, expect, it } from "vitest";
 
 import { buildConfiguredContextWindowPayload } from "./providerRuntimeActivityValues";

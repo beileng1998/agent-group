@@ -8,10 +8,7 @@ import {
 } from "@agent-group/contracts";
 import { Cause, Duration, Effect, Queue, Stream } from "effect";
 
-import {
-  activeThreadGoal,
-  buildGoalContinuationInput,
-} from "../../provider/providerGoalMode.ts";
+import { activeThreadGoal, buildGoalContinuationInput } from "../../provider/providerGoalMode.ts";
 import type { OrchestrationEngineShape } from "../Services/OrchestrationEngine.ts";
 import type { ProviderTurnDispatchInput } from "./providerTurnPreparation.ts";
 import type { ProviderTurnQueue } from "./providerTurnQueue.ts";
@@ -33,11 +30,11 @@ function isCurrentActiveGoal(
 ): thread is OrchestrationThread {
   return Boolean(
     thread &&
-      thread.deletedAt == null &&
-      thread.archivedAt == null &&
-      thread.parentThreadId == null &&
-      activeThreadGoal(thread) &&
-      (thread.goalStartedAt ?? null) === expectedGoalStartedAt,
+    thread.deletedAt == null &&
+    thread.archivedAt == null &&
+    thread.parentThreadId == null &&
+    activeThreadGoal(thread) &&
+    (thread.goalStartedAt ?? null) === expectedGoalStartedAt,
   );
 }
 
@@ -51,9 +48,9 @@ function isCurrentRunnableGoal(
 function hasProjectedGoalBlocker(thread: OrchestrationThread): boolean {
   return Boolean(
     thread.hasPendingApprovals ||
-      thread.hasPendingUserInput ||
-      thread.session?.status === "starting" ||
-      thread.session?.status === "running",
+    thread.hasPendingUserInput ||
+    thread.session?.status === "starting" ||
+    thread.session?.status === "running",
   );
 }
 
@@ -158,10 +155,7 @@ export function makeProviderGoalContinuation<Environment>(dependencies: {
     const runContinuation = Effect.fnUntraced(function* (event: GoalRequestedEvent) {
       const thread = yield* dependencies.resolveThread(event.payload.threadId);
       if (!isCurrentRunnableGoal(thread, event.payload.goalStartedAt)) return "stale" as const;
-      if (
-        hasProjectedGoalBlocker(thread) ||
-        (yield* dependencies.hasLiveProviderTurn(thread.id))
-      ) {
+      if (hasProjectedGoalBlocker(thread) || (yield* dependencies.hasLiveProviderTurn(thread.id))) {
         return "blocked" as const;
       }
 

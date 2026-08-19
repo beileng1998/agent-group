@@ -214,8 +214,7 @@ export function TaskCompletionNotifications() {
             isNotificationRuntimeFreshTimestamp(
               candidate.completedAt,
               runtimeStartedAtMsRef.current,
-            ) &&
-            !notifiedCompletionKeysRef.current.has(completedThreadNotificationKey(candidate)),
+            ) && !notifiedCompletionKeysRef.current.has(completedThreadNotificationKey(candidate)),
         ),
         notificationPolicyThreads,
       ),

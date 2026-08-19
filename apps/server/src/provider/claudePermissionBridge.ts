@@ -251,12 +251,7 @@ export function makeClaudePermissionBridge(input: {
         }
         const onAbort = () => {
           Effect.runFork(
-            input.pendingInteractions.settleApproval(
-              context,
-              requestId,
-              pendingApproval,
-              "cancel",
-            ),
+            input.pendingInteractions.settleApproval(context, requestId, pendingApproval, "cancel"),
           );
         };
         callbackOptions.signal.addEventListener("abort", onAbort, { once: true });

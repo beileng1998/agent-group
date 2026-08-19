@@ -177,9 +177,10 @@ export function makeProviderTurnPreparation<
     const rawBoundaryMessageText =
       agentGroupTurn?.prompt ??
       (thread.sidechatSourceThreadId ? wrapSidechatInput(input.messageText) : input.messageText);
+    const goal = activeThreadGoal(thread);
     const boundaryMessageText = withProviderGoalPrompt({
       text: rawBoundaryMessageText,
-      goal: activeThreadGoal(thread),
+      ...(goal ? { goal } : {}),
     });
     const transcriptBoundaryMessageId =
       input.turnKind === "goal-continuation" ? undefined : input.messageId;

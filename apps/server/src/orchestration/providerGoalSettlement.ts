@@ -1,10 +1,7 @@
 import type { ProviderRuntimeEvent, ThreadId, TurnId } from "@agent-group/contracts";
 import { Effect } from "effect";
 
-import {
-  activeThreadGoal,
-  goalSettlementFromAssistantText,
-} from "../provider/providerGoalMode.ts";
+import { activeThreadGoal, goalSettlementFromAssistantText } from "../provider/providerGoalMode.ts";
 import type { OrchestrationEngineShape } from "./Services/OrchestrationEngine.ts";
 import { providerCommandId, runtimeTurnState } from "./providerRuntimeIngestionValues.ts";
 

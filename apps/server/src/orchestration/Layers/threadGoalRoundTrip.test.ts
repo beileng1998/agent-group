@@ -79,9 +79,7 @@ describe("thread goal persistence", () => {
         }),
       );
 
-      let detail = Option.getOrThrow(
-        await system.run(system.query.getThreadDetailById(threadId)),
-      );
+      let detail = Option.getOrThrow(await system.run(system.query.getThreadDetailById(threadId)));
       expect(detail.goal).toBe("Ship the feature");
       expect(detail.goalStartedAt).toEqual(expect.any(String));
       expect(detail.goalPausedAt).toBeNull();

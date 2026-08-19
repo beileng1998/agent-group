@@ -4,10 +4,7 @@ import type { ThreadId } from "@agent-group/contracts";
 import { buildPromotedLearningContext } from "@agent-group/shared/learningContext";
 import { useCallback, useEffect, useState } from "react";
 
-import {
-  findKnowledgeSidechatSource,
-  findOriginalSideQuestion,
-} from "../lib/knowledgeSidechat";
+import { findKnowledgeSidechatSource, findOriginalSideQuestion } from "../lib/knowledgeSidechat";
 import { newCommandId } from "../lib/utils";
 import { readNativeApi } from "../nativeApi";
 import { useStore } from "../store";

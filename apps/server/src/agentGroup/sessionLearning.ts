@@ -45,7 +45,10 @@ export function applySessionLearningUpdate(
   }
 
   if (input.learningOrigin) {
-    if (session.learningOrigin && !sameLearningOrigin(session.learningOrigin, input.learningOrigin)) {
+    if (
+      session.learningOrigin &&
+      !sameLearningOrigin(session.learningOrigin, input.learningOrigin)
+    ) {
       throw new Error("Learning origin cannot be changed");
     }
     if (!session.learningOrigin) {

@@ -12,9 +12,7 @@ export interface CompletedGoalCandidate {
   achievedAt: string;
 }
 
-function achievementKey(
-  achievement: NonNullable<Thread["goalAchievements"]>[number],
-): string {
+function achievementKey(achievement: NonNullable<Thread["goalAchievements"]>[number]): string {
   return `${achievement.achievedAt}:${achievement.turnId ?? ""}:${achievement.goal}`;
 }
 
@@ -52,8 +50,7 @@ export function buildGoalCompletionCopy(candidate: CompletedGoalCandidate): {
 } {
   const title = candidate.title.trim() || "Untitled thread";
   const normalizedGoal = candidate.goal.trim().replace(/\s+/g, " ");
-  const goal =
-    normalizedGoal.length <= 140 ? normalizedGoal : `${normalizedGoal.slice(0, 137)}...`;
+  const goal = normalizedGoal.length <= 140 ? normalizedGoal : `${normalizedGoal.slice(0, 137)}...`;
   return { title, body: goal ? `Goal completed: ${goal}` : "Goal completed." };
 }
 

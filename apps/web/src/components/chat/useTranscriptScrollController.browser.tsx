@@ -125,10 +125,7 @@ function TurnSettlementHarness({ calls }: { calls: ScrollCall[] }) {
 
   return (
     <div onWheel={scroll.onMessagesWheelBase}>
-      <SettlementProbe
-        settled={!activeTurnInProgress}
-        onIsAtEndChange={scroll.onIsAtEndChange}
-      />
+      <SettlementProbe settled={!activeTurnInProgress} onIsAtEndChange={scroll.onIsAtEndChange} />
       <button
         type="button"
         onClick={() => {

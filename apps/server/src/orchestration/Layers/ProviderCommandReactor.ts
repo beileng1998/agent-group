@@ -51,10 +51,7 @@ import {
   releaseCanceledProviderTurnClaims,
 } from "./providerTurnQueueLifecycle.ts";
 import { ProviderSessionSelectionState } from "./providerSessionSelectionState.ts";
-import {
-  isProviderIntentEvent,
-  makeProviderIntentRouter,
-} from "./providerIntentRouter.ts";
+import { isProviderIntentEvent, makeProviderIntentRouter } from "./providerIntentRouter.ts";
 import { makeProviderAgentGroupBridge } from "./providerAgentGroupBridge.ts";
 import { makeProviderThreadRouting } from "./providerThreadRouting.ts";
 import { makeProviderProjectionWriter } from "./providerProjectionWriter.ts";
@@ -387,8 +384,7 @@ const make = Effect.gen(function* () {
       setThreadSession,
       setThreadSessionError,
       maybeGenerateAndRenameWorktreeBranchForFirstTurn,
-      maybeGenerateAndRenameThreadTitleForFirstTurn:
-        firstTurnThreadTitle.maybeGenerateAndRename,
+      maybeGenerateAndRenameThreadTitleForFirstTurn: firstTurnThreadTitle.maybeGenerateAndRename,
       dispatchTurnForThread,
       interruptProviderTurn,
       drainQueuedTurnsForThread,
@@ -441,13 +437,14 @@ const make = Effect.gen(function* () {
     processSessionStopRequested,
   });
 
-  const { processDomainEventSafely, processQueueDrainEventSafely } =
-    makeProviderReactorEventSafety({
+  const { processDomainEventSafely, processQueueDrainEventSafely } = makeProviderReactorEventSafety(
+    {
       turnQueue,
       releaseStructured: authority.releaseStructured,
       processDomainEvent,
       processQueueDrainEvent,
-    });
+    },
+  );
 
   const worker = yield* makeDrainableWorker(processDomainEventSafely);
 
@@ -483,7 +480,17 @@ const make = Effect.gen(function* () {
         goalContinuation.runRetries.pipe(Effect.forkScoped),
       ]).pipe(Effect.asVoid),
     ),
-    Effect.andThen(goalContinuation.recoverActiveGoals),
+    Effect.andThen(
+      goalContinuation.recoverActiveGoals.pipe(
+        Effect.catchCause((cause) =>
+          Cause.hasInterruptsOnly(cause)
+            ? Effect.interrupt
+            : Effect.logWarning("provider command reactor failed to recover active goals", {
+                cause: Cause.pretty(cause),
+              }),
+        ),
+      ),
+    ),
   );
 
   return {

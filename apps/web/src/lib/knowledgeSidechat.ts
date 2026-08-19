@@ -159,9 +159,7 @@ function parseSelectedText(text: string): string | null {
   const start = text.indexOf(startBoundary);
   const end = text.indexOf(endBoundary, start + startBoundary.length);
   if (start < 0 || end < 0) return null;
-  const quotedLines = text
-    .slice(start + startBoundary.length, end)
-    .split("\n");
+  const quotedLines = text.slice(start + startBoundary.length, end).split("\n");
   if (quotedLines.some((line) => !line.startsWith("> "))) return null;
   return quotedLines.map((line) => line.slice(2)).join("\n");
 }

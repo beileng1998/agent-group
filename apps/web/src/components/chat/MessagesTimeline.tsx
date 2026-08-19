@@ -47,10 +47,7 @@ import {
 } from "./useMessagesTimelineViewport";
 import { useMessagesTimelineUiState } from "./useMessagesTimelineUiState";
 import { getChatMessageFooterTextStyle, getChatTranscriptTextStyle } from "./chatTypography";
-import {
-  EMPTY_GOAL_ACHIEVEMENTS,
-  indexGoalAchievements,
-} from "./GoalAchievementBadge";
+import { EMPTY_GOAL_ACHIEVEMENTS, indexGoalAchievements } from "./GoalAchievementBadge";
 
 // The composer overlaps the transcript by design, so the list needs extra tail
 // space beyond the overlap to keep final cards from sitting flush against it.
