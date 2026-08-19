@@ -201,7 +201,7 @@ export function makeProviderTurnPreparation<
       dependencies.getSessionModelSelection(input.threadId)?.provider ??
       thread.session?.providerName ??
       thread.modelSelection.provider) as ProviderKind;
-    if (boundaryMessageText.length > PROVIDER_SEND_TURN_MAX_INPUT_CHARS) {
+    if (goal && boundaryMessageText.length > PROVIDER_SEND_TURN_MAX_INPUT_CHARS) {
       return yield* new ProviderAdapterRequestError({
         provider: selectedProvider,
         method: "thread.turn.start",
